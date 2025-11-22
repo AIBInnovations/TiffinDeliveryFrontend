@@ -15,49 +15,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
+import { useAddress, Address } from '../../context/AddressContext';
 
 type Props = StackScreenProps<MainTabParamList, 'Address'>;
 
-interface Address {
-  id: string;
-  label: string;
-  isMain: boolean;
-  name: string;
-  phone: string;
-  address: string;
-  distance: string;
-}
-
 const AddressScreen: React.FC<Props> = ({ navigation }) => {
-  const [addresses, setAddresses] = useState<Address[]>([
-    {
-      id: '1',
-      label: 'Home',
-      isMain: true,
-      name: 'Abcd Apartment',
-      phone: '+91 93748-44983',
-      address: '123 Main Street, Apartment 4B, New Delhi - 110001',
-      distance: '0m away',
-    },
-    {
-      id: '2',
-      label: 'Office',
-      isMain: false,
-      name: 'Abcd Apartment',
-      phone: '+91 93748-44983',
-      address: '123 Main Street, Apartment 4B, New Delhi - 110001',
-      distance: '1.2km away',
-    },
-    {
-      id: '3',
-      label: "Friend's Place",
-      isMain: false,
-      name: 'Abcd Street',
-      phone: '+91 93748-44983',
-      address: '123 Main Street, Apartment 4B, New Delhi - 110001',
-      distance: '3.3km away',
-    },
-  ]);
+  const { addresses, addAddress, updateAddress, removeAddress } = useAddress();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -79,16 +42,14 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleAddAddress = () => {
     if (newAddress.label && newAddress.name && newAddress.phone && newAddress.address) {
-      const address: Address = {
-        id: (addresses.length + 1).toString(),
+      addAddress({
         label: newAddress.label,
         isMain: false,
         name: newAddress.name,
         phone: newAddress.phone,
         address: newAddress.address,
         distance: '0m away',
-      };
-      setAddresses([...addresses, address]);
+      });
       setShowAddModal(false);
       setNewAddress({ label: '', name: '', phone: '', address: '' });
     }
@@ -101,12 +62,19 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleUpdateAddress = () => {
     if (editingAddress && editingAddress.label && editingAddress.name && editingAddress.phone && editingAddress.address) {
-      setAddresses(addresses.map(addr =>
-        addr.id === editingAddress.id ? editingAddress : addr
-      ));
+      updateAddress(editingAddress.id, {
+        label: editingAddress.label,
+        name: editingAddress.name,
+        phone: editingAddress.phone,
+        address: editingAddress.address,
+      });
       setShowEditModal(false);
       setEditingAddress(null);
     }
+  };
+
+  const handleDeleteAddress = (id: string) => {
+    removeAddress(id);
   };
 
   return (
@@ -120,9 +88,13 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => navigation.goBack()}
               className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center mr-4"
             >
-              <Text className="text-white text-xl">←</Text>
+              <Image
+                source={require('../../assets/icons/backarrow2.png')}
+                style={{ width: 32, height: 30,  }}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
-            <View className="flex-1">
+            <View className="flex-1" style={{ marginLeft: 55 }}>
               <Text className="text-2xl font-bold text-gray-900">My Address</Text>
               <Text className="text-sm text-gray-500 mt-1">
                 {searchQuery ? `${filteredAddresses.length} of ${addresses.length} Addresses` : `${addresses.length} Addresses Saved`}
@@ -133,7 +105,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Search Bar */}
         <View className="mx-5 mb-5">
-          <View className="flex-row items-center bg-gray-50 rounded-full px-5 py-3 border border-gray-200">
+          <View className="flex-row items-center rounded-full px-5" style={{ paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(217, 217, 217, 1)', backgroundColor: 'rgba(255, 255, 255, 1)' }} >
             <Image
               source={require('../../assets/icons/search.png')}
               style={{ width: 20, height: 20 }}
@@ -158,10 +130,21 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
         <View className="flex-row mx-5 mb-6">
           <TouchableOpacity
             onPress={() => setShowAddModal(true)}
-            className="flex-1 mr-2 bg-orange-50 rounded-2xl p-4 flex-row items-center justify-center border border-orange-200"
+            className="flex-1 mr-2 bg-white rounded-2xl p-4 flex-row items-center justify-center"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
           >
-            <View className="w-8 h-8 rounded-full bg-orange-400 items-center justify-center mr-3">
-              <Text className="text-white font-bold text-lg">+</Text>
+            <View className="w-8 h-8 rounded-full items-center justify-center mr-3">
+              <Image
+                source={require('../../assets/icons/Add.png')}
+                style={{ width: 35, height: 35, }}
+                resizeMode="contain"
+              />
             </View>
             <View>
               <Text className="text-sm font-semibold text-gray-900">Add New</Text>
@@ -169,12 +152,20 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-1 ml-2 bg-orange-50 rounded-2xl p-4 flex-row items-center justify-center border border-orange-200">
-            <View className="w-8 h-8 rounded-full bg-orange-400 items-center justify-center mr-3">
+          <TouchableOpacity
+            className="flex-1 ml-2 bg-white rounded-2xl p-4 flex-row items-center justify-center"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+          >
+            <View className="w-8 h-8 rounded-full items-center justify-center mr-3">
               <Image
-                source={require('../../assets/icons/Vector.png')}
-                style={{ width: 16, height: 16, tintColor: 'white' }}
-                resizeMode="contain"
+                source={require('../../assets/icons/location3.png')}
+                style={{ width: 35, height: 35, }}
               />
             </View>
             <View>
@@ -200,8 +191,10 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
             filteredAddresses.map((address) => (
             <View
               key={address.id}
-              className="mb-4 bg-white rounded-2xl p-5 border border-gray-200"
+              className="mb-4 bg-white rounded-2xl p-5"
               style={{
+                borderWidth: 1,
+                borderColor: 'rgba(245, 107, 76, 1)',
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.05,
@@ -219,32 +212,60 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   )}
                 </View>
-                <TouchableOpacity
-                  className="flex-row items-center"
-                  onPress={() => handleEditAddress(address)}
-                >
-                  <Text className="text-green-600 font-semibold mr-1">Edit</Text>
-                  <Text className="text-green-600">✎</Text>
-                </TouchableOpacity>
+                <View className="flex-row items-center">
+                  <TouchableOpacity
+                    className="flex-row items-center mr-4"
+                    onPress={() => handleDeleteAddress(address.id)}
+                  >
+                    <Text style={{ color: 'rgba(250, 84, 84, 1)', fontWeight: '600', marginRight: 4 }}>Delete</Text>
+                    <Image
+                      source={require('../../assets/icons/delete.png')}
+                      style={{ width: 16, height: 16, tintColor: 'rgba(250, 84, 84, 1)' }}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="flex-row items-center"
+                    onPress={() => handleEditAddress(address)}
+                  >
+                    <Text className="text-green-600 font-semibold mr-1">Edit</Text>
+                    <Image
+                      source={require('../../assets/icons/edit2.png')}
+                      style={{ width: 16, height: 16, tintColor: '#16a34a' }}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              {/* Address Name */}
-              <Text className="text-base font-bold text-gray-900 mb-2">
-                {address.name}
-              </Text>
+              {/* Horizontal Divider Line */}
+              <View style={{ width: '113%', height: 1, backgroundColor: 'rgba(228, 228, 228, 1)', marginBottom: 12, marginLeft: -20, marginRight: -30 }} />
 
-              {/* Phone Number */}
-              <View className="flex-row items-center mb-2">
-                <Text className="text-orange-400 mr-2">📞</Text>
-                <Text className="text-sm text-gray-700">{address.phone}</Text>
+              {/* Address Name and Phone Number */}
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-base font-bold text-gray-900">
+                  {address.name}
+                </Text>
+                <View className="flex-row items-center">
+                  <Image
+                    source={require('../../assets/icons/call2.png')}
+                    style={{ width: 16, height: 16, tintColor: '#FB923C', marginRight: 8 }}
+                    resizeMode="contain"
+                  />
+                  <Text className="text-sm text-gray-700">{address.phone}</Text>
+                </View>
               </View>
 
               {/* Full Address */}
-              <Text className="text-sm text-gray-600 mb-2">{address.address}</Text>
+              <Text className="text-sm text-gray-600 mb-1">{address.address}</Text>
 
               {/* Distance */}
               <View className="flex-row items-center">
-                <Text className="text-orange-400 mr-2">📍</Text>
+                <Image
+                  source={require('../../assets/icons/location2.png')}
+                  style={{ width: 16, height: 16, tintColor: '#FB923C', marginRight: 8 }}
+                  resizeMode="contain"
+                />
                 <Text className="text-sm text-gray-500">{address.distance}</Text>
               </View>
             </View>
@@ -253,7 +274,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Bottom Spacing */}
-        <View className="h-20" />
+      
       </ScrollView>
 
       {/* Add Address Modal */}

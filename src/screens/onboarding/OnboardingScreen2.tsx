@@ -1,6 +1,6 @@
 // src/screens/onboarding/OnboardingScreen2.tsx
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StatusBar, Animated, Easing, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, Animated, Easing, ImageBackground, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OnboardingScreenProps } from '../../types/navigation';
 
@@ -62,49 +62,49 @@ const OnboardingScreen2: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView className="flex-1 bg-orange-500">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       <View className="flex-1 px-10">
-        <View className="flex-1 justify-center">
-          {/* Text */}
+        <View className="flex-1 justify-center" style={{ width: '100%' }}>
+          {/* Background Image */}
           <ImageBackground
             source={require('../../assets/images/onboarding/couponbackground.png')}
-            style={{ width: '100%', height: 230, paddingLeft: 2, paddingRight: 8, marginTop:-100 }}
+            style={{ width: 250, height: 320, paddingLeft: 2, paddingRight: 8, marginTop:-100, marginLeft:-50, position: 'absolute', top: 0, left: 0 }}
             resizeMode="cover"
             imageStyle={{ opacity: 0.8, borderRadius: 100 }}
+          />
 
+          {/* Text */}
+          <Text
+            style={{
+              color: 'white',
+              fontSize: 38,
+              fontWeight: 'bold',
+              marginTop: 48,
+              lineHeight: 40,
+            }}
           >
-            <Text
-              style={{
-                color: 'white',
-                fontSize: 38,
-                fontWeight: 'bold',
-                marginTop: 90,
-                lineHeight: 40,
-              }}
-            >
-              Get Coupons{'\n'}For Auto{'\n'}Delivery
-            </Text>
+            Get Coupons{'\n'}For Auto{'\n'}Delivery
+          </Text>
 
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.85)',
-                fontSize: 13,
-                marginTop: 90,
-                lineHeight: 18,
-
-              }}
-            >
-              Lorem ipsum dolor amet consectetur.{'\n'}
-              Adipiscing ultricies dui morbi varius ac id.
-            </Text>
-          </ImageBackground>
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.85)',
+              fontSize: 13,
+              marginTop: 10,
+              lineHeight: 18,
+              paddingHorizontal: 0,
+            }}
+          >
+            Lorem ipsum dolor amet consectetur.{'\n'}
+            Adipiscing ultricies dui morbi varius ac id.
+          </Text>
 
           {/* Coupon image */}
-          <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 30 }}>
+          <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 0 }}>
             <Animated.Image
               source={require('../../assets/images/onboarding/onboarding2.png')}
               style={{
-                width: 220,
+                width: 280,
                 marginBottom: -10,
-                height: 200,
+                height: 260,
                 transform: [{ translateY: floatAnim }, { rotate: '-8deg' }],
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 10 },
@@ -116,7 +116,7 @@ const OnboardingScreen2: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* Dots */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 40 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
             <View
               style={{
                 width: 8,
@@ -152,6 +152,7 @@ const OnboardingScreen2: React.FC<Props> = ({ navigation }) => {
             onPressOut={handlePressOut}
             onPress={handleNext}
             activeOpacity={1}
+            style={{ marginTop: 30 }}
           >
             <Animated.View
               style={{
@@ -163,8 +164,8 @@ const OnboardingScreen2: React.FC<Props> = ({ navigation }) => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                width: 280,
-                marginBottom: 28,
+                width: 320,
+                marginBottom: 45,
                 alignSelf: 'center',
                 transform: [{ scale: scaleAnim }],
                 shadowColor: '#000',
@@ -196,17 +197,14 @@ const OnboardingScreen2: React.FC<Props> = ({ navigation }) => {
                   justifyContent: 'center',
                 }}
               >
-                <Text
+                <Image
+                  source={require('../../assets/icons/right.png')}
                   style={{
-                    color: 'white',
-                    fontSize: 16,
-                    fontWeight: 'bold',
-                    marginTop: -2,
-                    marginLeft: 1,
+                    width: 28,
+                    height: 28,
                   }}
-                >
-                  →
-                </Text>
+                  resizeMode="contain"
+                />
               </View>
             </Animated.View>
           </TouchableOpacity>

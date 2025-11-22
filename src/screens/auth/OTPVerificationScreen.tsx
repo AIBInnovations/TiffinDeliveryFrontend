@@ -103,23 +103,15 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                 width: 36,
                 height: 36,
                 borderRadius: 18,
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <View style={{
-                width: 18,
-                height: 18,
-                marginBottom: 5,
-              }}>
-                <Text style={{
-                  color: 'white',
-                  fontSize: 16,
-                  includeFontPadding: false,
-                  textAlignVertical: 'center',
-                }}>←</Text>
-              </View>
+              <Image
+                source={require('../../assets/icons/backarrow.png')}
+                style={{ width: 40, height: 40,  }}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
 
             {/* Illustration placeholder */}
@@ -132,10 +124,10 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               {/* Delivery illustration */}
               <Image
-                source={require('../../assets/images/login/login.png')}
+                source={require('../../assets/images/login/pana.png')}
                 style={{
                   width: 200,
-                  height: 140,
+                  height: 170,
                 }}
                 resizeMode="contain"
               />
@@ -235,48 +227,42 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
+                alignItems: 'center',
                 marginBottom: 20,
               }}
             >
               {otp.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => {
-                    if (ref) {
-                      inputRefs.current[index] = ref;
-                    }
-                  }}
-                  value={digit}
-                  onChangeText={(value) => handleOtpChange(value, index)}
-                  onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                  style={{
-                    width: 45,
-                    height: 50,
-                    borderWidth: 1,
-                    borderColor: digit ? '#F56B4C' : '#E5E7EB',
-                    borderRadius: 10,
-                    textAlign: 'center',
-                    fontSize: 20,
-                    fontWeight: '600',
-                    color: '#111827',
-                    backgroundColor: digit ? '#FFF7ED' : 'white',
-                  }}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  selectTextOnFocus
-                />
+                <React.Fragment key={index}>
+                  <TextInput
+                    ref={(ref) => {
+                      if (ref) {
+                        inputRefs.current[index] = ref;
+                      }
+                    }}
+                    value={digit}
+                    onChangeText={(value) => handleOtpChange(value, index)}
+                    onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                    style={{
+                      width: 45,
+                      height: 45,
+                      borderWidth: 1,
+                      borderColor: digit ? 'rgba(55, 200, 127, 1)' : 'rgba(239, 239, 239, 1)',
+                      borderRadius: 10,
+                      textAlign: 'center',
+                      fontSize: 20,
+                      fontWeight: '600',
+                      color: '#111827',
+                      backgroundColor: 'rgba(250, 250, 252, 1)',
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    selectTextOnFocus
+                  />
+                  {index === 2 && (
+                    <Text style={{ color: '#D1D5DB', fontSize: 20, marginHorizontal: 4 }}>-</Text>
+                  )}
+                </React.Fragment>
               ))}
-
-              {/* Dash separator */}
-              <View
-                style={{
-                  position: 'absolute',
-                  left: '48%',
-                  top: '45%',
-                }}
-              >
-                <Text style={{ color: '#D1D5DB', fontSize: 20 }}>-</Text>
-              </View>
             </View>
 
             {/* Resend code text */}

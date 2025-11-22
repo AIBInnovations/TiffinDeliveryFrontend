@@ -1,6 +1,6 @@
 // src/screens/onboarding/OnboardingScreen1.tsx
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StatusBar, Animated, Easing, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, Animated, Easing, ImageBackground, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OnboardingScreenProps } from '../../types/navigation';
 
@@ -50,59 +50,57 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView className="flex-1 bg-orange-500 ">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       <View className="flex-1 px-10">
-        {/* Text with Background - positioned at top */}
-        <View style={{ marginTop: 20, marginBottom: 20 }}>
+        <View className="flex-1 justify-center" style={{ width: '100%' }}>
+          {/* Background Image */}
           <ImageBackground
             source={require('../../assets/images/onboarding/fastfood.png')}
-            style={{ width: '100%', height: 200, paddingLeft: 0, paddingRight: 8, justifyContent: 'center' }}
+            style={{ width: 240, height: 230, paddingLeft: 0, marginLeft:-45, paddingRight: 8, marginTop: -21, justifyContent: 'center', position: 'absolute', top: 0, left: 0 }}
             resizeMode="cover"
-            imageStyle={{ opacity: 0.8, borderRadius: 100 }}
-          >
-            <Text className=''
-              style={{
-                color: 'white',
-                fontSize: 38,
-                fontWeight: 'bold',
-                lineHeight: 44,
-                paddingLeft: 20,
-                marginTop: 60,
-              }}
-            >
-              Taste{'\n'}Tasty Meals{'\n'}Every Days
-            </Text>
-          </ImageBackground>
-        </View>
+            imageStyle={{ opacity: 0.8, }}
+          />
 
-        {/* Centered container for meal image and dots */}
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          {/* Image */}
-          <Animated.View
+          {/* Text */}
+          <Text
             style={{
-              transform: [
-                {
-                  rotate: rotateAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '360deg'],
-                  }),
-                },
-              ],
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              elevation: 10,
-              marginBottom: 40,
+              color: 'white',
+              fontSize: 38,
+              fontWeight: 'bold',
+              lineHeight: 44,
+              marginTop: 0,
             }}
           >
-            <Animated.Image
-              source={require('../../assets/images/onboarding/onboarding1.png')}
-              style={{ width: 220, height: 220, borderRadius: 140 }}
-              resizeMode="cover"
-            />
-          </Animated.View>
+            Taste{'\n'}Tasty Meals{'\n'}Every Days
+          </Text>
+
+          {/* Image */}
+          <View style={{ alignItems: 'center', marginTop: 40, marginBottom: 0 }}>
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: rotateAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                elevation: 10,
+              }}
+            >
+              <Animated.Image
+                source={require('../../assets/images/onboarding/onboarding1.png')}
+                style={{ width: 220, height: 220, borderRadius: 140 }}
+                resizeMode="cover"
+              />
+            </Animated.View>
+          </View>
 
           {/* Dots */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 40 }}>
             <View
               style={{
                 width: 18,
@@ -131,15 +129,14 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
               }}
             />
           </View>
-        </View>
 
-        {/* Next button */}
-        <View style={{ marginBottom: 80, alignItems: 'center' }}>
+          {/* Next button */}
           <TouchableOpacity
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             onPress={handleNext}
             activeOpacity={1}
+            style={{ marginTop: 30 }}
           >
             <Animated.View
               style={{
@@ -151,7 +148,9 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                width: 280,
+                width: 320,
+                marginBottom: 0,
+                alignSelf: 'center',
                 transform: [{ scale: scaleAnim }],
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 4 },
@@ -182,17 +181,14 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
                   justifyContent: 'center',
                 }}
               >
-                <Text
+                <Image
+                  source={require('../../assets/icons/right.png')}
                   style={{
-                    color: 'white',
-                    fontSize: 16,
-                    fontWeight: 'bold',
-                    marginTop: -2,
-                    marginLeft: 1,
+                    width: 28,
+                    height: 28,
                   }}
-                >
-                  →
-                </Text>
+                  resizeMode="contain"
+                />
               </View>
             </Animated.View>
           </TouchableOpacity>

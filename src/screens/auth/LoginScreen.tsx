@@ -35,7 +35,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           {/* Top image / header area */}
           <View
             style={{
-              height: 250,
+              height: 220,
               backgroundColor: '#F56B4C',
               paddingHorizontal: 20,
               paddingTop: 10,
@@ -48,24 +48,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 width: 36,
                 height: 36,
                 borderRadius: 18,
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <View style={{
-                width: 18,
-                height: 18,
-                marginBottom:5,
-              }}>
-                <Text style={{
-                  color: 'white',
-                  fontSize: 16,
-                  includeFontPadding: false,
-                  textAlignVertical: 'center',
-                  textAlign: 'center',
-                }}>←</Text>
-              </View>
+              <Image
+                source={require('../../assets/icons/backarrow.png')}
+                style={{ width: 40, height: 40, }}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
 
             {/* Illustration placeholder */}
@@ -78,10 +70,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             >
               {/* Delivery illustration */}
               <Image
-                source={require('../../assets/images/login/login.png')}
+                source={require('../../assets/images/login/pana.png')}
                 style={{
                   width: 200,
-                  height: 140,
+                  height: 170,
                 }}
                 resizeMode="contain"
               />
@@ -97,7 +89,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               borderTopRightRadius: 30,
               paddingHorizontal: 20,
               paddingTop: 20,
-              paddingBottom: 15,
+              paddingBottom: 50,
             }}
           >
             {/* Login / Register Switch */}
@@ -171,11 +163,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                borderRadius: 12,
-                backgroundColor: '#F3F4F6',
+                borderRadius: 19,
+                backgroundColor: 'rgba(250, 250, 252, 1)',
+                borderWidth: 1.5,
+                borderColor: phone.length === 10 ? 'rgba(55, 200, 127, 1)' : 'rgba(239, 239, 239, 1)',
                 paddingHorizontal: 15,
                 paddingVertical: 4,
-                marginBottom: 20,
+                marginBottom: 12,
               }}
             >
               {/* Country / code */}
@@ -189,7 +183,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   marginRight: 10,
                 }}
               >
-                <Text style={{ fontSize: 20 }}>🇮🇳</Text>
+                <Image
+                  source={require('../../assets/icons/indianflag.png')}
+                  style={{ width: 24, height: 24 }}
+                  resizeMode="contain"
+                />
                 <Text
                   style={{
                     marginLeft: 6,
@@ -200,7 +198,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 >
                   +91
                 </Text>
-                <Text style={{ fontSize: 12, marginLeft: 4, color: '#6B7280' }}>▼</Text>
+                <Image
+                  source={require('../../assets/icons/downarrow.png')}
+                  style={{ width: 12, height: 12, marginLeft: 4 }}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
 
               {/* Phone number */}
@@ -215,9 +217,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="rgba(206, 206, 206, 1)"
                 maxLength={10}
               />
+
+              {/* Green tick icon */}
+              {phone.length === 10 && (
+                <Image
+                  source={require('../../assets/icons/greentick.png')}
+                  style={{ width: 20, height: 20, marginLeft: 8 }}
+                  resizeMode="contain"
+                />
+              )}
             </View>
 
             {/* Remember me */}
@@ -225,28 +236,28 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                marginBottom: 20,
+                marginBottom: 30,
               }}
               onPress={() => setRemember(!remember)}
             >
               <View
                 style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
+                  width: 16,
+                  height: 16,
+                  borderRadius: 3,
                   borderWidth: 2,
-                  borderColor: remember ? '#F56B4C' : '#D1D5DB',
-                  backgroundColor: remember ? '#F56B4C' : 'white',
+                  borderColor: remember ? 'rgba(36, 36, 36, 1)' : '#D1D5DB',
+                  backgroundColor: remember ? 'white' : 'white',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 8,
                 }}
               >
                 {remember && (
-                  <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                  <Text style={{ color: 'rgba(36, 36, 36, 1)', fontSize: 10, fontWeight: 'bold' }}>✓</Text>
                 )}
               </View>
-              <Text style={{ color: '#6B7280', fontSize: 14 }}>Remember me</Text>
+              <Text style={{ color: 'rgba(36, 36, 36, 1)', fontSize: 14 }}>Remember me</Text>
             </TouchableOpacity>
 
             {/* Get OTP button */}
@@ -259,7 +270,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 paddingVertical: 15,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 10,
+                marginBottom: 4,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
@@ -275,16 +286,37 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
 
             {/* Divider with "or" */}
-            <Text
+            <View
               style={{
-                textAlign: 'center',
-                color: '#9CA3AF',
-                marginVertical: 8,
-                fontSize: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginVertical: 16,
               }}
             >
-              or
-            </Text>
+              <View
+                style={{
+                  flex: 1,
+                  height: 1,
+                  backgroundColor: '#D1D5DB',
+                }}
+              />
+              <Text
+                style={{
+                  marginHorizontal: 10,
+                  color: '#9CA3AF',
+                  fontSize: 14,
+                }}
+              >
+                or
+              </Text>
+              <View
+                style={{
+                  flex: 1,
+                  height: 1,
+                  backgroundColor: '#D1D5DB',
+                }}
+              />
+            </View>
 
             {/* Explore button */}
             <TouchableOpacity
@@ -318,7 +350,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 color: '#9CA3AF',
                 textAlign: 'center',
                 lineHeight: 18,
-                marginBottom: 15,
+                marginTop: 10,
+                marginBottom: 45,
               }}
             >
               By signing in, you agree to{' '}

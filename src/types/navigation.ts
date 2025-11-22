@@ -34,6 +34,13 @@ export type MainTabParamList = {
   Orders: undefined;
   Profile: undefined;
   Payment: undefined;
+  Account: undefined;
+  HelpSupport: undefined;
+  About: undefined;
+  OurJourney: undefined;
+  YourOrders: undefined;
+  OrderTracking: undefined;
+  MealPlans: undefined;
 };
 
 // Root navigation props

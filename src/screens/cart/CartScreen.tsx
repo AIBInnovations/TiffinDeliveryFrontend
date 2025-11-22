@@ -12,11 +12,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
+import { useAddress } from '../../context/AddressContext';
+import OrderSuccessModal from '../../components/OrderSuccessModal';
 
 type Props = StackScreenProps<MainTabParamList, 'Cart'>;
 
 const CartScreen: React.FC<Props> = ({ navigation }) => {
   const { cartItems, updateQuantity: updateCartQuantity, removeItem } = useCart();
+  const { addresses, getMainAddress } = useAddress();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(
+    getMainAddress()?.id || (addresses.length > 0 ? addresses[0].id : '')
+  );
 
   const updateQuantity = (id: string, increment: boolean) => {
     const item = cartItems.find(i => i.id === id);
@@ -43,7 +50,11 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center mr-4"
           >
-            <Text className="text-white text-xl">←</Text>
+            <Image
+              source={require('../../assets/icons/arrow.png')}
+              style={{ width: 32, height: 32 }}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <View className="flex-1">
             <Text className="text-2xl font-bold text-gray-900 text-center">My Cart</Text>
@@ -83,7 +94,11 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                 )}
                 {item.hasVoucher && (
                   <View className="flex-row items-center mt-2">
-                    <Text className="text-xs text-green-600 mr-1">🎟️</Text>
+                    <Image
+                      source={require('../../assets/icons/voucher.png')}
+                      style={{ width: 14, height: 14, tintColor: '#16A34A', marginRight: 4 }}
+                      resizeMode="contain"
+                    />
                     <Text className="text-xs text-green-600 font-semibold">
                       1 Voucher Applied ✓
                     </Text>
@@ -109,7 +124,11 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity onPress={() => removeItem(item.id)}>
-                  <Text className="text-orange-400 text-lg">🗑️</Text>
+                  <Image
+                    source={require('../../assets/icons/bin.png')}
+                    style={{ width: 20, height: 20, tintColor: '#FB923C' }}
+                    resizeMode="contain"
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -118,12 +137,29 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Vouchers Banner */}
         <View className="mx-5 mb-4">
-          <View className="bg-orange-400 rounded-2xl px-5 py-4 flex-row items-center justify-between">
+          <View
+            className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
+            style={{
+              height: 60,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 10,
+              elevation: 8,
+            }}
+          >
             <View className="flex-row items-center flex-1">
-              <Text className="text-white text-base mr-2">🎟️</Text>
-              <Text className="text-white font-semibold">You have 6 vouchers Left</Text>
+              <Image
+                source={require('../../assets/icons/voucher.png')}
+                style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
+                resizeMode="contain"
+              />
+              <Text className="text-white font-semibold" style={{ fontSize: 14 }}>You have 6 vouchers Left</Text>
             </View>
-            <TouchableOpacity className="bg-white rounded-full px-5 py-2">
+            <TouchableOpacity
+              className="bg-white rounded-full px-5 items-center justify-center"
+              style={{ height: 46, width: 95 }}
+            >
               <Text className="text-orange-400 font-semibold text-sm">Applied ✓</Text>
             </TouchableOpacity>
           </View>
@@ -131,78 +167,121 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Delivery Address */}
         <View className="bg-white px-5 py-5 mb-4">
-          <Text className="text-xl font-bold text-gray-900 mb-3">Delivery Address</Text>
+          <Text className="text-xl font-bold text-gray-900 mb-4">Delivery Address</Text>
+
+          {addresses.map((address, index) => (
+            <TouchableOpacity
+              key={address.id}
+              className={`mb-3 ${index < addresses.length - 1 ? 'pb-3 border-b border-gray-100' : ''}`}
+              onPress={() => setSelectedAddressId(address.id)}
+            >
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-base font-semibold text-gray-900">{address.label}</Text>
+                <View className={`w-5 h-5 rounded-full border-2 ${selectedAddressId === address.id ? 'border-orange-400' : 'border-gray-300'} items-center justify-center`}>
+                  {selectedAddressId === address.id && (
+                    <View className="w-3 h-3 rounded-full bg-orange-400" />
+                  )}
+                </View>
+              </View>
+              <Text className="text-sm text-gray-500">{address.address}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Add New Address Button */}
           <TouchableOpacity
-            className="flex-row items-center justify-between"
+            className="flex-row items-center justify-center mt-2"
             onPress={() => navigation.navigate('Address')}
           >
-            <Text className="text-base font-semibold text-gray-900">Home</Text>
-            <Text className="text-gray-400">▼</Text>
+            <Text className="text-orange-400 font-semibold text-sm">+ Add New Address</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Order Summary */}
-        <View className="mx-5 mb-6 bg-white rounded-3xl px-6 py-5" style={{
+        {/* Bottom Spacing */}
+        <View className="h-80" />
+      </ScrollView>
+
+      {/* Order Summary - Sticky */}
+      <View
+        className="absolute left-0 right-0 bg-white px-4 py-5"
+        style={{
+          bottom: 20,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 8,
           elevation: 4,
-        }}>
-          <Text className="text-xl font-bold text-gray-900 mb-4">Order Summary</Text>
-
-          {/* Subtotal */}
-          <View className="flex-row justify-between mb-3">
-            <Text className="text-base text-gray-600">Subtotal:</Text>
-            <Text className="text-base text-gray-900">₹{subtotal}.00</Text>
-          </View>
-
-          {/* Taxes & Charges */}
-          <View className="flex-row justify-between mb-3">
-            <Text className="text-base text-gray-600">Taxes & Charges:</Text>
-            <Text className="text-base text-gray-900">₹{taxesAndCharges}.00</Text>
-          </View>
-
-          {/* Discount */}
-          <View className="flex-row justify-between mb-4 pb-4 border-b border-gray-200">
-            <Text className="text-base text-gray-600">Discount:</Text>
-            <Text className="text-base text-red-500 font-semibold">- ₹{discount}.00</Text>
-          </View>
-
-          {/* Total Amount */}
-          <View className="flex-row justify-between">
-            <Text className="text-lg font-bold text-gray-900">Total Amount:</Text>
-            <Text className="text-lg font-bold text-orange-500">₹{totalAmount}.00</Text>
-          </View>
-        </View>
-
-        {/* Bottom Spacing */}
-        <View className="h-32" />
-      </ScrollView>
-
-      {/* Bottom Bar */}
-      <View
-        className="absolute bottom-0 left-0 right-0 bg-orange-400 rounded-t-3xl px-6 py-4 flex-row items-center justify-between"
-        style={{
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 10,
         }}
       >
-        <View>
-          <Text className="text-white text-2xl font-bold">₹{totalAmount}.00</Text>
-          <Text className="text-white text-sm opacity-90">Total</Text>
+        <Text className="text-xl font-bold text-gray-900 mb-4">Order Summary</Text>
+
+        {/* Subtotal */}
+        <View className="flex-row justify-between mb-3">
+          <Text className="text-base text-gray-600">Subtotal:</Text>
+          <Text className="text-base text-gray-900">₹{subtotal}.00</Text>
         </View>
-        <TouchableOpacity
-          className="bg-white rounded-full px-8 py-3 flex-row items-center"
-          onPress={() => navigation.navigate('Payment')}
+
+        {/* Taxes & Charges */}
+        <View className="flex-row justify-between mb-3">
+          <Text className="text-base text-gray-600">Taxes & Charges:</Text>
+          <Text className="text-base text-gray-900">₹{taxesAndCharges}.00</Text>
+        </View>
+
+        {/* Discount */}
+        <View className="flex-row justify-between mb-4 pb-4 border-b border-gray-200">
+          <Text className="text-base text-gray-600">Discount:</Text>
+          <Text className="text-base text-red-500 font-semibold">- ₹{discount}.00</Text>
+        </View>
+
+        {/* Total Amount */}
+        <View className="flex-row justify-between mb-5">
+          <Text className="text-lg font-bold text-gray-900">Total Amount:</Text>
+          <Text className="text-lg font-bold text-orange-500">₹{totalAmount}.00</Text>
+        </View>
+
+        {/* Pay Now Button */}
+        <View
+          className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
+          style={{
+            height: 60,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            elevation: 8,
+          }}
         >
-          <Text className="text-orange-400 font-bold text-base mr-2">Pay Now</Text>
-          <Text className="text-orange-400 font-bold">→</Text>
-        </TouchableOpacity>
+          <View className="flex-row items-center">
+            <Text className="text-white text-xl font-bold mr-2">₹{totalAmount}.00</Text>
+            <Text className="text-white text-sm">Total</Text>
+          </View>
+          <TouchableOpacity
+            className="bg-white rounded-full px-6 flex-row items-center"
+            style={{ height: 48, width: 117 }}
+            onPress={() => setShowSuccessModal(true)}
+          >
+            <Text className="text-orange-400 font-semibold text-base mr-2">Pay Now</Text>
+            <Image
+              source={require('../../assets/icons/vector2.png')}
+              style={{ width: 12, height: 12, tintColor: '#FB923C' }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Order Success Modal */}
+      <OrderSuccessModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onGoHome={() => {
+          setShowSuccessModal(false);
+          navigation.navigate('Home');
+        }}
+        onTrackOrder={() => {
+          setShowSuccessModal(false);
+          navigation.navigate('OrderTracking');
+        }}
+      />
     </SafeAreaView>
   );
 };

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
+import OrderSuccessModal from '../../components/OrderSuccessModal';
 
 type Props = StackScreenProps<MainTabParamList, 'Payment'>;
 
@@ -26,6 +27,7 @@ interface PaymentMethod {
 const PaymentScreen: React.FC<Props> = ({ navigation }) => {
   const { cartItems } = useCart();
   const [selectedPayment, setSelectedPayment] = useState<string>('upi');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const paymentMethods: PaymentMethod[] = [
     {
@@ -74,10 +76,22 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
 
   const handlePayment = () => {
     // Handle payment logic here
-    // Navigate to success screen or process payment
-    console.log(`Processing payment of π${totalAmount.toFixed(2)} via ${
+    console.log(`Processing payment of ÔøΩ${totalAmount.toFixed(2)} via ${
       paymentMethods.find(m => m.id === selectedPayment)?.name
     }`);
+    // Show success modal after payment
+    setShowSuccessModal(true);
+  };
+
+  const handleGoHome = () => {
+    setShowSuccessModal(false);
+    navigation.navigate('Home');
+  };
+
+  const handleTrackOrder = () => {
+    // Navigate first, then close modal
+    navigation.navigate('OrderTracking');
+    setShowSuccessModal(false);
   };
 
   return (
@@ -91,7 +105,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center mr-4"
           >
-            <Text className="text-white text-xl">ê</Text>
+            <Text className="text-white text-xl">ÔøΩ</Text>
           </TouchableOpacity>
           <Text className="text-2xl font-bold text-gray-900 flex-1">Payment</Text>
         </View>
@@ -101,19 +115,19 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
         {/* Amount to Pay */}
         <View className="bg-white px-6 py-5 mb-4">
           <Text className="text-sm text-gray-600 mb-2">Amount to Pay</Text>
-          <Text className="text-3xl font-bold text-orange-500">π{totalAmount.toFixed(2)}</Text>
+          <Text className="text-3xl font-bold text-orange-500">ÔøΩ{totalAmount.toFixed(2)}</Text>
           <View className="mt-3 pt-3 border-t border-gray-200">
             <View className="flex-row justify-between mb-2">
               <Text className="text-sm text-gray-600">Subtotal</Text>
-              <Text className="text-sm text-gray-900">π{subtotal.toFixed(2)}</Text>
+              <Text className="text-sm text-gray-900">ÔøΩ{subtotal.toFixed(2)}</Text>
             </View>
             <View className="flex-row justify-between mb-2">
               <Text className="text-sm text-gray-600">Taxes & Charges</Text>
-              <Text className="text-sm text-gray-900">π{taxesAndCharges.toFixed(2)}</Text>
+              <Text className="text-sm text-gray-900">ÔøΩ{taxesAndCharges.toFixed(2)}</Text>
             </View>
             <View className="flex-row justify-between">
               <Text className="text-sm text-gray-600">Discount</Text>
-              <Text className="text-sm text-red-500">- π{discount.toFixed(2)}</Text>
+              <Text className="text-sm text-red-500">- ÔøΩ{discount.toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -193,7 +207,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
         }}
       >
         <View>
-          <Text className="text-white text-2xl font-bold">π{totalAmount.toFixed(2)}</Text>
+          <Text className="text-white text-2xl font-bold">ÔøΩ{totalAmount.toFixed(2)}</Text>
           <Text className="text-white text-sm opacity-90">Total</Text>
         </View>
         <TouchableOpacity
@@ -201,9 +215,17 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
           onPress={handlePayment}
         >
           <Text className="text-orange-400 font-bold text-base mr-2">Checkout</Text>
-          <Text className="text-orange-400 font-bold">í</Text>
+          <Text className="text-orange-400 font-bold">ÔøΩ</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Order Success Modal */}
+      <OrderSuccessModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onGoHome={handleGoHome}
+        onTrackOrder={handleTrackOrder}
+      />
     </SafeAreaView>
   );
 };
