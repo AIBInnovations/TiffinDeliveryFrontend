@@ -29,6 +29,7 @@ interface Order {
 
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
+  const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
 
   // Sample orders data
   const currentOrders: Order[] = [
@@ -121,29 +122,84 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <StatusBar barStyle="dark-content" backgroundColor="rgba(245, 107, 76, 1)" />
 
-      {/* Header */}
-      <View className="bg-white px-5 py-4 flex-row items-center">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
-        >
-          <Image
-            source={require('../../assets/icons/backarrow2.png')}
-            style={{ width: 32, height: 32 }}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
+      {/* Header and Tabs Container */}
+      <View style={{ backgroundColor: 'rgba(245, 107, 76, 1)', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative Background Elements */}
+        <Image
+          source={require('../../assets/images/homepage/halfcircle.png')}
+          style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
+          resizeMode="contain"
+        />
+        <Image
+          source={require('../../assets/images/homepage/halfline.png')}
+          style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
+          resizeMode="contain"
+        />
 
-        <Text className="flex-1 text-center text-xl font-bold text-gray-900 mr-10">
-          Your Orders
-        </Text>
-      </View>
+        {/* Header */}
+        <View className="px-5 py-4 flex-row items-center">
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            className="w-10 h-10 rounded-full  items-center justify-center"
+            style={{ marginLeft: 8, marginRight: 20 }}
+          >
+            <Image
+              source={require('../../assets/icons/Tiffsy.png')}
+              style={{ width: 58, height: 58 }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
 
-      {/* Tabs */}
-      <View className="px-5 pt-4 pb-2 bg-white">
-        <View className="flex-row bg-gray-100 rounded-full p-1">
+          {/* Location */}
+          <TouchableOpacity
+            className="flex-1 items-center"
+            onPress={() => navigation.navigate('Address')}
+          >
+            <Text className="text-white text-xs opacity-90">Location</Text>
+            <View className="flex-row items-center">
+              <Image
+                source={require('../../assets/icons/address3.png')}
+                style={{ width: 14, height: 14, tintColor: 'white' }}
+                resizeMode="contain"
+              />
+              <Text className="text-white text-sm font-semibold ml-1">
+                Vijay Nagar, Indore
+              </Text>
+              <Image
+                source={require('../../assets/icons/down2.png')}
+                style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
+                resizeMode="contain"
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Voucher Button */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MealPlans')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'white',
+              borderRadius: 20,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+              gap: 6,
+            }}
+          >
+            <Image
+              source={require('../../assets/icons/voucher5.png')}
+              style={{ width: 24, height: 24 }}
+              resizeMode="contain"
+            />
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Tabs */}
+        <View className="px-5 pt-4 pb-6">
+          <View className="flex-row bg-gray-100 rounded-full p-1">
           <TouchableOpacity
             onPress={() => setActiveTab('Current')}
             className={`py-3 rounded-full ${
@@ -188,6 +244,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               History
             </Text>
           </TouchableOpacity>
+        </View>
         </View>
       </View>
 
@@ -361,7 +418,156 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </>
         )}
+
+        {/* Bottom Spacing for Navigation Bar */}
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 20,
+          left: 20,
+          right: 20,
+          backgroundColor: 'white',
+          borderRadius: 50,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 6,
+          paddingLeft: 20,
+          paddingRight: 30,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
+      >
+        {/* Home Icon */}
+        <TouchableOpacity
+          onPress={() => {
+            setNavActiveTab('home');
+            navigation.navigate('Home');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: navActiveTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: navActiveTab === 'home' ? 16 : 8,
+            marginLeft: -8,
+            marginRight: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/house.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: navActiveTab === 'home' ? '#F56B4C' : '#9CA3AF',
+              marginRight: navActiveTab === 'home' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {navActiveTab === 'home' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Home
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Orders Section */}
+        <TouchableOpacity
+          onPress={() => setNavActiveTab('orders')}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: navActiveTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: navActiveTab === 'orders' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/cart3.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: navActiveTab === 'orders' ? '#F56B4C' : '#9CA3AF',
+              marginRight: navActiveTab === 'orders' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {navActiveTab === 'orders' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Orders
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Meals Icon */}
+        <TouchableOpacity
+          onPress={() => setNavActiveTab('meals')}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: navActiveTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: navActiveTab === 'meals' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/kitchen.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: navActiveTab === 'meals' ? '#F56B4C' : '#9CA3AF',
+              marginRight: navActiveTab === 'meals' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {navActiveTab === 'meals' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Meals
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Profile Button */}
+        <TouchableOpacity
+          onPress={() => {
+            setNavActiveTab('profile');
+            navigation.navigate('Account');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: navActiveTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: navActiveTab === 'profile' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/profile2.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: navActiveTab === 'profile' ? '#F56B4C' : '#9CA3AF',
+              marginRight: navActiveTab === 'profile' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {navActiveTab === 'profile' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Profile
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -17,6 +18,7 @@ type Props = StackScreenProps<MainTabParamList, 'Account'>;
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
   const [lunchAutoOrder, setLunchAutoOrder] = React.useState(false);
   const [dinnerAutoOrder, setDinnerAutoOrder] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
 
   const handleLogout = () => {
     // Handle logout logic here
@@ -24,60 +26,119 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
-
-      {/* Header */}
-      <View className="bg-white px-5 py-4 flex-row items-center justify-between">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
-        >
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+        {/* Header */}
+        <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+          {/* Decorative Background Elements */}
           <Image
-            source={require('../../assets/icons/backarrow2.png')}
-            style={{ width: 32, height: 32 }}
+            source={require('../../assets/images/homepage/halfcircle.png')}
+            style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
             resizeMode="contain"
           />
-        </TouchableOpacity>
-
-        <Text className="text-2xl font-bold text-gray-900">My Account</Text>
-
-        <TouchableOpacity className="w-10 h-10 items-center justify-center">
           <Image
-            source={require('../../assets/icons/edit3.png')}
-            style={{ width: 32, height: 32 }}
+            source={require('../../assets/images/homepage/halfline.png')}
+            style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
             resizeMode="contain"
           />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Profile Section */}
-        <View className="bg-white px-5 py-6 items-center">
-          <Image
-            source={require('../../assets/images/myaccount/user.png')}
-            style={{ width: 80, height: 80, borderRadius: 40 }}
-            resizeMode="cover"
-          />
-          <Text className="text-xl font-bold text-gray-900 mt-4">Lorem Ipsum</Text>
-          <Text className="text-sm text-gray-500 mt-1">+91 92723-92737</Text>
+          <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
+            {/* Logo */}
+            <TouchableOpacity className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
+              <Image
+                source={require('../../assets/icons/Tiffsy.png')}
+                style={{ width: 58, height: 35 }}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+
+            {/* Title */}
+            <Text className="text-white text-xl font-bold">My Profile</Text>
+
+            {/* Voucher Button */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MealPlans')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                borderRadius: 20,
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                gap: 6,
+              }}
+            >
+              <Image
+                source={require('../../assets/icons/voucher5.png')}
+                style={{ width: 24, height: 24 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Bar */}
+          <View className="mx-5 bg-white rounded-full flex-row items-center px-5 py-1">
+            <Image
+              source={require('../../assets/icons/search2.png')}
+              style={{ width: 20, height: 20 }}
+              resizeMode="contain"
+            />
+            <TextInput
+              placeholder="Search for addons to your meal..."
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 text-gray-700 text-sm ml-2"
+            />
+          </View>
         </View>
 
-        {/* Voucher Card */}
-        <View className="mx-5 my-4" style={{ borderRadius: 25, overflow: 'hidden' }}>
+        {/* White Container with Profile and Voucher */}
+        <View className="bg-white px-5" style={{ marginTop: 20, paddingTop: 20, paddingBottom: 16, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}>
+          {/* Profile Section */}
+          <View className="flex-row items-center justify-between mb-6">
+            <View className="flex-row items-center">
+              <Image
+                source={require('../../assets/images/myaccount/user2.png')}
+                style={{ width: 70, height: 70, borderRadius: 35 }}
+                resizeMode="cover"
+              />
+              <View className="ml-8">
+                <Text className="text-lg font-bold text-gray-900">Lorem Ipsum</Text>
+                <Text className="text-sm text-gray-500 mt-0.5">+91 92723-92737</Text>
+              </View>
+            </View>
+            <TouchableOpacity>
+              <Image
+                source={require('../../assets/icons/edit.png')}
+                style={{ width: 40, height: 40 }}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Voucher Card */}
+          <View style={{ borderRadius: 25, overflow: 'hidden' }}>
           <Image
             source={require('../../assets/images/myaccount/voucherbackgound.png')}
             style={{ position: 'absolute', width: '100%', height: '100%' }}
             resizeMode="cover"
           />
           <View style={{ padding: 20 }}>
-            {/* Top Row - Icon and Buy More Button */}
+            {/* Top Row - Icon, Vouchers Count and Buy More Button */}
             <View className="flex-row items-center justify-between mb-4">
-              <Image
-                source={require('../../assets/icons/newvoucher2.png')}
-                style={{ width: 32, height: 32 }}
-                resizeMode="contain"
-              />
+              <View className="flex-row items-center">
+                <Image
+                  source={require('../../assets/icons/voucher4.png')}
+                  style={{ width: 45, height: 45 }}
+                  resizeMode="contain"
+                />
+                <View className="ml-3">
+                  <Text className="text-4xl font-bold text-gray-900">
+                    12 <Text className="text-base font-normal text-gray-700">vouchers</Text>
+                  </Text>
+                </View>
+              </View>
               <TouchableOpacity
                 className="bg-white rounded-full px-4 py-2"
                 style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}
@@ -87,35 +148,25 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Vouchers Count */}
-            <View className="mb-3">
-              <Text className="text-4xl font-bold text-gray-900">
-                12 <Text className="text-base font-normal text-gray-700">vouchers</Text>
-              </Text>
-            </View>
-
             {/* Description Text */}
             <Text className="text-sm text-gray-600 mb-4" style={{ lineHeight: 20 }}>
               Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.
             </Text>
 
             {/* Validity Section */}
-            <Text className="text-xs font-semibold text-gray-700 mb-2">Validity</Text>
+            <View className="flex-row items-center mb-2">
+              <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
+              <Text className="text-xs font-semibold px-3" style={{ color: 'rgba(59, 59, 59, 1)' }}>Validity</Text>
+              <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
+            </View>
 
-            <View className="mb-4">
-              <View className="flex-row items-center justify-between mb-2">
+            <View className="mb-2">
+              <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
                   <View className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
                   <Text className="text-sm text-gray-700">6 vouchers expires</Text>
                 </View>
                 <Text className="text-sm font-semibold text-gray-900">31st Nov 25</Text>
-              </View>
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <View className="w-2 h-2 rounded-full bg-gray-900 mr-2" />
-                  <Text className="text-sm text-gray-700">4 vouchers expires</Text>
-                </View>
-                <Text className="text-sm font-semibold text-gray-900">31st Dec 25</Text>
               </View>
             </View>
 
@@ -192,24 +243,27 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
           </View>
+          </View>
         </View>
 
         {/* Account Section */}
-        <View className="px-5 mb-4">
+        <View className="px-5 mb-3">
           <Text className="text-xl font-bold text-gray-900 mb-3">Account</Text>
 
           <View className="bg-white rounded-2xl overflow-hidden">
             {/* My Orders */}
             <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('YourOrders')}
             >
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/icons/order2.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
+                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                  <Image
+                    source={require('../../assets/icons/order2.png')}
+                    style={{ width: 36, height: 36,  }}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text className="text-base font-medium text-gray-900 ml-3">My Orders</Text>
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
@@ -217,15 +271,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Saved Addresses */}
             <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('Address')}
             >
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/icons/address2.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
+                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                  <Image
+                    source={require('../../assets/icons/address2.png')}
+                    style={{ width: 36, height: 36,  }}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text className="text-base font-medium text-gray-900 ml-3">Saved Addresses</Text>
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
@@ -233,16 +289,36 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Meal Plans */}
             <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-4"
+              className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('MealPlans')}
             >
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/icons/mealplan.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
+                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                  <Image
+                    source={require('../../assets/icons/mealplan.png')}
+                    style={{ width: 36, height: 36,  }}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text className="text-base font-medium text-gray-900 ml-3">Meal Plans</Text>
+              </View>
+              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
+            </TouchableOpacity>
+
+            {/* Bulk Orders */}
+            <TouchableOpacity
+              className="flex-row items-center justify-between px-5 py-2"
+              onPress={() => navigation.navigate('BulkOrders')}
+            >
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                  <Image
+                    source={require('../../assets/icons/bulkorders.png')}
+                    style={{ width: 36, height: 36, }}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text className="text-base font-medium text-gray-900 ml-3">Bulk Orders</Text>
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
             </TouchableOpacity>
@@ -256,15 +332,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           <View className="bg-white rounded-2xl overflow-hidden">
             {/* Help & Support */}
             <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100"
+              className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('HelpSupport')}
             >
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/icons/help2.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
+                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                  <Image
+                    source={require('../../assets/icons/help2.png')}
+                    style={{ width: 36, height: 36, }}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text className="text-base font-medium text-gray-900 ml-3">Help & Support</Text>
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
@@ -272,15 +350,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* About */}
             <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-4"
+              className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('About')}
             >
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/icons/info.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
+                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                  <Image
+                    source={require('../../assets/icons/about2.png')}
+                    style={{ width: 36, height: 36, }}
+                    resizeMode="contain"
+                  />
+                </View>
                 <Text className="text-base font-medium text-gray-900 ml-3">About</Text>
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
@@ -289,7 +369,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Logout Button */}
-        <View className="px-5 mb-8">
+        <View className="px-5 mb-2">
           <TouchableOpacity
             onPress={handleLogout}
             className="bg-orange-400 rounded-full py-4 items-center shadow-lg"
@@ -298,6 +378,152 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 10,
+          left: 20,
+          right: 20,
+          backgroundColor: 'white',
+          borderRadius: 50,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 6,
+          paddingLeft: 20,
+          paddingRight: 30,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
+      >
+        {/* Home Icon */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab('home');
+            navigation.navigate('Home');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'home' ? 16 : 8,
+            marginLeft: -8,
+            marginRight: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/house.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'home' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'home' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Home
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Orders Section */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab('orders');
+            navigation.navigate('YourOrders');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'orders' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/cart3.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'orders' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'orders' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Orders
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Meals Icon */}
+        <TouchableOpacity
+          onPress={() => setActiveTab('meals')}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'meals' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/kitchen.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'meals' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'meals' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Meals
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Profile Button */}
+        <TouchableOpacity
+          onPress={() => setActiveTab('profile')}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'profile' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/profile2.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'profile' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'profile' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Profile
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };

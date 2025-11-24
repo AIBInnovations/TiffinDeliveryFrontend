@@ -54,7 +54,7 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
           {/* Background Image */}
           <ImageBackground
             source={require('../../assets/images/onboarding/fastfood.png')}
-            style={{ width: 240, height: 230, paddingLeft: 0, marginLeft:-45, paddingRight: 8, marginTop: -21, justifyContent: 'center', position: 'absolute', top: 0, left: 0 }}
+            style={{ width: 220, height: 230, paddingLeft: 0, marginLeft:-45, paddingRight: 8, marginTop: -21, justifyContent: 'center', position: 'absolute', top: 0, left: 0 }}
             resizeMode="cover"
             imageStyle={{ opacity: 0.8, }}
           />
@@ -93,7 +93,7 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
             >
               <Animated.Image
                 source={require('../../assets/images/onboarding/onboarding1.png')}
-                style={{ width: 220, height: 220, borderRadius: 140 }}
+                style={{ width: 250, height: 250, borderRadius: 140 }}
                 resizeMode="cover"
               />
             </Animated.View>
@@ -136,7 +136,7 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
             onPressOut={handlePressOut}
             onPress={handleNext}
             activeOpacity={1}
-            style={{ marginTop: 30 }}
+            style={{ marginTop: 20 }}
           >
             <Animated.View
               style={{

@@ -61,12 +61,12 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
           {/* Images */}
           <View className="flex-row justify-between mb-5" style={{ alignItems: 'flex-end' }}>
             <Image
-              source={require('../../assets/images/journey/journey1.png')}
+              source={require('../../assets/images/journey/journey4.png')}
               style={{ width: '48%', height: 159 }}
               resizeMode="cover"
             />
             <Image
-              source={require('../../assets/images/journey/journey2.png')}
+              source={require('../../assets/images/journey/journey5.png')}
               style={{ width: '48%', height: 223 }}
               resizeMode="cover"
             />
@@ -101,7 +101,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
                 <Text className="text-2xl font-bold text-orange-400">5000+</Text>
               </View>
               <Image
-                source={require('../../assets/icons/people.png')}
+                source={require('../../assets/icons/people2.png')}
                 style={{ width: 24, height: 24 }}
                 resizeMode="contain"
               />
@@ -124,7 +124,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
                 <Text className="text-2xl font-bold text-orange-400">800+</Text>
               </View>
               <Image
-                source={require('../../assets/icons/delivery.png')}
+                source={require('../../assets/icons/delieveries.png')}
                 style={{ width: 32, height: 32 }}
                 resizeMode="contain"
               />
@@ -149,7 +149,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
                 <Text className="text-2xl font-bold text-orange-400">4.7/5</Text>
               </View>
               <Image
-                source={require('../../assets/icons/rating.png')}
+                source={require('../../assets/icons/rating2.png')}
                 style={{ width: 32, height: 32 }}
                 resizeMode="contain"
               />
@@ -172,7 +172,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
                 <Text className="text-2xl font-bold text-orange-400">100%</Text>
               </View>
               <Image
-                source={require('../../assets/icons/happy.png')}
+                source={require('../../assets/icons/happy2.png')}
                 style={{ width: 24, height: 24, marginLeft: 8 }}
                 resizeMode="contain"
               />
@@ -190,7 +190,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleSocialMedia('https://facebook.com')}
           >
             <Image
-              source={require('../../assets/icons/facebook.png')}
+              source={require('../../assets/icons/facebook2.png')}
               style={{ width: 40, height: 40, marginRight: 12 }}
               resizeMode="contain"
             />
@@ -203,7 +203,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleSocialMedia('https://twitter.com')}
           >
             <Image
-              source={require('../../assets/icons/twitter.png')}
+              source={require('../../assets/icons/twitter2.png')}
               style={{ width: 40, height: 40, marginRight: 12 }}
               resizeMode="contain"
             />
@@ -216,7 +216,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => handleSocialMedia('https://instagram.com')}
           >
             <Image
-              source={require('../../assets/icons/insta.png')}
+              source={require('../../assets/icons/insta2.png')}
               style={{ width: 40, height: 40, marginRight: 12 }}
               resizeMode="contain"
             />
@@ -227,7 +227,7 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
         {/* Opening Hours */}
         <View className="px-5 mb-8 flex-row items-center" style={{ backgroundColor: 'rgba(255, 245, 242, 1)', width: 320, height: 48, borderRadius: 42, alignSelf: 'center' }}>
           <Image
-            source={require('../../assets/icons/time.png')}
+            source={require('../../assets/icons/time2.png')}
             style={{ width: 20, height: 20, marginRight: 8 }}
             resizeMode="contain"
           />

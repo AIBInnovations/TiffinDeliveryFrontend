@@ -184,7 +184,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 }}
               >
                 <Image
-                  source={require('../../assets/icons/indianflag.png')}
+                  source={require('../../assets/icons/indianflag2.png')}
                   style={{ width: 24, height: 24 }}
                   resizeMode="contain"
                 />
@@ -365,24 +365,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
 
             {/* Bottom bar indicator */}
-            <View
-              style={{
-                position: 'absolute',
-                bottom: 10,
-                left: 0,
-                right: 0,
-                alignItems: 'center',
-              }}
-            >
-              <View
-                style={{
-                  width: 120,
-                  height: 4,
-                  backgroundColor: '#1F2937',
-                  borderRadius: 2,
-                }}
-              />
-            </View>
+            
           </View>
       </View>
     </SafeAreaView>

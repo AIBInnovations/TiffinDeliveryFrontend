@@ -326,7 +326,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                 color: '#9CA3AF',
                 textAlign: 'center',
                 lineHeight: 18,
-                marginBottom: 15,
+                marginBottom: 10,
               }}
             >
               By signing in, you agree to{' '}
@@ -337,27 +337,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={{ textDecorationLine: 'underline', color: '#6B7280' }}>
                 Privacy Policy
               </Text>
-            </Text>
-
-            {/* Bottom bar indicator */}
-            <View
-              style={{
-                position: 'absolute',
-                bottom: 10,
-                left: 0,
-                right: 0,
-                alignItems: 'center',
-              }}
-            >
-              <View
-                style={{
-                  width: 120,
-                  height: 4,
-                  backgroundColor: '#1F2937',
-                  borderRadius: 2,
-                }}
-              />
-            </View>
+            </Text>           
           </View>
       </View>
     </SafeAreaView>

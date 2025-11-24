@@ -247,22 +247,22 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation }) => {
               <Text className="text-sm text-gray-900">Roti</Text>
               <Text className="text-sm text-gray-500 ml-2">x2</Text>
             </View>
-            <Text className="text-sm text-gray-900">₹70.00</Text>
+            <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: 600, }}>₹70.00</Text>
           </View>
 
           {/* Raita */}
           <View className="flex-row justify-between mb-3">
             <View className="flex-row items-center flex-1">
-              <Text className="text-sm text-gray-900">Raita</Text>
+              <Text className="text-sm text-rgba(108, 108, 108, 1)">Raita</Text>
               <Text className="text-sm text-gray-500 ml-2">x1</Text>
             </View>
-            <Text className="text-sm text-gray-900">₹70.00</Text>
+            <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: 600, }}>₹70.00</Text>
           </View>
 
           {/* Other Charges */}
           <View className="flex-row justify-between mb-4 pb-4 border-b border-gray-200">
             <Text className="text-sm text-gray-900">Other Charges</Text>
-            <Text className="text-sm text-gray-900">₹70.00</Text>
+            <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: 600, }}>₹70.00</Text>
           </View>
 
           {/* Total Amount */}

@@ -9,9 +9,9 @@ import HelpSupportScreen from '../screens/account/HelpSupportScreen';
 import AboutScreen from '../screens/account/AboutScreen';
 import OurJourneyScreen from '../screens/account/OurJourneyScreen';
 import YourOrdersScreen from '../screens/orders/YourOrdersScreen';
-import OrderScreen from '../screens/orders/OrderScreen';
 import OrderTrackingScreen from '../screens/orders/OrderTrackingScreen';
 import MealPlansScreen from '../screens/account/MealPlansScreen';
+import BulkOrdersScreen from '../screens/account/BulkOrdersScreen';
 import { MainTabParamList } from '../types/navigation';
 
 const Stack = createStackNavigator<MainTabParamList>();
@@ -31,10 +31,10 @@ const MainNavigator = () => {
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="OurJourney" component={OurJourneyScreen} />
-      <Stack.Screen name="Orders" component={OrderScreen} />
       <Stack.Screen name="YourOrders" component={YourOrdersScreen} />
       <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
       <Stack.Screen name="MealPlans" component={MealPlansScreen} />
+      <Stack.Screen name="BulkOrders" component={BulkOrdersScreen} />
       {/* Other screens like Menu, Profile can be added here */}
     </Stack.Navigator>
   );

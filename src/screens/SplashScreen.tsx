@@ -30,9 +30,11 @@ const SplashScreen = () => {
         <Text className="text-white text-4xl ml-2">LOGO</Text>
       </View>
 
-      <View className="flex-row justify-evenly w-full mb-8">
+      <View className="flex-row justify-center items-center mb-8" style={{ gap: 15 }}>
         <Text className="text-white text-xl">Order</Text>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
         <Text className="text-white text-xl">Eat</Text>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
         <Text className="text-white text-xl">Enjoy</Text>
       </View>
 

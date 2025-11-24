@@ -36,7 +36,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [showCartModal, setShowCartModal] = useState(false);
   const [mealQuantity, setMealQuantity] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'vouchers'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('home');
   const [addOns, setAddOns] = useState<AddOn[]>([
     {
       id: '1',
@@ -188,7 +188,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <Text className="text-white text-xs opacity-90">Location</Text>
               <View className="flex-row items-center">
                 <Image
-                  source={require('../../assets/icons/Vector.png')}
+                  source={require('../../assets/icons/address3.png')}
                   style={{ width: 14, height: 14, tintColor: 'white' }}
                   resizeMode="contain"
                 />
@@ -203,13 +203,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </TouchableOpacity>
 
-            {/* Profile Image */}
-            <TouchableOpacity onPress={() => navigation.navigate('Account')}>
+            {/* Voucher Button */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MealPlans')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                borderRadius: 20,
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                gap: 6,
+              }}
+            >
               <Image
-                source={require('../../assets/images/myaccount/user.png')}
-                style={{ width: 48, height: 48, borderRadius: 24 }}
-                resizeMode="cover"
+                source={require('../../assets/icons/voucher5.png')}
+                style={{ width: 24, height: 24 }}
+                resizeMode="contain"
               />
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
             </TouchableOpacity>
           </View>
 
@@ -254,12 +266,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           />
 
           {/* Meal Type Tabs */}
-          <View className="flex-row justify-center pt-12 mb-6">
+          <View className="flex-row justify-center pt-10 mb-6">
             <TouchableOpacity
               onPress={() => setSelectedMeal('lunch')}
               className={`items-center mx-6 ${selectedMeal === 'lunch' ? '' : 'opacity-50'}`}
             >
-              <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
                 <Image
                   source={require('../../assets/images/homepage/lunch1.png')}
                   style={{
@@ -279,7 +291,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {selectedMeal === 'lunch' && (
                 <Image
                   source={require('../../assets/icons/borderline.png')}
-                  style={{ width: '100%', height: 4, marginTop: 4 }}
+                  style={{ width: 100, height: 8, marginTop: 4 }}
                   resizeMode="contain"
                 />
               )}
@@ -289,7 +301,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => setSelectedMeal('dinner')}
               className={`items-center mx-6 ${selectedMeal === 'dinner' ? '' : 'opacity-50'}`}
             >
-              <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
                 <Image
                   source={require('../../assets/images/homepage/dinner1.png')}
                   style={{
@@ -309,7 +321,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {selectedMeal === 'dinner' && (
                 <Image
                   source={require('../../assets/icons/borderline.png')}
-                  style={{ width: '100%', height: 4, marginTop: 4 }}
+                  style={{ width: 100, height: 8, marginTop: 4 }}
                   resizeMode="contain"
                 />
               )}
@@ -352,40 +364,89 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 From: <Text className="font-semibold text-gray-900">₹119.00</Text>
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={handleAddToCart}
-              activeOpacity={0.7}
-              style={{
-                backgroundColor: 'rgba(245, 107, 76, 1)',
-                borderRadius: 30,
-                width: 150,
-                height: 45,
-                paddingHorizontal: 24,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-              }}
-            >
-              <View
+            {!showCartModal ? (
+              <TouchableOpacity
+                onPress={handleAddToCart}
+                activeOpacity={0.7}
                 style={{
-                  width: 45,
+                  backgroundColor: 'rgba(245, 107, 76, 1)',
+                  borderRadius: 30,
+                  width: 150,
                   height: 45,
-                  borderRadius: 28,
-                  backgroundColor: 'rgba(255, 148, 92, 1)',
+                  paddingHorizontal: 24,
+                  flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginLeft: -24,
+                  overflow: 'hidden',
                 }}
               >
-                <Image
-                  source={require('../../assets/icons/proicons_cart.png')}
-                  style={{ width: 20, height: 20, tintColor: 'rgba(255, 255, 255, 1)' }}
-                  resizeMode="contain"
-                />
+                <View
+                  style={{
+                    width: 45,
+                    height: 45,
+                    borderRadius: 28,
+                    backgroundColor: 'rgba(255, 148, 92, 1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: -24,
+                  }}
+                >
+                  <Image
+                    source={require('../../assets/icons/cart3.png')}
+                    style={{ width: 20, height: 20, tintColor: 'rgba(255, 255, 255, 1)' }}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={{ color: 'white', fontSize: 14, fontWeight: '600', marginLeft: 12}}>Add to Cart</Text>
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={{
+                  backgroundColor: 'white',
+                  borderRadius: 30,
+                  height: 40,
+                  paddingHorizontal: 6,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  minWidth: 70,
+                  borderWidth: 1,
+                  borderColor: 'rgba(232, 235, 234, 1)',
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => updateMealQuantity(false)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Image
+                    source={require('../../assets/icons/subtract.png')}
+                    style={{ width: 10, height: 10 }}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+                <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 16, fontWeight: '600', marginHorizontal: 8 }}>{mealQuantity}</Text>
+                <TouchableOpacity
+                  onPress={() => updateMealQuantity(true)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Image
+                    source={require('../../assets/icons/plus.png')}
+                    style={{ width: 30, height: 32 }}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
               </View>
-              <Text style={{ color: 'white', fontSize: 14, fontWeight: '600', marginLeft: 12}}>Add to Cart</Text>
-            </TouchableOpacity>
+            )}
           </View>
 
           {/* Details Section */}
@@ -462,6 +523,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             )}
           </View>
+
+          {/* Bottom Spacing for Navigation Bar */}
+          <View style={{ height: 50 }} />
         </View>
       </ScrollView>
 
@@ -503,7 +567,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => navigation.navigate('Cart')}
           >
             <Image
-              source={require('../../assets/icons/proicons_cart.png')}
+              source={require('../../assets/icons/cart3.png')}
               style={{ width: 18, height: 18, tintColor: 'white', marginRight: 6 }}
               resizeMode="contain"
             />
@@ -577,7 +641,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity
           onPress={() => {
             setActiveTab('orders');
-            navigation.navigate('Orders');
+            navigation.navigate('YourOrders');
           }}
           className="flex-row items-center justify-center"
           style={{
@@ -589,7 +653,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           }}
         >
           <Image
-            source={require('../../assets/icons/proicons_cart.png')}
+            source={require('../../assets/icons/cart3.png')}
             style={{
               width: 24,
               height: 24,
@@ -618,7 +682,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           }}
         >
           <Image
-            source={require('../../assets/icons/spoons.png')}
+            source={require('../../assets/icons/kitchen.png')}
             style={{
               width: 24,
               height: 24,
@@ -634,27 +698,36 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Voucher Button */}
+        {/* Profile Button */}
         <TouchableOpacity
-          onPress={() => setActiveTab('vouchers')}
+          onPress={() => {
+            setActiveTab('profile');
+            navigation.navigate('Account');
+          }}
           className="flex-row items-center justify-center"
           style={{
-            backgroundColor: '#F56B4C',
+            backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
             borderRadius: 25,
             paddingVertical: 8,
-            paddingHorizontal: 16,
-            marginLeft: 12,
-            marginRight: activeTab !== 'vouchers' ? 12 : 0,
+            paddingHorizontal: activeTab === 'profile' ? 16 : 8,
+            marginHorizontal: 4,
           }}
         >
           <Image
-            source={require('../../assets/icons/voucher2.png')}
-            style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
+            source={require('../../assets/icons/profile2.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'profile' ? 6 : 0,
+            }}
             resizeMode="contain"
           />
-          <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
-            12
-          </Text>
+          {activeTab === 'profile' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Profile
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

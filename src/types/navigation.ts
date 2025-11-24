@@ -31,7 +31,6 @@ export type MainTabParamList = {
   Address: undefined;
   Menu: undefined;
   Cart: undefined;
-  Orders: undefined;
   Profile: undefined;
   Payment: undefined;
   Account: undefined;
@@ -41,6 +40,7 @@ export type MainTabParamList = {
   YourOrders: undefined;
   OrderTracking: undefined;
   MealPlans: undefined;
+  BulkOrders: undefined;
 };
 
 // Root navigation props

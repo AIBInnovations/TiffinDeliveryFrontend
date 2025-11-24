@@ -108,25 +108,33 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Quantity Controls & Delete */}
               <View className="items-end">
-                <View className="flex-row items-center mb-2">
+                <View
+                  className="flex-row items-center mb-2"
+                  style={{ borderWidth: 1, borderColor: 'rgba(232, 235, 234, 1)', borderRadius: 60, paddingHorizontal: 8, paddingVertical: 4 }}
+                >
                   <TouchableOpacity
                     onPress={() => updateQuantity(item.id, false)}
-                    className="w-6 h-6 rounded-full border border-gray-300 items-center justify-center"
+                    className="w-6 h-6 rounded-full items-center justify-center"
                   >
                     <Text className="text-gray-600 font-bold text-sm">−</Text>
                   </TouchableOpacity>
                   <Text className="mx-3 text-sm font-semibold">{item.quantity}</Text>
                   <TouchableOpacity
                     onPress={() => updateQuantity(item.id, true)}
-                    className="w-6 h-6 rounded-full bg-orange-400 items-center justify-center"
+                    className="w-6 h-6 rounded-full items-center justify-center"
+                    style={{ backgroundColor: 'rgba(255, 217, 197, 1)' }}
                   >
-                    <Text className="text-white font-bold text-sm">+</Text>
+                    <Image
+                      source={require('../../assets/icons/plus.png')}
+                      style={{ width: 23, height: 23 }}
+                      resizeMode="contain"
+                    />
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity onPress={() => removeItem(item.id)}>
                   <Image
-                    source={require('../../assets/icons/bin.png')}
-                    style={{ width: 20, height: 20, tintColor: '#FB923C' }}
+                    source={require('../../assets/icons/delete2.png')}
+                    style={{ width: 20, height: 20, }}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
@@ -150,17 +158,22 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           >
             <View className="flex-row items-center flex-1">
               <Image
-                source={require('../../assets/icons/voucher.png')}
+                source={require('../../assets/icons/whitevoucher.png')}
                 style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
                 resizeMode="contain"
               />
               <Text className="text-white font-semibold" style={{ fontSize: 14 }}>You have 6 vouchers Left</Text>
             </View>
             <TouchableOpacity
-              className="bg-white rounded-full px-5 items-center justify-center"
+              className="bg-white rounded-full px-5 items-center justify-center flex-row"
               style={{ height: 46, width: 95 }}
             >
-              <Text className="text-orange-400 font-semibold text-sm">Applied ✓</Text>
+              <Text className="text-orange-400 font-semibold text-sm">Applied</Text>
+              <Image
+                source={require('../../assets/icons/tick3.png')}
+                style={{ width: 14, height: 14, marginLeft: 6 }}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -172,18 +185,34 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           {addresses.map((address, index) => (
             <TouchableOpacity
               key={address.id}
-              className={`mb-3 ${index < addresses.length - 1 ? 'pb-3 border-b border-gray-100' : ''}`}
+              className={`flex-row items-center mb-3 ${index < addresses.length - 1 ? 'pb-3 border-b border-gray-100' : ''}`}
               onPress={() => setSelectedAddressId(address.id)}
             >
-              <View className="flex-row items-center justify-between mb-1">
-                <Text className="text-base font-semibold text-gray-900">{address.label}</Text>
-                <View className={`w-5 h-5 rounded-full border-2 ${selectedAddressId === address.id ? 'border-orange-400' : 'border-gray-300'} items-center justify-center`}>
-                  {selectedAddressId === address.id && (
-                    <View className="w-3 h-3 rounded-full bg-orange-400" />
-                  )}
-                </View>
+              {/* Icon */}
+              <View className="w-12 h-12  items-center justify-center mr-3">
+                <Image
+                  source={
+                    address.label.toLowerCase() === 'home'
+                      ? require('../../assets/icons/house2.png')
+                      : require('../../assets/icons/office.png')
+                  }
+                  style={{ width: 38, height: 38, }}
+                  resizeMode="contain"
+                />
               </View>
-              <Text className="text-sm text-gray-500">{address.address}</Text>
+
+              {/* Address Details */}
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-gray-900 mb-1">{address.label}</Text>
+                <Text className="text-sm text-gray-500">{address.address}</Text>
+              </View>
+
+              {/* Radio Button */}
+              <View className={`w-5 h-5 rounded-full border-2 ${selectedAddressId === address.id ? 'border-orange-400' : 'border-gray-300'} items-center justify-center`}>
+                {selectedAddressId === address.id && (
+                  <View className="w-3 h-3 rounded-full bg-orange-400" />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
 
@@ -261,8 +290,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Text className="text-orange-400 font-semibold text-base mr-2">Pay Now</Text>
             <Image
-              source={require('../../assets/icons/vector2.png')}
-              style={{ width: 12, height: 12, tintColor: '#FB923C' }}
+              source={require('../../assets/icons/uparrow.png')}
+              style={{ width: 13, height: 13, }}
               resizeMode="contain"
             />
           </TouchableOpacity>
