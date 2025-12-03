@@ -1,0 +1,417 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { useUser, DietaryPreferences } from '../../context/UserContext';
+
+// This screen is rendered directly in RootStackNavigator when user is authenticated but not onboarded
+// Navigation is handled automatically by AppNavigator based on state changes
+
+const FOOD_TYPES = [
+  { id: 'VEG', label: 'Vegetarian', icon: '🥗' },
+  { id: 'NON-VEG', label: 'Non-Vegetarian', icon: '🍗' },
+  { id: 'VEGAN', label: 'Vegan', icon: '🌱' },
+];
+
+const DABBA_TYPES = [
+  { id: 'DISPOSABLE', label: 'Disposable', icon: '📦' },
+  { id: 'STEEL DABBA', label: 'Steel Dabba', icon: '🥘' },
+];
+
+const SPICE_LEVELS = [
+  { id: 'LOW', label: 'Low', icon: '🌶️' },
+  { id: 'MEDIUM', label: 'Medium', icon: '🌶️🌶️' },
+  { id: 'HIGH', label: 'High', icon: '🌶️🌶️🌶️' },
+];
+
+const UserOnboardingScreen: React.FC = () => {
+  const { completeOnboarding, logout } = useUser();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
+  const [eggiterian, setEggiterian] = useState(false);
+  const [jainFriendly, setJainFriendly] = useState(false);
+  const [dabbaType, setDabbaType] = useState<'DISPOSABLE' | 'STEEL DABBA'>('DISPOSABLE');
+  const [spiceLevel, setSpiceLevel] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleContinue = async () => {
+    let hasError = false;
+
+    // Validate name
+    if (name.trim().length < 2) {
+      setNameError('Please enter a valid name (at least 2 characters)');
+      hasError = true;
+    } else {
+      setNameError('');
+    }
+
+    // Validate email (optional but if provided, must be valid)
+    if (email.trim() && !validateEmail(email.trim())) {
+      setEmailError('Please enter a valid email address');
+      hasError = true;
+    } else {
+      setEmailError('');
+    }
+
+    if (hasError) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Prepare dietary preferences
+      const dietaryPreferences: DietaryPreferences = {
+        foodType,
+        eggiterian,
+        jainFriendly,
+        dabbaType,
+        spiceLevel,
+      };
+
+      // Call backend API through UserContext
+      await completeOnboarding({
+        name: name.trim(),
+        email: email.trim() || undefined,
+        dietaryPreferences,
+      });
+
+      // Navigation is handled automatically by AppNavigator
+      // When completeOnboarding succeeds, user.isOnboarded becomes true
+      // AppNavigator will then render MainNavigator
+    } catch (error: any) {
+      console.error('Error completing onboarding:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to save profile. Please try again.'
+      );
+      setIsLoading(false);
+    }
+    // Don't set loading to false on success - let screen transition happen
+  };
+
+  const handleSkip = () => {
+    Alert.alert(
+      'Skip Profile Setup',
+      'You will be logged out and can explore the app as a guest. You can complete your profile anytime by logging in again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Skip & Explore',
+          onPress: async () => {
+            try {
+              // Log out the user - they can explore as guest from login screen
+              await logout();
+              // AppNavigator will automatically show the auth flow
+            } catch (error) {
+              console.error('Error logging out:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="flex-1 bg-white"
+    >
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Header Section */}
+        <View className="bg-orange-400 pb-8 pt-12 px-5 relative" style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+          {/* Decorative elements */}
+          <View className="absolute top-0 right-0">
+            <View className="w-20 h-20 bg-orange-300 rounded-full opacity-50" style={{ top: 20, right: -10 }} />
+          </View>
+          <View className="absolute bottom-0 left-0">
+            <View className="w-16 h-16 bg-orange-300 rounded-full opacity-50" style={{ bottom: 40, left: -8 }} />
+          </View>
+
+          <View className="items-center mt-4">
+            <Text className="text-white text-3xl font-bold text-center mb-2">
+              Welcome! 👋
+            </Text>
+            <Text className="text-white text-base text-center opacity-90">
+              Let's personalize your experience
+            </Text>
+          </View>
+        </View>
+
+        {/* Form Section */}
+        <View className="px-5 mt-6">
+          {/* Name Input */}
+          <View className="mb-5">
+            <Text className="text-gray-700 font-semibold mb-2 text-base">
+              Full Name <Text className="text-red-500">*</Text>
+            </Text>
+            <TextInput
+              className="bg-gray-50 rounded-2xl px-4 py-4 text-base"
+              style={{
+                borderWidth: nameError ? 1.5 : 1,
+                borderColor: nameError ? '#EF4444' : name.length > 0 ? '#10B981' : '#EAEAEA',
+              }}
+              placeholder="Enter your full name"
+              placeholderTextColor="#9CA3AF"
+              value={name}
+              onChangeText={(text) => {
+                setName(text);
+                if (nameError) setNameError('');
+              }}
+              autoCapitalize="words"
+            />
+            {nameError ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">{nameError}</Text>
+            ) : null}
+          </View>
+
+          {/* Email Input */}
+          <View className="mb-5">
+            <Text className="text-gray-700 font-semibold mb-2 text-base">
+              Email Address (Optional)
+            </Text>
+            <TextInput
+              className="bg-gray-50 rounded-2xl px-4 py-4 text-base"
+              style={{
+                borderWidth: emailError ? 1.5 : 1,
+                borderColor: emailError ? '#EF4444' : validateEmail(email) && email.length > 0 ? '#10B981' : '#EAEAEA',
+              }}
+              placeholder="your.email@example.com"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (emailError) setEmailError('');
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {emailError ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">{emailError}</Text>
+            ) : null}
+          </View>
+
+          {/* Food Type */}
+          <View className="mb-5">
+            <Text className="text-gray-700 font-semibold mb-2 text-base">
+              Food Preference <Text className="text-red-500">*</Text>
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {FOOD_TYPES.map((type) => {
+                const isSelected = foodType === type.id;
+                return (
+                  <TouchableOpacity
+                    key={type.id}
+                    onPress={() => setFoodType(type.id as any)}
+                    className="rounded-full px-4 py-3 flex-row items-center flex-1"
+                    style={{
+                      backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
+                      minWidth: 100,
+                    }}
+                  >
+                    <Text className="mr-1">{type.icon}</Text>
+                    <Text
+                      className="text-sm font-medium"
+                      style={{ color: isSelected ? '#FFFFFF' : '#374151' }}
+                    >
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Additional Preferences */}
+          <View className="mb-5">
+            <Text className="text-gray-700 font-semibold mb-2 text-base">
+              Additional Preferences
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <TouchableOpacity
+                onPress={() => setEggiterian(!eggiterian)}
+                className="rounded-full px-4 py-3 flex-row items-center"
+                style={{
+                  backgroundColor: eggiterian ? '#F56B4C' : '#F3F4F6',
+                  borderWidth: 1,
+                  borderColor: eggiterian ? '#F56B4C' : '#E5E7EB',
+                }}
+              >
+                <Text className="mr-1">🥚</Text>
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: eggiterian ? '#FFFFFF' : '#374151' }}
+                >
+                  Eggetarian
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setJainFriendly(!jainFriendly)}
+                className="rounded-full px-4 py-3 flex-row items-center"
+                style={{
+                  backgroundColor: jainFriendly ? '#F56B4C' : '#F3F4F6',
+                  borderWidth: 1,
+                  borderColor: jainFriendly ? '#F56B4C' : '#E5E7EB',
+                }}
+              >
+                <Text className="mr-1">🙏</Text>
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: jainFriendly ? '#FFFFFF' : '#374151' }}
+                >
+                  Jain Friendly
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Dabba Type */}
+          <View className="mb-5">
+            <Text className="text-gray-700 font-semibold mb-2 text-base">
+              Container Type
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {DABBA_TYPES.map((type) => {
+                const isSelected = dabbaType === type.id;
+                return (
+                  <TouchableOpacity
+                    key={type.id}
+                    onPress={() => setDabbaType(type.id as any)}
+                    className="rounded-full px-4 py-3 flex-row items-center flex-1"
+                    style={{
+                      backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
+                    }}
+                  >
+                    <Text className="mr-1">{type.icon}</Text>
+                    <Text
+                      className="text-sm font-medium"
+                      style={{ color: isSelected ? '#FFFFFF' : '#374151' }}
+                    >
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Spice Level */}
+          <View className="mb-6">
+            <Text className="text-gray-700 font-semibold mb-2 text-base">
+              Spice Level
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {SPICE_LEVELS.map((level) => {
+                const isSelected = spiceLevel === level.id;
+                return (
+                  <TouchableOpacity
+                    key={level.id}
+                    onPress={() => setSpiceLevel(level.id as any)}
+                    className="rounded-full px-4 py-3 flex-row items-center flex-1"
+                    style={{
+                      backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
+                    }}
+                  >
+                    <Text className="mr-1">{level.icon}</Text>
+                    <Text
+                      className="text-sm font-medium"
+                      style={{ color: isSelected ? '#FFFFFF' : '#374151' }}
+                    >
+                      {level.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Benefits Section */}
+          <View className="bg-orange-50 rounded-2xl p-4 mb-6">
+            <Text className="text-orange-700 font-bold text-base mb-2">
+              Why we ask? 🤔
+            </Text>
+            <View className="space-y-2">
+              <View className="flex-row items-start">
+                <Text className="text-orange-600 mr-2">•</Text>
+                <Text className="text-gray-700 text-sm flex-1">
+                  Get personalized meal recommendations based on your preferences
+                </Text>
+              </View>
+              <View className="flex-row items-start">
+                <Text className="text-orange-600 mr-2">•</Text>
+                <Text className="text-gray-700 text-sm flex-1">
+                  Filter menu items that match your dietary needs
+                </Text>
+              </View>
+              <View className="flex-row items-start">
+                <Text className="text-orange-600 mr-2">•</Text>
+                <Text className="text-gray-700 text-sm flex-1">
+                  Receive special offers tailored just for you
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Continue Button */}
+          <TouchableOpacity
+            onPress={handleContinue}
+            disabled={isLoading}
+            className="bg-orange-400 rounded-full py-4 items-center mb-4"
+            style={{
+              backgroundColor: isLoading ? '#CCCCCC' : '#F56B4C',
+              shadowColor: '#F56B4C',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white font-bold text-base">
+                Continue to App →
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Skip Button */}
+          <TouchableOpacity
+            onPress={handleSkip}
+            disabled={isLoading}
+            className="py-3 items-center mb-8"
+          >
+            <Text className="text-gray-500 text-sm">
+              Skip for now
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+};
+
+export default UserOnboardingScreen;

@@ -227,24 +227,6 @@ const OnboardingScreen3: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 10,
-            left: 0,
-            right: 0,
-            alignItems: 'center',
-          }}
-        >
-          <View
-            style={{
-              width: 120,
-              height: 4,
-              backgroundColor: 'rgba(255, 255, 255, 0.7)',
-              borderRadius: 2,
-            }}
-          />
-        </View>
       </View>
     </SafeAreaView>
   );

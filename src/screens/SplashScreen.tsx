@@ -4,7 +4,10 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 
-type SplashScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Splash'>;
+type SplashScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'Splash'
+>;
 
 const SplashScreen = () => {
   const navigation = useNavigation<SplashScreenNavigationProp>();
@@ -20,9 +23,9 @@ const SplashScreen = () => {
 
   return (
     <View className="flex-1 bg-orange-500 justify-center items-center">
-
       <View className="flex-row items-center mb-8">
         <Image
+          // source={require('../assets/images/Tiffsy_Logo.png')}
           source={require('../assets/images/logo.png')}
           style={{ width: 40, height: 40 }}
           resizeMode="contain"
@@ -30,14 +33,30 @@ const SplashScreen = () => {
         <Text className="text-white text-4xl ml-2">LOGO</Text>
       </View>
 
-      <View className="flex-row justify-center items-center mb-8" style={{ gap: 15 }}>
+      <View
+        className="flex-row justify-center items-center mb-8"
+        style={{ gap: 15 }}
+      >
         <Text className="text-white text-xl">Order</Text>
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: 'white',
+          }}
+        />
         <Text className="text-white text-xl">Eat</Text>
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: 'white',
+          }}
+        />
         <Text className="text-white text-xl">Enjoy</Text>
       </View>
-
     </View>
   );
 };

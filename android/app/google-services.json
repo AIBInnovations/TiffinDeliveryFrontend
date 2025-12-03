@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "133130333965",
+    "project_id": "tiffin-dabba-2e3f7",
+    "storage_bucket": "tiffin-dabba-2e3f7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133130333965:android:e2da09666ce389e0884a44",
+        "android_client_info": {
+          "package_name": "com.tiffindabba"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOsSy4-ll805fjG6V0nNwwak7USYMZNqg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133130333965:android:ccb5dc6ccf654fd0884a44",
+        "android_client_info": {
+          "package_name": "com.tiffindelivery"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOsSy4-ll805fjG6V0nNwwak7USYMZNqg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

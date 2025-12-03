@@ -121,8 +121,8 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="rgba(245, 107, 76, 1)" />
+    <SafeAreaView className="flex-1 bg-orange-400">
+      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
 
       {/* Header and Tabs Container */}
       <View style={{ backgroundColor: 'rgba(245, 107, 76, 1)', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, position: 'relative', overflow: 'hidden' }}>
@@ -249,7 +249,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* Orders List */}
-      <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 bg-white px-5 pt-4" showsVerticalScrollIndicator={false}>
         {activeTab === 'Current' ? (
           // Current Orders Layout
           <>
@@ -422,6 +422,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         {/* Bottom Spacing for Navigation Bar */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* White background for bottom safe area */}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View

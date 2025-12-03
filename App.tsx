@@ -9,14 +9,17 @@ import React from 'react';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
 import { AddressProvider } from './src/context/AddressContext';
+import { UserProvider } from './src/context/UserContext';
 
 const App = () => {
   return (
-    <AddressProvider>
-      <CartProvider>
-        <AppNavigator />
-      </CartProvider>
-    </AddressProvider>
+    <UserProvider>
+      <AddressProvider>
+        <CartProvider>
+          <AppNavigator />
+        </CartProvider>
+      </AddressProvider>
+    </UserProvider>
   );
 };
 
