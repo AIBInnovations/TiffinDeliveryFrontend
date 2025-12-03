@@ -7,17 +7,24 @@ import {
   StatusBar,
   TextInput,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
+import { useUser } from '../../context/UserContext';
 
 type Props = AuthScreenProps<'OTPVerification'>;
 
 const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { phoneNumber } = route.params;
+  const { phoneNumber, confirmation } = route.params;
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Verifying...');
+
+  const { verifyOTP, loginWithPhone } = useUser();
 
   // Refs for input fields
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -60,27 +67,67 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const handleVerifyOTP = (otpCode?: string) => {
+  const handleVerifyOTP = async (otpCode?: string) => {
     const code = otpCode || otp.join('');
-    if (code.length === 6) {
-      // Navigate to main app
-      navigation.getParent()?.navigate('Main' as never);
+    if (code.length !== 6) {
+      Alert.alert('Error', 'Please enter complete 6-digit OTP');
+      return;
     }
+
+    setLoading(true);
+    setLoadingMessage('Verifying OTP...');
+
+    try {
+      const { isOnboarded } = await verifyOTP(confirmation, code);
+
+      // Show different message based on profile status
+      if (isOnboarded) {
+        setLoadingMessage('Welcome back!');
+      } else {
+        setLoadingMessage('Setting up your account...');
+      }
+
+      // Wait a bit for state to propagate to ensure smooth transition
+      // This prevents the brief flash of UserOnboardingScreen for returning users
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Navigation is handled automatically by AppNavigator based on state changes
+      // - If user is onboarded: AppNavigator shows MainNavigator
+      // - If user needs onboarding: AppNavigator shows UserOnboarding screen
+      // Keep loading true to prevent UI flash during transition
+    } catch (error: any) {
+      console.error('Error verifying OTP:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Invalid OTP. Please try again.'
+      );
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+      setLoading(false);
+    }
+    // Don't set loading to false on success - let AppNavigator handle the transition
   };
 
-  const handleResendOTP = () => {
-    if (canResend) {
+  const handleResendOTP = async () => {
+    if (!canResend) return;
+
+    try {
+      const newConfirmation = await loginWithPhone(phoneNumber);
+      // Update route params with new confirmation
+      route.params.confirmation = newConfirmation;
       setTimer(30);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
+      Alert.alert('Success', 'OTP resent successfully');
+    } catch (error: any) {
+      console.error('Error resending OTP:', error);
+      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
     }
   };
 
-  const handleGetStarted = () => {
-    // Navigate to main app regardless of OTP validation for demo purposes
-    // In production, you should validate the OTP first
-    navigation.getParent()?.navigate('Main' as never);
+  const handleGetStarted = async () => {
+    await handleVerifyOTP();
   };
 
   return (
@@ -298,6 +345,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleGetStarted}
+              disabled={loading}
               style={{
                 backgroundColor: '#F56B4C',
                 borderRadius: 100,
@@ -310,6 +358,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                 shadowOpacity: 0.1,
                 shadowRadius: 4,
                 elevation: 3,
+                opacity: loading ? 0.5 : 1,
               }}
             >
               <Text
@@ -337,9 +386,61 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={{ textDecorationLine: 'underline', color: '#6B7280' }}>
                 Privacy Policy
               </Text>
-            </Text>           
+            </Text>
           </View>
       </View>
+
+      {/* Loading Overlay */}
+      {loading && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 20,
+              padding: 30,
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+          >
+            <ActivityIndicator size="large" color="#F56B4C" style={{ marginBottom: 16 }} />
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '600',
+                color: '#111827',
+                marginBottom: 8,
+              }}
+            >
+              {loadingMessage}
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: '#6B7280',
+                textAlign: 'center',
+              }}
+            >
+              Please wait...
+            </Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };

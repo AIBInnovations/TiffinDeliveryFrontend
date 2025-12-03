@@ -6,6 +6,7 @@ import {
 } from '@react-navigation/stack';
 import LoginScreen from '../screens/auth/LoginScreen';
 import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
+import UserOnboardingScreen from '../screens/auth/UserOnboardingScreen';
 import { AuthStackParamList } from '../types/navigation';
 
 const Stack = createStackNavigator<AuthStackParamList>();
@@ -27,6 +28,7 @@ const AuthNavigator = () => {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+      <Stack.Screen name="UserOnboarding" component={UserOnboardingScreen} />
       {/* Register, ForgotPassword go here later */}
     </Stack.Navigator>
   );

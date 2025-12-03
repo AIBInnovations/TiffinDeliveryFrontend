@@ -6,9 +6,12 @@ import {
   StatusBar,
   TextInput,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
+import { useUser } from '../../context/UserContext';
 
 type Props = AuthScreenProps<'Login'>;
 
@@ -16,16 +19,39 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [remember, setRemember] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'login' | 'register'>('login');
+  const [loading, setLoading] = useState(false);
 
-  const handleGetOtp = () => {
-    if (phone.length >= 10) {
-      navigation.navigate('OTPVerification', { phoneNumber: `+91 ${phone}` });
+  const { loginWithPhone, enterGuestMode } = useUser();
+
+  const handleGetOtp = async () => {
+    if (phone.length !== 10) {
+      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const fullPhone = `+91${phone}`;
+      const confirmation = await loginWithPhone(fullPhone);
+
+      navigation.navigate('OTPVerification', {
+        phoneNumber: fullPhone,
+        confirmation: confirmation,
+      });
+    } catch (error: any) {
+      console.error('Error sending OTP:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to send OTP. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleExplore = () => {
-    // TODO: go straight to Main app
-    // navigation.getParent()?.navigate('Main');
+  const handleExplore = async () => {
+    // Enter guest mode - AppNavigator will automatically show MainNavigator
+    await enterGuestMode();
   };
 
   return (
@@ -264,8 +290,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleGetOtp}
+              disabled={loading || phone.length !== 10}
               style={{
-                backgroundColor: '#F56B4C',
+                backgroundColor: loading || phone.length !== 10 ? '#CCCCCC' : '#F56B4C',
                 borderRadius: 100,
                 paddingVertical: 15,
                 alignItems: 'center',
@@ -278,11 +305,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 elevation: 3,
               }}
             >
-              <Text
-                style={{ color: 'white', fontSize: 16, fontWeight: '600' }}
-              >
-                Get OTP
-              </Text>
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text
+                  style={{ color: 'white', fontSize: 16, fontWeight: '600' }}
+                >
+                  Get OTP
+                </Text>
+              )}
             </TouchableOpacity>
 
             {/* Divider with "or" */}

@@ -153,9 +153,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const filteredAddOns = getFilteredAddOns();
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
@@ -584,6 +584,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* White background for bottom safe area */}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View

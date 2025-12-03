@@ -1,26 +1,30 @@
 // src/types/navigation.ts
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack';
 import { RouteProp, CompositeNavigationProp } from '@react-navigation/native';
+import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 // Root Stack
 export type RootStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
   Auth: undefined;
+  UserOnboarding: undefined;
   Main: undefined;
 };
 
 // Onboarding Stack
 export type OnboardingStackParamList = {
   OnboardingScreen1: undefined;
-  OnboardingScreen2: undefined;
-  OnboardingScreen3: undefined;
 };
 
 // Auth Stack
 export type AuthStackParamList = {
   Login: undefined;
-  OTPVerification: { phoneNumber: string };
+  OTPVerification: {
+    phoneNumber: string;
+    confirmation: FirebaseAuthTypes.ConfirmationResult;
+  };
+  UserOnboarding: undefined;
   Register: undefined;
   ForgotPassword: undefined;
 };

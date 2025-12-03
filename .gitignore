@@ -35,6 +35,9 @@ local.properties
 !debug.keystore
 .kotlin/
 
+# Keystore documentation (contains sensitive passwords)
+KEYSTORE_INFO.md
+
 # node.js
 #
 node_modules/

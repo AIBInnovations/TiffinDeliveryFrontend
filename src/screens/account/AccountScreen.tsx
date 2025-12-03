@@ -12,6 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
+import { useUser } from '../../context/UserContext';
+import apiService from '../../services/api.service';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import InfoModal from '../../components/InfoModal';
 
 type Props = StackScreenProps<MainTabParamList, 'Account'>;
 
@@ -20,15 +24,58 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   const [dinnerAutoOrder, setDinnerAutoOrder] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
 
-  const handleLogout = () => {
-    // Handle logout logic here
-    console.log('Logout pressed');
+  // Modal states
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = React.useState(false);
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+  const [showErrorModal, setShowErrorModal] = React.useState(false);
+  const [modalMessage, setModalMessage] = React.useState('');
+
+  const { isGuest, user, logout, exitGuestMode } = useUser();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    // Exit guest mode - AppNavigator will automatically show Auth flow
+    await exitGuestMode();
+  };
+
+  const handleDeleteAccount = () => {
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    setShowDeleteConfirmModal(false);
+    try {
+      const response: any = await apiService.deleteAccount();
+      if (response.success) {
+        setModalMessage(response.message || 'Your account will be deleted in 10 days.');
+        setShowSuccessModal(true);
+      } else {
+        setModalMessage(response.message || 'Failed to delete account');
+        setShowErrorModal(true);
+      }
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      setModalMessage(error.message || 'Failed to delete account. Please try again.');
+      setShowErrorModal(true);
+    }
+  };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    logout();
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
         {/* Header */}
         <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
@@ -94,30 +141,69 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* White Container with Profile and Voucher */}
-        <View className="bg-white px-5" style={{ marginTop: 20, paddingTop: 20, paddingBottom: 16, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}>
-          {/* Profile Section */}
-          <View className="flex-row items-center justify-between mb-6">
-            <View className="flex-row items-center">
-              <Image
-                source={require('../../assets/images/myaccount/user2.png')}
-                style={{ width: 70, height: 70, borderRadius: 35 }}
-                resizeMode="cover"
-              />
-              <View className="ml-8">
-                <Text className="text-lg font-bold text-gray-900">Lorem Ipsum</Text>
-                <Text className="text-sm text-gray-500 mt-0.5">+91 92723-92737</Text>
+        <View className="bg-white px-5" style={{ marginTop: 20, paddingTop: 20, paddingBottom: 16 }}>
+          {isGuest ? (
+            /* Guest User - Login Prompt */
+            <View className="mb-6" style={{
+              backgroundColor: 'rgba(255, 245, 242, 1)',
+              borderRadius: 20,
+              padding: 24,
+              borderWidth: 2,
+              borderColor: '#F56B4C',
+            }}>
+              <View className="items-center mb-4">
+                <Image
+                  source={require('../../assets/images/myaccount/user2.png')}
+                  style={{ width: 80, height: 80, borderRadius: 40, opacity: 0.7 }}
+                  resizeMode="cover"
+                />
               </View>
+              <Text className="text-xl font-bold text-gray-900 text-center mb-2">
+                Welcome, Guest!
+              </Text>
+              <Text className="text-sm text-gray-600 text-center mb-6" style={{ lineHeight: 20 }}>
+                Login or register to unlock personalized meal plans, save addresses, track orders, and much more!
+              </Text>
+              <TouchableOpacity
+                onPress={handleGuestLogin}
+                className="bg-orange-400 rounded-full py-3 items-center shadow-lg"
+                style={{
+                  shadowColor: '#F56B4C',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+              >
+                <Text className="text-white font-bold text-base">Login / Register</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity>
-              <Image
-                source={require('../../assets/icons/edit.png')}
-                style={{ width: 40, height: 40 }}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          </View>
+          ) : (
+            /* Authenticated User - Profile Section */
+            <View className="flex-row items-center justify-between mb-6">
+              <View className="flex-row items-center">
+                <Image
+                  source={require('../../assets/images/myaccount/user2.png')}
+                  style={{ width: 70, height: 70, borderRadius: 35 }}
+                  resizeMode="cover"
+                />
+                <View className="ml-8">
+                  <Text className="text-lg font-bold text-gray-900">{user?.name || 'User'}</Text>
+                  <Text className="text-sm text-gray-500 mt-0.5">{user?.phone || 'No phone'}</Text>
+                </View>
+              </View>
+              <TouchableOpacity>
+                <Image
+                  source={require('../../assets/icons/edit.png')}
+                  style={{ width: 40, height: 40 }}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
+          )}
 
-          {/* Voucher Card */}
+          {/* Voucher Card - Only for authenticated users */}
+          {!isGuest && (
           <View style={{ borderRadius: 25, overflow: 'hidden' }}>
           <Image
             source={require('../../assets/images/myaccount/voucherbackgound.png')}
@@ -244,6 +330,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
           </View>
+          )}
         </View>
 
         {/* Account Section */}
@@ -251,7 +338,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           <Text className="text-xl font-bold text-gray-900 mb-3">Account</Text>
 
           <View className="bg-white rounded-2xl overflow-hidden">
-            {/* My Orders */}
+            {/* My Orders - Only for authenticated users */}
+            {!isGuest && (
             <TouchableOpacity
               className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('YourOrders')}
@@ -268,8 +356,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
             </TouchableOpacity>
+            )}
 
-            {/* Saved Addresses */}
+            {/* Saved Addresses - Only for authenticated users */}
+            {!isGuest && (
             <TouchableOpacity
               className="flex-row items-center justify-between px-5 py-2"
               onPress={() => navigation.navigate('Address')}
@@ -286,6 +376,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
             </TouchableOpacity>
+            )}
 
             {/* Meal Plans */}
             <TouchableOpacity
@@ -368,7 +459,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Logout Button */}
+        {/* Logout Button - Only for authenticated users */}
+        {!isGuest && (
         <View className="px-5 mb-2">
           <TouchableOpacity
             onPress={handleLogout}
@@ -377,7 +469,27 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-white font-bold text-lg">Logout</Text>
           </TouchableOpacity>
         </View>
+        )}
+
+        {/* Delete Account Button - Only for authenticated users */}
+        {!isGuest && (
+        <View className="px-5 mb-2">
+          <TouchableOpacity
+            onPress={handleDeleteAccount}
+            className="bg-white rounded-full py-4 items-center"
+            style={{
+              borderWidth: 2,
+              borderColor: '#EF4444',
+            }}
+          >
+            <Text className="font-bold text-lg" style={{ color: '#EF4444' }}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+        )}
       </ScrollView>
+
+      {/* White background for bottom safe area */}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View
@@ -437,8 +549,13 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         {/* Orders Section */}
         <TouchableOpacity
           onPress={() => {
-            setActiveTab('orders');
-            navigation.navigate('YourOrders');
+            if (isGuest) {
+              // Prompt guest to login
+              handleGuestLogin();
+            } else {
+              setActiveTab('orders');
+              navigation.navigate('YourOrders');
+            }
           }}
           className="flex-row items-center justify-center"
           style={{
@@ -524,6 +641,38 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Delete Account Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteConfirmModal}
+        title="Delete Account"
+        message="Are you sure you want to delete your account? Your account will be scheduled for deletion in 10 days."
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmStyle="danger"
+        onConfirm={confirmDeleteAccount}
+        onCancel={() => setShowDeleteConfirmModal(false)}
+      />
+
+      {/* Success Modal */}
+      <InfoModal
+        visible={showSuccessModal}
+        title="Account Deletion Scheduled"
+        message={modalMessage}
+        buttonText="OK"
+        type="success"
+        onClose={handleSuccessModalClose}
+      />
+
+      {/* Error Modal */}
+      <InfoModal
+        visible={showErrorModal}
+        title="Error"
+        message={modalMessage}
+        buttonText="OK"
+        type="error"
+        onClose={() => setShowErrorModal(false)}
+      />
     </SafeAreaView>
   );
 };
