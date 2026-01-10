@@ -33,7 +33,7 @@ const SPICE_LEVELS = [
 ];
 
 const UserOnboardingScreen: React.FC = () => {
-  const { completeOnboarding, logout } = useUser();
+  const { completeOnboarding, registerUser, updateUserProfile, logout, user } = useUser();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
@@ -44,6 +44,10 @@ const UserOnboardingScreen: React.FC = () => {
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Saving your profile...');
+
+  // Debug: Log user state
+  console.log('🔍 UserOnboardingScreen - Current user state:', JSON.stringify(user, null, 2));
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,33 +78,67 @@ const UserOnboardingScreen: React.FC = () => {
     }
 
     setIsLoading(true);
-    try {
-      // Prepare dietary preferences
-      const dietaryPreferences: DietaryPreferences = {
-        foodType,
-        eggiterian,
-        jainFriendly,
-        dabbaType,
-        spiceLevel,
-      };
+    setLoadingMessage('Saving your profile...');
 
-      // Call backend API through UserContext
-      await completeOnboarding({
-        name: name.trim(),
-        email: email.trim() || undefined,
-        dietaryPreferences,
-      });
+    // Show "waking up" message after 3 seconds if still loading
+    const slowLoadTimeout = setTimeout(() => {
+      setLoadingMessage('Waking up the server, please wait...');
+    }, 3000);
+
+    try {
+      // Prepare dietary preferences as array of strings for new API
+      const dietaryPreferences: string[] = [foodType];
+      if (eggiterian) dietaryPreferences.push('EGGETARIAN');
+      if (jainFriendly) dietaryPreferences.push('JAIN');
+
+      // Determine if this is a new user or existing user with incomplete profile
+      const isNewUser = user?.isNewUser ?? true;
+      console.log('🎯 Onboarding - isNewUser:', isNewUser);
+
+      if (isNewUser) {
+        // New user - call register endpoint
+        console.log('📝 Calling registerUser with data:', { name: name.trim(), email: email.trim() || undefined, dietaryPreferences });
+        await registerUser({
+          name: name.trim(),
+          email: email.trim() || undefined,
+          dietaryPreferences,
+        });
+        console.log('✅ registerUser completed successfully');
+      } else {
+        // Existing user with incomplete profile - call update profile endpoint
+        console.log('📝 Calling updateUserProfile with data:', { name: name.trim(), email: email.trim() || undefined, dietaryPreferences });
+        await updateUserProfile({
+          name: name.trim(),
+          email: email.trim() || undefined,
+          dietaryPreferences,
+        });
+        console.log('✅ updateUserProfile completed successfully');
+      }
+
+      clearTimeout(slowLoadTimeout);
+      console.log('✅ Onboarding complete - waiting for navigation...');
 
       // Navigation is handled automatically by AppNavigator
-      // When completeOnboarding succeeds, user.isOnboarded becomes true
+      // When registration/update succeeds, user.isOnboarded becomes true
       // AppNavigator will then render MainNavigator
     } catch (error: any) {
-      console.error('Error completing onboarding:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'Failed to save profile. Please try again.'
-      );
+      console.error('Error completing onboarding:', {
+        message: error?.message || 'Unknown error',
+        errorData: error,
+        errorString: JSON.stringify(error, null, 2)
+      });
+
+      clearTimeout(slowLoadTimeout);
+
+      // Extract meaningful error message
+      const errorMessage = error?.message
+        || error?.data?.message
+        || error?.error
+        || 'Failed to save profile. Please try again.';
+
+      Alert.alert('Error', errorMessage);
       setIsLoading(false);
+      setLoadingMessage('Saving your profile...');
     }
     // Don't set loading to false on success - let screen transition happen
   };
@@ -390,7 +428,10 @@ const UserOnboardingScreen: React.FC = () => {
             }}
           >
             {isLoading ? (
-              <ActivityIndicator color="white" />
+              <View className="flex-row items-center">
+                <ActivityIndicator color="white" />
+                <Text className="text-white ml-2 text-sm">{loadingMessage}</Text>
+              </View>
             ) : (
               <Text className="text-white font-bold text-base">
                 Continue to App →

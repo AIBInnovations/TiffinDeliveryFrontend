@@ -1,5 +1,5 @@
 // src/screens/account/AccountScreen.tsx
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,91 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import apiService from '../../services/api.service';
+import voucherApi, { Voucher, VoucherSummary } from '../../services/voucherApi';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
 
 type Props = StackScreenProps<MainTabParamList, 'Account'>;
 
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
-  const [lunchAutoOrder, setLunchAutoOrder] = React.useState(false);
-  const [dinnerAutoOrder, setDinnerAutoOrder] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
+  const [lunchAutoOrder, setLunchAutoOrder] = useState(false);
+  const [dinnerAutoOrder, setDinnerAutoOrder] = useState(true);
+  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
 
   // Modal states
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = React.useState(false);
-  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
-  const [showErrorModal, setShowErrorModal] = React.useState(false);
-  const [modalMessage, setModalMessage] = React.useState('');
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
+  // Voucher state
+  const [voucherCount, setVoucherCount] = useState<number>(0);
+  const [voucherLoading, setVoucherLoading] = useState<boolean>(true);
+  const [voucherSummary, setVoucherSummary] = useState<VoucherSummary | null>(null);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
 
   const { isGuest, user, logout, exitGuestMode } = useUser();
+
+  // Format date for display (e.g., "31st Nov 25")
+  const formatExpiryDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear().toString().slice(-2);
+
+    // Add ordinal suffix
+    const suffix = (day === 1 || day === 21 || day === 31) ? 'st'
+      : (day === 2 || day === 22) ? 'nd'
+      : (day === 3 || day === 23) ? 'rd' : 'th';
+
+    return `${day}${suffix} ${month} ${year}`;
+  };
+
+  // Fetch voucher data from API
+  const fetchVoucherData = useCallback(async () => {
+    if (isGuest) {
+      setVoucherLoading(false);
+      return;
+    }
+    try {
+      setVoucherLoading(true);
+
+      // Fetch both summary and voucher list in parallel
+      const [summaryResponse, vouchersResponse] = await Promise.all([
+        voucherApi.getVoucherSummary(),
+        voucherApi.getMyVouchers({ hasRemaining: true, isExpired: false, sortBy: 'expiryDate', sortOrder: 'asc' }),
+      ]);
+
+      if (summaryResponse.success && summaryResponse.data) {
+        setVoucherCount(summaryResponse.data.availableVouchers);
+        setVoucherSummary(summaryResponse.data);
+      }
+
+      if (vouchersResponse.success && vouchersResponse.data) {
+        setVouchers(vouchersResponse.data);
+      }
+    } catch (error: any) {
+      console.log('Error fetching voucher data:', error);
+    } finally {
+      setVoucherLoading(false);
+    }
+  }, [isGuest]);
+
+  // Fetch voucher data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchVoucherData();
+    }, [fetchVoucherData])
+  );
 
   const handleLogout = async () => {
     try {
@@ -75,7 +137,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
         {/* Header */}
         <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
@@ -121,7 +183,11 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: 24, height: 24 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+              {voucherLoading ? (
+                <ActivityIndicator size="small" color="#F56B4C" />
+              ) : (
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{voucherCount}</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -221,7 +287,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 />
                 <View className="ml-3">
                   <Text className="text-4xl font-bold text-gray-900">
-                    12 <Text className="text-base font-normal text-gray-700">vouchers</Text>
+                    {voucherLoading ? '...' : voucherCount} <Text className="text-base font-normal text-gray-700">vouchers</Text>
                   </Text>
                 </View>
               </View>
@@ -234,10 +300,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Description Text */}
-            <Text className="text-sm text-gray-600 mb-4" style={{ lineHeight: 20 }}>
-              Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.
-            </Text>
+            {/* Description Text - Show meal type breakdown */}
+            {voucherSummary && (
+              <Text className="text-sm text-gray-600 mb-4" style={{ lineHeight: 20 }}>
+                {voucherSummary.availableByMealType.LUNCH > 0 && `Lunch: ${voucherSummary.availableByMealType.LUNCH}`}
+                {voucherSummary.availableByMealType.LUNCH > 0 && voucherSummary.availableByMealType.DINNER > 0 && ' • '}
+                {voucherSummary.availableByMealType.DINNER > 0 && `Dinner: ${voucherSummary.availableByMealType.DINNER}`}
+                {(voucherSummary.availableByMealType.LUNCH > 0 || voucherSummary.availableByMealType.DINNER > 0) && voucherSummary.availableByMealType.BOTH > 0 && ' • '}
+                {voucherSummary.availableByMealType.BOTH > 0 && `Both: ${voucherSummary.availableByMealType.BOTH}`}
+                {voucherSummary.usedVouchers > 0 && ` (${voucherSummary.usedVouchers} used)`}
+              </Text>
+            )}
 
             {/* Validity Section */}
             <View className="flex-row items-center mb-2">
@@ -246,15 +319,32 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
             </View>
 
-            <View className="mb-2">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <View className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
-                  <Text className="text-sm text-gray-700">6 vouchers expires</Text>
-                </View>
-                <Text className="text-sm font-semibold text-gray-900">31st Nov 25</Text>
+            {/* Show voucher expiry dates */}
+            {voucherLoading ? (
+              <View className="mb-2 items-center">
+                <ActivityIndicator size="small" color="#F56B4C" />
               </View>
-            </View>
+            ) : vouchers.length > 0 ? (
+              vouchers.slice(0, 3).map((voucher) => (
+                <View key={voucher._id} className="mb-2">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      <View className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
+                      <Text className="text-sm text-gray-700">
+                        {voucher.remainingVouchers} voucher{voucher.remainingVouchers !== 1 ? 's' : ''} expires
+                      </Text>
+                    </View>
+                    <Text className="text-sm font-semibold text-gray-900">
+                      {formatExpiryDate(voucher.expiryDate)}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View className="mb-2">
+                <Text className="text-sm text-gray-500 text-center">No active vouchers</Text>
+              </View>
+            )}
 
             {/* Auto Order Toggles */}
             <View className="flex-row items-center justify-between">
@@ -489,7 +579,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
       </ScrollView>
 
       {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View

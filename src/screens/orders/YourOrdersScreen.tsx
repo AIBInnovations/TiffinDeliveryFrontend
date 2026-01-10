@@ -1,5 +1,5 @@
 // src/screens/orders/YourOrdersScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,19 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
+import orderApi, { Order as ApiOrder, OrderStatus } from '../../services/orderApi';
+import voucherApi from '../../services/voucherApi';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
 
-interface Order {
+interface DisplayOrder {
   id: string;
   orderNumber: string;
   name: string;
@@ -23,91 +28,151 @@ interface Order {
   image: any;
   estimatedTime: string;
   status: string;
+  currentStatus: OrderStatus;
   date?: string;
   rating?: number;
+  mealType: 'LUNCH' | 'DINNER';
 }
+
+// Helper to get status display text
+const getStatusText = (status: OrderStatus): string => {
+  switch (status) {
+    case 'placed':
+      return 'Order placed';
+    case 'accepted':
+      return 'Order accepted';
+    case 'preparing':
+      return 'Meal is being prepared';
+    case 'out_for_delivery':
+      return 'Out for delivery';
+    case 'delivered':
+      return 'Delivered';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return 'Processing';
+  }
+};
+
+// Helper to format date
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month}, ${year}`;
+};
+
+// Current order statuses (not completed)
+const CURRENT_STATUSES: OrderStatus[] = ['placed', 'accepted', 'preparing', 'out_for_delivery'];
+// History order statuses (completed)
+const HISTORY_STATUSES: OrderStatus[] = ['delivered', 'cancelled'];
 
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
 
-  // Sample orders data
-  const currentOrders: Order[] = [
-    {
-      id: '1',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '15 Mins',
-      status: 'Meal is being prepared',
-    },
-    {
-      id: '2',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '15 Mins',
-      status: 'Meal is being prepared',
-    },
-  ];
+  // Orders state
+  const [orders, setOrders] = useState<DisplayOrder[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const historyOrders: Order[] = [
-    {
-      id: '1',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '13 Nov, 2025',
-      rating: 4,
-    },
-    {
-      id: '2',
-      orderNumber: '#837',
-      name: 'Dinner Thali',
-      price: 90.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/dinnerThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '09 Nov, 2025',
-      rating: 4,
-    },
-    {
-      id: '3',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '10 Nov, 2025',
-      rating: 4,
-    },
-    {
-      id: '4',
-      orderNumber: '#837',
-      name: 'Dinner Thali',
-      price: 90.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/dinnerThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '09 Nov, 2025',
-      rating: 4,
-    },
-  ];
+  // Voucher state
+  const [voucherCount, setVoucherCount] = useState<number>(0);
+  const [voucherLoading, setVoucherLoading] = useState<boolean>(true);
 
-  const handleCancel = (orderId: string) => {
-    console.log('Cancel order:', orderId);
+  // Transform API order to display order
+  const transformOrder = (apiOrder: ApiOrder): DisplayOrder => {
+    const isLunch = apiOrder.mealType === 'LUNCH';
+    return {
+      id: apiOrder._id,
+      orderNumber: `#${apiOrder._id.slice(-3).toUpperCase()}`,
+      name: apiOrder.menuItem?.menuItemId?.name || (isLunch ? 'Lunch Thali' : 'Dinner Thali'),
+      price: apiOrder.menuItem?.orderPlacedPrice || apiOrder.totalAmount || 0,
+      quantity: '1 Thali',
+      image: isLunch
+        ? require('../../assets/images/homepage/lunchThali.png')
+        : require('../../assets/images/homepage/dinnerThali.png'),
+      estimatedTime: '15 Mins',
+      status: getStatusText(apiOrder.currentStatus),
+      currentStatus: apiOrder.currentStatus,
+      date: formatDate(apiOrder.orderStatus?.placedAt || apiOrder.scheduledForDate),
+      rating: 4,
+      mealType: apiOrder.mealType,
+    };
+  };
+
+  // Fetch orders from API
+  const fetchOrders = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await orderApi.getMyOrders({ sortBy: 'createdAt', sortOrder: 'desc' });
+      if (response.success && response.data?.orders) {
+        const transformedOrders = response.data.orders.map(transformOrder);
+        setOrders(transformedOrders);
+      } else {
+        setOrders([]);
+      }
+    } catch (error: any) {
+      console.log('Error fetching orders:', error);
+      setOrders([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch voucher summary from API
+  const fetchVoucherSummary = useCallback(async () => {
+    try {
+      setVoucherLoading(true);
+      const response = await voucherApi.getVoucherSummary();
+      if (response.success && response.data) {
+        setVoucherCount(response.data.availableVouchers);
+      }
+    } catch (error: any) {
+      console.log('Error fetching voucher summary:', error);
+    } finally {
+      setVoucherLoading(false);
+    }
+  }, []);
+
+  // Fetch orders and vouchers when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+      fetchVoucherSummary();
+    }, [fetchOrders, fetchVoucherSummary])
+  );
+
+  // Filter orders based on active tab
+  const currentOrders = orders.filter(order => CURRENT_STATUSES.includes(order.currentStatus));
+  const historyOrders = orders.filter(order => HISTORY_STATUSES.includes(order.currentStatus));
+
+  const handleCancel = async (orderId: string) => {
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await orderApi.cancelOrder(orderId);
+              if (response.success) {
+                Alert.alert('Success', 'Order cancelled successfully');
+                fetchOrders(); // Refresh orders
+              } else {
+                Alert.alert('Error', response.message || 'Failed to cancel order');
+              }
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'Failed to cancel order. Orders can only be cancelled before acceptance.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleTrackOrder = (orderId: string) => {
@@ -193,7 +258,11 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               style={{ width: 24, height: 24 }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+            {voucherLoading ? (
+              <ActivityIndicator size="small" color="#F56B4C" />
+            ) : (
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{voucherCount}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -250,7 +319,12 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Orders List */}
       <ScrollView className="flex-1 bg-white px-5 pt-4" showsVerticalScrollIndicator={false}>
-        {activeTab === 'Current' ? (
+        {isLoading ? (
+          <View className="items-center justify-center py-20">
+            <ActivityIndicator size="large" color="#F56B4C" />
+            <Text className="text-gray-500 mt-4">Loading orders...</Text>
+          </View>
+        ) : activeTab === 'Current' ? (
           // Current Orders Layout
           <>
             {currentOrders.map((order) => (

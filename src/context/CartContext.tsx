@@ -9,6 +9,9 @@ export interface CartItem {
   price: number;
   quantity: number;
   hasVoucher?: boolean;
+  mealType?: 'LUNCH' | 'DINNER';
+  isMenuItem?: boolean;
+  isAddon?: boolean;
 }
 
 interface CartContextType {

@@ -9,12 +9,16 @@ import {
   StatusBar,
   ScrollView,
   ImageSourcePropType,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
+import voucherApi from '../../services/voucherApi';
+import { getLocationData } from '../../utils/menuStorage';
+import { MenuItem as MenuItemType, Kitchen, Zone } from '../../types/menu';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -23,11 +27,13 @@ type MealType = 'lunch' | 'dinner';
 interface AddOn {
   id: string;
   name: string;
-  image: ImageSourcePropType;
+  image: ImageSourcePropType | null;
+  imageUrl?: string;
   quantity: string;
   price: number;
   selected: boolean;
   count: number;
+  category?: string;
 }
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -37,51 +43,120 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [mealQuantity, setMealQuantity] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('home');
-  const [addOns, setAddOns] = useState<AddOn[]>([
-    {
-      id: '1',
-      name: 'Roti',
-      image: require('../../assets/images/homepage/roti.png'),
-      quantity: '1 piece',
-      price: 10,
-      selected: false,
-      count: 1,
-    },
-    {
-      id: '2',
-      name: 'Dal',
-      image: require('../../assets/images/homepage/dal.png'),
-      quantity: '100ml',
-      price: 40,
-      selected: false,
-      count: 1,
-    },
-    {
-      id: '3',
-      name: 'Papad',
-      image: require('../../assets/images/homepage/papad.png'),
-      quantity: '1 piece',
-      price: 15,
-      selected: false,
-      count: 1,
-    },
-    {
-      id: '4',
-      name: 'Raita',
-      image: require('../../assets/images/homepage/raita.png'),
-      quantity: '100ml',
-      price: 25,
-      selected: false,
-      count: 2,
-    },
-  ]);
 
-  // Reset activeTab to 'home' when screen comes into focus
+  // Voucher state
+  const [voucherCount, setVoucherCount] = useState<number>(0);
+  const [voucherLoading, setVoucherLoading] = useState<boolean>(true);
+
+  // Menu item state
+  const [currentMenuItem, setCurrentMenuItem] = useState<MenuItemType | null>(null);
+  const [menuLoading, setMenuLoading] = useState<boolean>(true);
+
+  // Add-ons state
+  const [addOns, setAddOns] = useState<AddOn[]>([]);
+  const [addOnsLoading, setAddOnsLoading] = useState<boolean>(true);
+
+  // Location data state
+  const [kitchen, setKitchen] = useState<Kitchen | null>(null);
+  const [zone, setZone] = useState<Zone | null>(null);
+  const [pincode, setPincode] = useState<string>('');
+
+  // Fetch voucher summary
+  const fetchVoucherSummary = useCallback(async () => {
+    try {
+      setVoucherLoading(true);
+      const response = await voucherApi.getVoucherSummary();
+      if (response.success && response.data) {
+        setVoucherCount(response.data.availableVouchers);
+      }
+    } catch (error) {
+      console.log('Error fetching voucher summary:', error);
+      // Keep previous value or default to 0 on error
+    } finally {
+      setVoucherLoading(false);
+    }
+  }, []);
+
+  // Load menu data from AsyncStorage
+  const loadMenuData = useCallback(async (mealType: 'lunch' | 'dinner') => {
+    try {
+      setMenuLoading(true);
+      setAddOnsLoading(true);
+
+      // Get location data from AsyncStorage
+      const locationData = await getLocationData();
+
+      if (!locationData) {
+        console.log('⚠️ No location data found in storage');
+        return;
+      }
+
+      // Set location data
+      setKitchen(locationData.kitchen);
+      setZone(locationData.zone);
+      setPincode(locationData.pincode);
+
+      console.log('📍 Location data loaded:', {
+        pincode: locationData.pincode,
+        zone: locationData.zone.name,
+        kitchen: locationData.kitchen.name
+      });
+
+      // Get menu item for selected meal type
+      const mealWindow = mealType === 'lunch' ? 'lunch' : 'dinner';
+      const menuItem = locationData.menu.mealMenu?.[mealWindow];
+
+      if (menuItem) {
+        setCurrentMenuItem(menuItem);
+        console.log(`✅ ${mealType} menu loaded:`, menuItem.name);
+
+        // Transform addons from menu item
+        if (menuItem.addonIds && menuItem.addonIds.length > 0) {
+          const transformedAddons: AddOn[] = menuItem.addonIds.map((addon) => ({
+            id: addon._id,
+            name: addon.name,
+            image: null,
+            imageUrl: addon.imageUrl,
+            quantity: '1 piece',
+            price: addon.price,
+            selected: false,
+            count: 1,
+            category: addon.dietaryType,
+          }));
+          setAddOns(transformedAddons);
+          console.log(`✅ Loaded ${transformedAddons.length} addons`);
+        } else {
+          setAddOns([]);
+          console.log('ℹ️ No addons available for this meal');
+        }
+      } else {
+        console.log(`⚠️ No menu item found for ${mealType}`);
+        setCurrentMenuItem(null);
+        setAddOns([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading menu data:', error);
+    } finally {
+      setMenuLoading(false);
+      setAddOnsLoading(false);
+    }
+  }, []);
+
+  // Reset activeTab to 'home' and fetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       setActiveTab('home');
-    }, [])
+      fetchVoucherSummary();
+      // Load menu data for current selected meal type
+      loadMenuData(selectedMeal);
+    }, [fetchVoucherSummary, loadMenuData, selectedMeal])
   );
+
+  // Load menu data when meal type changes
+  const handleMealTypeChange = useCallback((meal: MealType) => {
+    setSelectedMeal(meal);
+    loadMenuData(meal);
+  }, [loadMenuData]);
 
   const toggleAddOn = (id: string) => {
     setAddOns(addOns.map(item =>
@@ -102,26 +177,29 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleAddToCart = () => {
     // Add the meal to cart
     addToCart({
-      id: `meal-${selectedMeal}`,
-      name: `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`,
+      id: currentMenuItem?._id || `meal-${selectedMeal}`,
+      name: currentMenuItem?.name || `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`,
       image: selectedMeal === 'lunch'
         ? require('../../assets/images/homepage/lunch2.png')
         : require('../../assets/images/homepage/dinneritem.png'),
       subtitle: '1 Thali',
-      price: 119,
+      price: currentMenuItem?.price || 119,
       quantity: mealQuantity,
       hasVoucher: true,
+      mealType: selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER',
+      isMenuItem: true,
     });
 
     // Add selected add-ons to cart
     addOns.filter(item => item.selected).forEach(item => {
       addToCart({
-        id: `addon-${item.id}`,
+        id: item.id,
         name: item.name,
-        image: item.image,
+        image: item.imageUrl ? { uri: item.imageUrl } : item.image,
         subtitle: `${item.count} × ${item.quantity}`,
         price: item.price * item.count,
         quantity: item.count,
+        isAddon: true,
       });
     });
 
@@ -193,7 +271,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   resizeMode="contain"
                 />
                 <Text className="text-white text-sm font-semibold ml-1">
-                  Vijay Nagar, Indore
+                  {zone ? `${zone.name}, ${zone.city}` : 'Loading...'}
                 </Text>
                 <Image
                   source={require('../../assets/icons/down2.png')}
@@ -221,7 +299,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: 24, height: 24 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+              {voucherLoading ? (
+                <ActivityIndicator size="small" color="#F56B4C" />
+              ) : (
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{voucherCount}</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -268,7 +350,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Meal Type Tabs */}
           <View className="flex-row justify-center pt-10 mb-6">
             <TouchableOpacity
-              onPress={() => setSelectedMeal('lunch')}
+              onPress={() => handleMealTypeChange('lunch')}
               className={`items-center mx-6 ${selectedMeal === 'lunch' ? '' : 'opacity-50'}`}
             >
               <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
@@ -298,7 +380,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setSelectedMeal('dinner')}
+              onPress={() => handleMealTypeChange('dinner')}
               className={`items-center mx-6 ${selectedMeal === 'dinner' ? '' : 'opacity-50'}`}
             >
               <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
@@ -359,10 +441,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Special Thali and Add to Cart */}
           <View className="flex-row items-center justify-between mb-6">
             <View className="flex-1">
-              <Text className="text-2xl font-bold text-gray-900">Special Thali</Text>
-              <Text className="text-base text-gray-600 mt-1">
-                From: <Text className="font-semibold text-gray-900">₹119.00</Text>
-              </Text>
+              {menuLoading ? (
+                <ActivityIndicator size="small" color="#F56B4C" />
+              ) : (
+                <>
+                  <Text className="text-2xl font-bold text-gray-900">
+                    {currentMenuItem?.name || 'Special Thali'}
+                  </Text>
+                  <Text className="text-base text-gray-600 mt-1">
+                    From: <Text className="font-semibold text-gray-900">
+                      ₹{currentMenuItem?.price?.toFixed(2) || '119.00'}
+                    </Text>
+                  </Text>
+                </>
+              )}
             </View>
             {!showCartModal ? (
               <TouchableOpacity
@@ -452,17 +544,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Details Section */}
           <View className="mb-6">
             <Text className="text-xl font-bold text-gray-900 mb-3">Details</Text>
-            <Text className="text-gray-600 leading-6">
-              Lorem ipsum dolor sit amet consectetur. Adipiscing ultricies dui morbi
-              varius ac id. Lorem ipsum dolor sit amet consectetur.
-            </Text>
+            {menuLoading ? (
+              <ActivityIndicator size="small" color="#F56B4C" />
+            ) : (
+              <Text className="text-gray-600 leading-6">
+                {currentMenuItem?.description || currentMenuItem?.content || 'Delicious homestyle meal prepared with fresh ingredients.'}
+              </Text>
+            )}
           </View>
 
           {/* Add-ons Section */}
           <View>
             <Text className="text-xl font-bold text-gray-900 mb-4">Add-ons</Text>
 
-            {filteredAddOns.length > 0 ? (
+            {addOnsLoading ? (
+              <View className="py-10 items-center">
+                <ActivityIndicator size="large" color="#F56B4C" />
+              </View>
+            ) : filteredAddOns.length > 0 ? (
               filteredAddOns.map((item) => (
                 <View
                   key={item.id}
@@ -471,7 +570,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   {/* Item Image and Info */}
                   <View className="flex-row items-center flex-1">
                     <Image
-                      source={item.image}
+                      source={item.imageUrl ? { uri: item.imageUrl } : item.image || require('../../assets/images/homepage/roti.png')}
                       style={{ width: 56, height: 56, borderRadius: 28 }}
                       resizeMode="cover"
                     />
@@ -518,8 +617,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               ))
             ) : (
               <View className="py-10 items-center">
-                <Text className="text-gray-400 text-base">No items found</Text>
-                <Text className="text-gray-400 text-sm mt-2">Try searching for something else</Text>
+                <Text className="text-gray-400 text-base">No add-ons available</Text>
+                <Text className="text-gray-400 text-sm mt-2">Check back later for more options</Text>
               </View>
             )}
           </View>
@@ -554,7 +653,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               resizeMode="cover"
             />
             <View className="ml-3" style={{ marginRight: 60 }}>
-              <Text className="text-base font-bold text-gray-900">Special Thali</Text>
+              <Text className="text-base font-bold text-gray-900">
+                {currentMenuItem?.name || 'Special Thali'}
+              </Text>
               <Text className="text-xs text-gray-500 mt-0.5">
                 {getSelectedAddOnsCount()} Add-ons
               </Text>

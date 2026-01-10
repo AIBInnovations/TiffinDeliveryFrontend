@@ -1,6 +1,8 @@
 import auth from '@react-native-firebase/auth';
+import messaging from '@react-native-firebase/messaging';
 
 export const firebaseAuth = auth();
+export const firebaseMessaging = messaging();
 
 export const sendOTP = async (phoneNumber: string) => {
   const confirmation = await firebaseAuth.signInWithPhoneNumber(phoneNumber);

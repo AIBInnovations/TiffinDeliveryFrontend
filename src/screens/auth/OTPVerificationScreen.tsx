@@ -78,13 +78,15 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
     setLoadingMessage('Verifying OTP...');
 
     try {
-      const { isOnboarded } = await verifyOTP(confirmation, code);
+      const { isNewUser, isProfileComplete, user } = await verifyOTP(confirmation, code);
 
       // Show different message based on profile status
-      if (isOnboarded) {
+      if (isNewUser) {
+        setLoadingMessage('Welcome! Setting up your account...');
+      } else if (isProfileComplete) {
         setLoadingMessage('Welcome back!');
       } else {
-        setLoadingMessage('Setting up your account...');
+        setLoadingMessage('Completing your profile...');
       }
 
       // Wait a bit for state to propagate to ensure smooth transition
@@ -92,8 +94,8 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Navigation is handled automatically by AppNavigator based on state changes
-      // - If user is onboarded: AppNavigator shows MainNavigator
-      // - If user needs onboarding: AppNavigator shows UserOnboarding screen
+      // - If user is new or profile incomplete: AppNavigator shows UserOnboarding screen
+      // - If user profile is complete: AppNavigator shows MainNavigator
       // Keep loading true to prevent UI flash during transition
     } catch (error: any) {
       console.error('Error verifying OTP:', error);

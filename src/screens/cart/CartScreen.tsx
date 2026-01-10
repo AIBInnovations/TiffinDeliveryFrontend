@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -14,13 +16,15 @@ import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
 import OrderSuccessModal from '../../components/OrderSuccessModal';
+import orderApi, { CreateOrderRequest } from '../../services/orderApi';
 
 type Props = StackScreenProps<MainTabParamList, 'Cart'>;
 
 const CartScreen: React.FC<Props> = ({ navigation }) => {
-  const { cartItems, updateQuantity: updateCartQuantity, removeItem } = useCart();
+  const { cartItems, updateQuantity: updateCartQuantity, removeItem, clearCart } = useCart();
   const { addresses, getMainAddress } = useAddress();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string>(
     getMainAddress()?.id || (addresses.length > 0 ? addresses[0].id : '')
   );
@@ -38,6 +42,58 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const taxesAndCharges = 10;
   const discount = Math.min(100, subtotal * 0.1); // 10% discount, max 100
   const totalAmount = subtotal + taxesAndCharges - discount;
+
+  // Handle Pay Now - Create order via API
+  const handlePayNow = async () => {
+    // Find the menu item in cart
+    const menuItem = cartItems.find(item => item.isMenuItem);
+
+    if (!menuItem) {
+      Alert.alert('Error', 'No meal found in cart. Please add a meal first.');
+      return;
+    }
+
+    // Get addon IDs from cart
+    const addonIds = cartItems
+      .filter(item => item.isAddon)
+      .map(item => item.id);
+
+    // Get today's date in YYYY-MM-DD format for scheduled delivery
+    const today = new Date();
+    const scheduledForDate = today.toISOString().split('T')[0];
+
+    // Build order request
+    const orderData: CreateOrderRequest = {
+      mealType: menuItem.mealType || 'LUNCH',
+      scheduledForDate,
+      menuItemId: menuItem.id,
+      addonIds: addonIds.length > 0 ? addonIds : undefined,
+      packagingType: 'DISPOSABLE',
+      useSubscription: menuItem.hasVoucher || false,
+    };
+
+    try {
+      setIsOrdering(true);
+      const response = await orderApi.createOrder(orderData);
+
+      if (response.success) {
+        // Clear cart after successful order
+        clearCart();
+        // Show success modal
+        setShowSuccessModal(true);
+      } else {
+        Alert.alert('Order Failed', response.message || 'Failed to place order. Please try again.');
+      }
+    } catch (error: any) {
+      console.log('Error creating order:', error);
+      Alert.alert(
+        'Order Failed',
+        error?.message || 'Something went wrong. Please try again.'
+      );
+    } finally {
+      setIsOrdering(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -277,6 +333,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             shadowOpacity: 0.15,
             shadowRadius: 10,
             elevation: 8,
+            opacity: isOrdering ? 0.7 : 1,
           }}
         >
           <View className="flex-row items-center">
@@ -284,16 +341,23 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-white text-sm">Total</Text>
           </View>
           <TouchableOpacity
-            className="bg-white rounded-full px-6 flex-row items-center"
-            style={{ height: 48, width: 117 }}
-            onPress={() => setShowSuccessModal(true)}
+            className="bg-white rounded-full px-6 flex-row items-center justify-center"
+            style={{ height: 48, width: 130 }}
+            onPress={handlePayNow}
+            disabled={isOrdering || cartItems.length === 0}
           >
-            <Text className="text-orange-400 font-semibold text-base mr-2">Pay Now</Text>
-            <Image
-              source={require('../../assets/icons/uparrow.png')}
-              style={{ width: 13, height: 13, }}
-              resizeMode="contain"
-            />
+            {isOrdering ? (
+              <ActivityIndicator size="small" color="#F56B4C" />
+            ) : (
+              <>
+                <Text className="text-orange-400 font-semibold text-base mr-2">Pay Now</Text>
+                <Image
+                  source={require('../../assets/icons/uparrow.png')}
+                  style={{ width: 13, height: 13 }}
+                  resizeMode="contain"
+                />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
