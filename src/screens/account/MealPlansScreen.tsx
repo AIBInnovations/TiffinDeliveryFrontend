@@ -1,5 +1,5 @@
 // src/screens/account/MealPlansScreen.tsx
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,58 +7,161 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { useUser } from '../../context/UserContext';
+import { SubscriptionPlan, PurchaseSubscriptionResponse, CancelSubscriptionResponse } from '../../services/api.service';
 
 type Props = StackScreenProps<MainTabParamList, 'MealPlans'>;
 
-interface MealPlan {
-  id: string;
-  days: number;
-  price: number;
-  vouchers: number;
-  mealsPerDay: number;
-  pricePerVoucher: number;
-  savings?: number;
-}
-
 const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
-  const plans: MealPlan[] = [
-    {
-      id: '1',
-      days: 7,
-      price: 1400,
-      vouchers: 14,
-      mealsPerDay: 2,
-      pricePerVoucher: 100,
-    },
-    {
-      id: '2',
-      days: 15,
-      price: 2850,
-      vouchers: 30,
-      mealsPerDay: 2,
-      pricePerVoucher: 95,
-      savings: 150,
-    },
-    {
-      id: '3',
-      days: 30,
-      price: 5400,
-      vouchers: 60,
-      mealsPerDay: 2,
-      pricePerVoucher: 90,
-      savings: 600,
-    },
-  ];
+  const { user, isGuest } = useUser();
+  const {
+    plans,
+    plansLoading,
+    activeSubscription,
+    voucherSummary,
+    usableVouchers,
+    loading,
+    error,
+    fetchPlans,
+    fetchSubscriptions,
+    purchasePlan,
+    cancelSubscription,
+    clearError,
+  } = useSubscription();
+
+  // Modal states
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCancelSuccessModal, setShowCancelSuccessModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [purchaseResult, setPurchaseResult] = useState<PurchaseSubscriptionResponse | null>(null);
+  const [cancelResult, setCancelResult] = useState<CancelSubscriptionResponse | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showSubscriptionDetails, setShowSubscriptionDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('meals');
+
+  // Fetch plans on mount
+  useEffect(() => {
+    console.log('[MealPlansScreen] useEffect - Fetching plans');
+    fetchPlans();
+  }, [fetchPlans]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    console.log('[MealPlansScreen] onRefresh - Starting refresh');
+    setRefreshing(true);
+    await Promise.all([fetchPlans(), fetchSubscriptions()]);
+    setRefreshing(false);
+    console.log('[MealPlansScreen] onRefresh - Refresh complete');
+  }, [fetchPlans, fetchSubscriptions]);
+
+  // Handle subscribe button press
+  const handleSubscribe = (plan: SubscriptionPlan) => {
+    console.log('[MealPlansScreen] handleSubscribe - Plan selected:', plan.name);
+    setSelectedPlan(plan);
+    setShowPurchaseModal(true);
+  };
+
+  // Confirm purchase
+  const confirmPurchase = async () => {
+    if (!selectedPlan) return;
+
+    console.log('[MealPlansScreen] confirmPurchase - Starting purchase for plan:', selectedPlan._id);
+    setIsProcessing(true);
+    try {
+      const result = await purchasePlan(selectedPlan._id);
+      console.log('[MealPlansScreen] confirmPurchase - Purchase successful');
+      setPurchaseResult(result);
+      setShowPurchaseModal(false);
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      console.log('[MealPlansScreen] confirmPurchase - Purchase failed:', err.message || err);
+      // Error is already set in context
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle cancel subscription
+  const handleCancelSubscription = () => {
+    console.log('[MealPlansScreen] handleCancelSubscription - Opening cancel modal');
+    setShowCancelModal(true);
+  };
+
+  // Confirm cancellation
+  const confirmCancellation = async () => {
+    if (!activeSubscription) return;
+
+    console.log('[MealPlansScreen] confirmCancellation - Starting cancellation');
+    setIsProcessing(true);
+    try {
+      const result = await cancelSubscription(activeSubscription._id, cancelReason || undefined);
+      console.log('[MealPlansScreen] confirmCancellation - Cancellation successful');
+      setCancelResult(result);
+      setShowCancelModal(false);
+      setShowCancelSuccessModal(true);
+      setCancelReason('');
+      setShowSubscriptionDetails(false);
+    } catch (err: any) {
+      console.log('[MealPlansScreen] confirmCancellation - Cancellation failed:', err.message || err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: '2-digit' };
+    return date.toLocaleDateString('en-IN', options);
+  };
+
+  // Calculate savings
+  const calculateSavings = (plan: SubscriptionPlan) => {
+    return plan.originalPrice - plan.price;
+  };
+
+  // Calculate price per voucher
+  const calculatePricePerVoucher = (plan: SubscriptionPlan) => {
+    return Math.round(plan.price / plan.totalVouchers);
+  };
+
+  // Render loading skeleton
+  const renderLoadingSkeleton = () => (
+    <View className="px-5 mb-6">
+      {[1, 2, 3].map((i) => (
+        <View
+          key={i}
+          className="mb-4 bg-gray-200 rounded-3xl"
+          style={{ height: 160, opacity: 0.5 }}
+        />
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="light-content" backgroundColor="#0A1F2E" />
 
-      <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 bg-gray-50"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F56B4C']} />
+        }
+      >
         {/* Top Header - Profile, Location, Notification */}
         <View style={{ position: 'relative', overflow: 'hidden' }}>
           {/* Background Image */}
@@ -69,40 +172,56 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
           />
 
           <View className="px-5 pt-3 pb-16">
-          <View className="flex-row items-center justify-between mb-4">
-            {/* Profile Image */}
-            <TouchableOpacity>
-              <Image
-                source={require('../../assets/images/myaccount/userpic.png')}
-                style={{ width: 48, height: 48, borderRadius: 24 }}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
+            <View className="flex-row items-center justify-between mb-4">
+              {/* Back Button */}
+              <TouchableOpacity onPress={() => navigation.goBack()}>
+                <Image
+                  source={require('../../assets/images/myaccount/userpic.png')}
+                  style={{ width: 48, height: 48, borderRadius: 24 }}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
 
-            {/* Location */}
-            <TouchableOpacity className="flex-1 mx-4">
-              <Text className="text-xs text-white text-center opacity-80">Location</Text>
-              <View className="flex-row items-center justify-center">
-                <Text className="text-sm text-white font-semibold">Vijay Nagar, Indore</Text>
-                <Text className="text-white ml-1">▼</Text>
-              </View>
-            </TouchableOpacity>
+              {/* Location */}
+              <TouchableOpacity className="flex-1 mx-4">
+                <Text className="text-xs text-white text-center opacity-80">Location</Text>
+                <View className="flex-row items-center justify-center">
+                  <Text className="text-sm text-white font-semibold">Vijay Nagar, Indore</Text>
+                  <Text className="text-white ml-1">▼</Text>
+                </View>
+              </TouchableOpacity>
 
-            {/* Notification */}
-            <TouchableOpacity className="w-12 h-12 rounded-full bg-white items-center justify-center">
-              <Image
-                source={require('../../assets/icons/notification2.png')}
-                style={{ width: 42, height: 42}}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          </View>
+              {/* Voucher Button */}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Vouchers')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'white',
+                  borderRadius: 20,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  gap: 6,
+                }}
+              >
+                <Image
+                  source={require('../../assets/icons/voucher5.png')}
+                  style={{ width: 24, height: 24 }}
+                  resizeMode="contain"
+                />
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* Greeting Text */}
-          <View>
-            <Text className="font-bold text-white" style={{ fontSize: 36 }}>Hello John</Text>
-            <Text className="font-semibold text-white mt-1" style={{ fontSize: 36 }}>Enjoy Experience</Text>
-          </View>
+            {/* Greeting Text */}
+            <View>
+              <Text className="font-bold text-white" style={{ fontSize: 36 }}>
+                Hello {user?.name?.split(' ')[0] || 'there'}
+              </Text>
+              <Text className="font-semibold text-white mt-1" style={{ fontSize: 36 }}>
+                Enjoy Experience
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -113,54 +232,136 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-2xl font-bold text-gray-900">Purchase Vouchers</Text>
           </View>
 
-          {/* Current Voucher Balance */}
+          {/* Current Voucher Balance / Active Subscription */}
           <View style={{ borderRadius: 33, overflow: 'hidden' }}>
-          <Image
-            source={require('../../assets/images/myaccount/voucherbackgound.png')}
-            style={{ position: 'absolute', width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-          <View style={{ padding: 20 }}>
-            {/* Icon */}
-            <View className="mb-4">
-              <Image
-                source={require('../../assets/icons/newvoucher2.png')}
-                style={{ width: 32, height: 32 }}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              source={require('../../assets/images/myaccount/voucherbackgound.png')}
+              style={{ position: 'absolute', width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+            <View style={{ padding: 20 }}>
+              {/* Icon */}
+              <View className="mb-4">
+                <Image
+                  source={require('../../assets/icons/newvoucher2.png')}
+                  style={{ width: 32, height: 32 }}
+                  resizeMode="contain"
+                />
+              </View>
 
-            {/* Vouchers Count */}
-            <View className="mb-3">
-              <Text className="text-4xl font-bold text-gray-900">
-                12 <Text className="text-base font-normal text-gray-700">vouchers</Text>
+              {/* Vouchers Count */}
+              <View className="mb-3">
+                <Text className="text-4xl font-bold text-gray-900">
+                  {usableVouchers}{' '}
+                  <Text className="text-base font-normal text-gray-700">vouchers</Text>
+                </Text>
+              </View>
+
+              {/* Description */}
+              <Text className="text-sm mb-4" style={{ lineHeight: 20, color: 'rgba(71, 71, 71, 1)' }}>
+                {activeSubscription && activeSubscription.planName
+                  ? `Active plan: ${activeSubscription.planName}`
+                  : 'Purchase a plan to get vouchers for your meals'}
               </Text>
-            </View>
 
-            {/* Description */}
-            <Text className="text-sm mb-4" style={{ lineHeight: 20, color: 'rgba(71, 71, 71, 1)' }}>
-              Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.
-            </Text>
+              {/* Validity Section - Only if active subscription with expiry date */}
+              {activeSubscription && activeSubscription.expiryDate && (
+                <>
+                  <View className="flex-row items-center mb-2">
+                    <View className="flex-1 h-px" style={{ backgroundColor: 'white' }} />
+                    <Text className="text-xs mx-3" style={{ color: 'rgba(59, 59, 59, 1)', fontSize: 13 }}>
+                      Validity
+                    </Text>
+                    <View className="flex-1 h-px" style={{ backgroundColor: 'white' }} />
+                  </View>
 
-            {/* Validity Section */}
-            <View className="flex-row items-center mb-2">
-              <View className="flex-1 h-px" style={{ backgroundColor: 'white' }} />
-              <Text className="text-xs  mx-3" style={{ color: 'rgba(59, 59, 59, 1)', fontSize: 13 }}>Validity</Text>
-              <View className="flex-1 h-px" style={{ backgroundColor: 'white' }} />
-            </View>
+                  <View className="mb-2">
+                    <View className="flex-row items-center justify-between mb-2">
+                      <Text className="text-sm" style={{ color: 'rgba(71, 71, 71, 1)' }}>
+                        Valid Until
+                      </Text>
+                      <Text className="text-sm font-15px-400" style={{ color: 'rgba(71, 71, 71, 1)' }}>
+                        Days Remaining
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text
+                        className="text-sm"
+                        style={{ color: 'rgba(71, 71, 71, 1)', fontSize: 15, fontWeight: '600' }}
+                      >
+                        {formatDate(activeSubscription.expiryDate)}
+                      </Text>
+                      <Text
+                        className="text-sm"
+                        style={{ color: 'rgba(71, 71, 71, 1)', fontSize: 15, fontWeight: '600' }}
+                      >
+                        {activeSubscription.daysRemaining ?? 0} Days
+                      </Text>
+                    </View>
+                  </View>
 
-            <View className="mb-2">
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-sm" style={{ color: 'rgba(71, 71, 71, 1)' }}>Valid Until</Text>
-                <Text className="text-sm font-15px-400" style={{ color: 'rgba(71, 71, 71, 1)' }}>Days Remaining</Text>
-              </View>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm" style={{ color: 'rgba(71, 71, 71, 1)', fontSize: 15, fontWeight: '600', fontFamily: 'Inter' }}>Dec 31st, 2025</Text>
-                <Text className="text-sm" style={{ color: 'rgba(71, 71, 71, 1)', fontSize: 15, fontWeight: '600', fontFamily: 'Inter' }}>50 Days</Text>
-              </View>
+                  {/* View Details / Cancel Button */}
+                  <TouchableOpacity
+                    onPress={() => setShowSubscriptionDetails(!showSubscriptionDetails)}
+                    className="mt-2"
+                  >
+                    <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+                      {showSubscriptionDetails ? 'Hide Details' : 'View Details'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Expanded Details */}
+                  {showSubscriptionDetails && (
+                    <View className="mt-4 pt-4 border-t border-gray-200">
+                      <View className="flex-row justify-between mb-2">
+                        <Text className="text-sm text-gray-600">Vouchers Used</Text>
+                        <Text className="text-sm font-semibold text-gray-900">
+                          {voucherSummary?.redeemed ?? 0} / {voucherSummary?.total ?? 0}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between mb-4">
+                        <Text className="text-sm text-gray-600">Vouchers Remaining</Text>
+                        <Text className="text-sm font-semibold text-gray-900">
+                          {activeSubscription?.vouchersRemaining ?? usableVouchers}
+                        </Text>
+                      </View>
+
+                      {/* Progress Bar */}
+                      <View className="bg-gray-200 h-2 rounded-full mb-4">
+                        <View
+                          className="h-2 rounded-full"
+                          style={{
+                            backgroundColor: '#F56B4C',
+                            width: `${voucherSummary?.total ? ((voucherSummary.redeemed / voucherSummary.total) * 100).toFixed(0) : 0}%`,
+                          }}
+                        />
+                      </View>
+
+                      {/* Cancel Button */}
+                      <TouchableOpacity
+                        onPress={handleCancelSubscription}
+                        className="py-2 rounded-full border border-red-500"
+                      >
+                        <Text className="text-center text-red-500 font-semibold">Cancel Subscription</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* View All Vouchers Link */}
+              {!isGuest && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Vouchers')}
+                  className="mt-3"
+                >
+                  <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+                    View All Vouchers →
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
-        </View>
         </View>
 
         {/* How Vouchers Work */}
@@ -175,7 +376,9 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                 resizeMode="contain"
               />
               <View className="flex-1">
-                <Text className="text-gray-900 mb-1" style={{ fontSize: 16, fontWeight: '500' }}>1 Voucher = 1 Meal</Text>
+                <Text className="text-gray-900 mb-1" style={{ fontSize: 16, fontWeight: '500' }}>
+                  1 Voucher = 1 Meal
+                </Text>
                 <Text className="text-sm text-gray-700" style={{ lineHeight: 20 }}>
                   Purchase vouchers in advance to enjoy convenient and hassle-free meal deliveries
                 </Text>
@@ -189,7 +392,9 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                 resizeMode="contain"
               />
               <View className="flex-1">
-                <Text className="text-gray-900 mb-1" style={{ fontSize: 16, fontWeight: '500' }}>Valid for Plan Duration</Text>
+                <Text className="text-gray-900 mb-1" style={{ fontSize: 16, fontWeight: '500' }}>
+                  Valid for Plan Duration
+                </Text>
                 <Text className="text-sm text-gray-700" style={{ lineHeight: 20 }}>
                   Each voucher can be redeemed for one meal of your choice
                 </Text>
@@ -203,7 +408,9 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                 resizeMode="contain"
               />
               <View className="flex-1">
-                <Text className="text-gray-900 mb-1" style={{ fontSize: 16, fontWeight: '500' }}>Add-ons available</Text>
+                <Text className="text-gray-900 mb-1" style={{ fontSize: 16, fontWeight: '500' }}>
+                  Add-ons available
+                </Text>
                 <Text className="text-sm text-gray-700" style={{ lineHeight: 20 }}>
                   Vouchers are valid for the duration specified in your plan
                 </Text>
@@ -216,90 +423,572 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
         <View className="px-5 mb-6">
           <Text className="text-xl font-bold text-gray-900 mb-4">Choose Your Plan</Text>
 
-          {plans.map((plan) => (
-            <View
-              key={plan.id}
-              className="mb-4"
-              style={{
-                position: 'relative',
-                overflow: 'hidden',
-                borderRadius: 33,
-                borderWidth: 1,
-                borderColor: 'rgba(245, 107, 76, 1)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 5,
-              }}
-            >
-              <Image
-                source={require('../../assets/images/myaccount/voucherbackgound.png')}
-                style={{ position: 'absolute', width: '100%', height: '100%' }}
-                resizeMode="cover"
-              />
-              <View className="p-6">
-              {/* Savings Badge */}
-              {plan.savings && (
+          {/* Loading State */}
+          {plansLoading && renderLoadingSkeleton()}
+
+          {/* Error State */}
+          {error && !plansLoading && (
+            <View className="bg-red-50 rounded-xl p-4 mb-4">
+              <Text className="text-red-600 text-center">{error}</Text>
+              <TouchableOpacity onPress={() => { clearError(); fetchPlans(); }} className="mt-2">
+                <Text className="text-center text-red-600 font-semibold">Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Plans List */}
+          {!plansLoading &&
+            plans.map((plan) => {
+              const savings = calculateSavings(plan);
+              const pricePerVoucher = calculatePricePerVoucher(plan);
+              const isActivePlan = activeSubscription?.planName === plan.name;
+
+              return (
                 <View
-                  className="absolute top-4 right-4 rounded-full px-3 py-1"
+                  key={plan._id}
+                  className="mb-4"
                   style={{
-                    backgroundColor: 'rgba(233, 255, 238, 1)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    borderRadius: 33,
+                    borderWidth: isActivePlan ? 2 : 1,
+                    borderColor: isActivePlan ? '#22C55E' : 'rgba(245, 107, 76, 1)',
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 2,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 8,
+                    elevation: 5,
                   }}
                 >
-                  <Text className="text-xs font-bold" style={{ color: 'rgba(0, 139, 30, 1)' }}>
-                    Save ₹{plan.savings}
-                  </Text>
+                  <Image
+                    source={require('../../assets/images/myaccount/voucherbackgound.png')}
+                    style={{ position: 'absolute', width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                  <View className="p-6">
+                    {/* Badge - Savings or Active */}
+                    <View className="absolute top-4 right-4 flex-row">
+                      {isActivePlan && (
+                        <View
+                          className="rounded-full px-3 py-1 mr-2"
+                          style={{ backgroundColor: 'rgba(220, 252, 231, 1)' }}
+                        >
+                          <Text className="text-xs font-bold" style={{ color: '#22C55E' }}>
+                            Active
+                          </Text>
+                        </View>
+                      )}
+                      {savings > 0 && (
+                        <View
+                          className="rounded-full px-3 py-1"
+                          style={{
+                            backgroundColor: 'rgba(233, 255, 238, 1)',
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 4,
+                            elevation: 2,
+                          }}
+                        >
+                          <Text className="text-xs font-bold" style={{ color: 'rgba(0, 139, 30, 1)' }}>
+                            Save Rs.{savings}
+                          </Text>
+                        </View>
+                      )}
+                      {plan.badge && !isActivePlan && (
+                        <View
+                          className="rounded-full px-3 py-1"
+                          style={{
+                            backgroundColor:
+                              plan.badge === 'POPULAR' ? '#FEF3C7' :
+                              plan.badge === 'BEST_VALUE' ? '#DBEAFE' : '#FCE7F3',
+                          }}
+                        >
+                          <Text
+                            className="text-xs font-bold"
+                            style={{
+                              color:
+                                plan.badge === 'POPULAR' ? '#D97706' :
+                                plan.badge === 'BEST_VALUE' ? '#2563EB' : '#DB2777',
+                            }}
+                          >
+                            {plan.badge.replace('_', ' ')}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Voucher Icon */}
+                    <View className="mb-3">
+                      <Image
+                        source={require('../../assets/icons/newvoucher2.png')}
+                        style={{ width: 32, height: 32 }}
+                        resizeMode="contain"
+                      />
+                    </View>
+
+                    {/* Price and Days */}
+                    <View className="flex-row items-center justify-between mb-2">
+                      <View className="flex-row items-baseline">
+                        <Text
+                          className="text-4xl"
+                          style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: '400' }}
+                        >
+                          Rs.{plan.price}
+                        </Text>
+                        {savings > 0 && (
+                          <Text
+                            className="text-lg ml-2 line-through"
+                            style={{ color: 'rgba(150, 150, 150, 1)' }}
+                          >
+                            Rs.{plan.originalPrice}
+                          </Text>
+                        )}
+                      </View>
+                      <Text className="text-2xl font-semibold" style={{ color: 'rgba(0, 0, 0, 1)' }}>
+                        {plan.durationDays} Days
+                      </Text>
+                    </View>
+
+                    {/* Plan Details */}
+                    <View className="mb-4">
+                      <View className="flex-row items-center">
+                        <Text className="text-sm mr-2.5" style={{ color: 'rgba(0, 0, 0, 1)' }}>
+                          {plan.totalVouchers} Vouchers
+                        </Text>
+                        <View
+                          className="w-1 h-1 rounded-full mr-2"
+                          style={{ backgroundColor: 'rgba(0, 0, 0, 1)' }}
+                        />
+                        <Text className="text-sm flex-1" style={{ color: 'rgba(0, 0, 0, 1)' }}>
+                          {plan.vouchersPerDay} Meals/Day
+                        </Text>
+                        <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)' }}>
+                          Rs.{pricePerVoucher}/Voucher
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Subscribe Button */}
+                    {!isGuest && !isActivePlan && (
+                      <TouchableOpacity
+                        onPress={() => handleSubscribe(plan)}
+                        className="bg-orange-400 rounded-full py-3"
+                        style={{
+                          shadowColor: '#F56B4C',
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 8,
+                          elevation: 6,
+                        }}
+                      >
+                        <Text className="text-center text-white font-bold text-base">
+                          Subscribe
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {isActivePlan && (
+                      <View className="bg-green-100 rounded-full py-3">
+                        <Text className="text-center text-green-600 font-bold text-base">
+                          Current Plan
+                        </Text>
+                      </View>
+                    )}
+
+                    {isGuest && (
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('Account')}
+                        className="bg-gray-300 rounded-full py-3"
+                      >
+                        <Text className="text-center text-gray-600 font-bold text-base">
+                          Login to Subscribe
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              )}
+              );
+            })}
 
-              {/* Voucher Icon */}
-              <View className="mb-3">
-                <Image
-                  source={require('../../assets/icons/newvoucher2.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
-              </View>
-
-              {/* Price and Days */}
-              <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-4xl" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: '400', fontFamily: 'DM Sans' }}>
-                  ₹{plan.price.toFixed(2)}
-                </Text>
-                <Text className="text-2xl font-semibold" style={{ color: 'rgba(0, 0, 0, 1)' }}>
-                  {plan.days} Days
-                </Text>
-              </View>
-
-              {/* Plan Details */}
-              <View className="mb-4">
-                <View className="flex-row items-center">
-                  <Text className="text-sm mr-2.5" style={{ color: 'rgba(0, 0, 0, 1)' }}>
-                    {plan.vouchers} Vouchers
-                  </Text>
-                  <View className="w-1 h-1 rounded-full mr-2" style={{ backgroundColor: 'rgba(0, 0, 0, 1)' }} />
-                  <Text className="text-sm flex-1" style={{ color: 'rgba(0, 0, 0, 1)' }}>
-                    {plan.mealsPerDay} Meals/Day
-                  </Text>
-                  <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)' }}>
-                    ₹{plan.pricePerVoucher}/Voucher
-                  </Text>
-                </View>
-              </View>
-              </View>
+          {/* Empty State */}
+          {!plansLoading && plans.length === 0 && !error && (
+            <View className="bg-gray-100 rounded-xl p-6">
+              <Text className="text-center text-gray-600">No plans available at the moment</Text>
             </View>
-          ))}
+          )}
         </View>
 
-        {/* Bottom Spacing */}
-        <View className="h-6" />
+        {/* Bottom Spacing for nav bar */}
+        <View className="h-32" />
       </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 10,
+          left: 20,
+          right: 20,
+          backgroundColor: 'white',
+          borderRadius: 50,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 6,
+          paddingLeft: 20,
+          paddingRight: 30,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
+      >
+        {/* Home Icon */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab('home');
+            navigation.navigate('Home');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'home' ? 16 : 8,
+            marginLeft: -8,
+            marginRight: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/house.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'home' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'home' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Home
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Orders Section */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab('orders');
+            navigation.navigate('YourOrders');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'orders' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/cart3.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'orders' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'orders' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Orders
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* On-Demand Icon */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab('meals');
+            navigation.navigate('OnDemand');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'meals' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/kitchen.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'meals' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'meals' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              On-Demand
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Profile Button */}
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTab('profile');
+            navigation.navigate('Account');
+          }}
+          className="flex-row items-center justify-center"
+          style={{
+            backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
+            borderRadius: 25,
+            paddingVertical: 8,
+            paddingHorizontal: activeTab === 'profile' ? 16 : 8,
+            marginHorizontal: 4,
+          }}
+        >
+          <Image
+            source={require('../../assets/icons/profile2.png')}
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
+              marginRight: activeTab === 'profile' ? 6 : 0,
+            }}
+            resizeMode="contain"
+          />
+          {activeTab === 'profile' && (
+            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+              Profile
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Purchase Confirmation Modal */}
+      <Modal visible={showPurchaseModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <View className="bg-white rounded-3xl w-full max-w-md p-6">
+            <Text className="text-xl font-bold text-gray-900 mb-4 text-center">
+              Confirm Purchase
+            </Text>
+
+            {selectedPlan && (
+              <>
+                <View className="bg-gray-50 rounded-xl p-4 mb-4">
+                  <Text className="text-lg font-semibold text-gray-900 mb-2">
+                    {selectedPlan.name}
+                  </Text>
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">Duration</Text>
+                    <Text className="font-semibold">{selectedPlan.durationDays} days</Text>
+                  </View>
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">Vouchers</Text>
+                    <Text className="font-semibold">{selectedPlan.totalVouchers}</Text>
+                  </View>
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">Price</Text>
+                    <Text className="font-semibold text-lg">Rs.{selectedPlan.price}</Text>
+                  </View>
+                </View>
+
+                <Text className="text-sm text-gray-500 text-center mb-4">
+                  By subscribing, you agree to our terms and conditions. Payment will be processed immediately.
+                </Text>
+              </>
+            )}
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => setShowPurchaseModal(false)}
+                className="flex-1 py-3 rounded-full border border-gray-300"
+                disabled={isProcessing}
+              >
+                <Text className="text-center text-gray-600 font-semibold">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmPurchase}
+                className="flex-1 py-3 rounded-full bg-orange-400"
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-center text-white font-semibold">Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Purchase Success Modal */}
+      <Modal visible={showSuccessModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <View className="bg-white rounded-3xl w-full max-w-md p-6 items-center">
+            <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mb-4">
+              <Text className="text-3xl">✓</Text>
+            </View>
+
+            <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+              Purchase Successful!
+            </Text>
+
+            {purchaseResult && (
+              <>
+                <Text className="text-gray-600 text-center mb-4">
+                  {purchaseResult.data.vouchersIssued} vouchers have been added to your account
+                </Text>
+                <View className="bg-gray-50 rounded-xl p-4 w-full mb-4">
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">Vouchers Issued</Text>
+                    <Text className="font-semibold">{purchaseResult.data.vouchersIssued}</Text>
+                  </View>
+                  <View className="flex-row justify-between">
+                    <Text className="text-gray-600">Valid Until</Text>
+                    <Text className="font-semibold">
+                      {formatDate(purchaseResult.data.voucherExpiryDate)}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowSuccessModal(false);
+                setPurchaseResult(null);
+                setSelectedPlan(null);
+              }}
+              className="w-full py-3 rounded-full bg-orange-400"
+            >
+              <Text className="text-center text-white font-semibold">Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Subscription Modal */}
+      <Modal visible={showCancelModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <View className="bg-white rounded-3xl w-full max-w-md p-6">
+            <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+              Cancel Subscription
+            </Text>
+
+            <Text className="text-gray-600 text-center mb-4">
+              Are you sure you want to cancel your subscription? This action cannot be undone.
+            </Text>
+
+            <TextInput
+              placeholder="Reason for cancellation (optional)"
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              className="bg-gray-50 rounded-xl px-4 py-3 mb-4"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setCancelReason('');
+                }}
+                className="flex-1 py-3 rounded-full border border-gray-300"
+                disabled={isProcessing}
+              >
+                <Text className="text-center text-gray-600 font-semibold">Keep Plan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmCancellation}
+                className="flex-1 py-3 rounded-full bg-red-500"
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-center text-white font-semibold">Cancel Plan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancellation Success Modal */}
+      <Modal visible={showCancelSuccessModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <View className="bg-white rounded-3xl w-full max-w-md p-6 items-center">
+            <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mb-4">
+              <Text className="text-3xl">!</Text>
+            </View>
+
+            <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+              Subscription Cancelled
+            </Text>
+
+            {cancelResult && (
+              <>
+                <Text className="text-gray-600 text-center mb-4">
+                  {cancelResult.data.vouchersCancelled} unused vouchers have been cancelled
+                </Text>
+                <View className="bg-gray-50 rounded-xl p-4 w-full mb-4">
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">Refund Eligible</Text>
+                    <Text className="font-semibold">
+                      {cancelResult.data.refundEligible ? 'Yes' : 'No'}
+                    </Text>
+                  </View>
+                  {cancelResult.data.refundEligible && cancelResult.data.refundAmount && (
+                    <View className="flex-row justify-between mb-1">
+                      <Text className="text-gray-600">Refund Amount</Text>
+                      <Text className="font-semibold text-green-600">
+                        Rs.{cancelResult.data.refundAmount}
+                      </Text>
+                    </View>
+                  )}
+                  <Text className="text-sm text-gray-500 mt-2">
+                    {cancelResult.data.refundReason}
+                  </Text>
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowCancelSuccessModal(false);
+                setCancelResult(null);
+              }}
+              className="w-full py-3 rounded-full bg-orange-400"
+            >
+              <Text className="text-center text-white font-semibold">Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Global Loading Overlay */}
+      {loading && !plansLoading && (
+        <View className="absolute inset-0 bg-black/30 justify-center items-center">
+          <View className="bg-white rounded-xl p-6">
+            <ActivityIndicator size="large" color="#F56B4C" />
+            <Text className="mt-2 text-gray-600">Processing...</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };

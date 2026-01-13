@@ -1,5 +1,5 @@
 // src/screens/orders/OrderTrackingScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,38 +8,319 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
+  ActivityIndicator,
+  Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
+import apiService, { OrderTrackingData, Order, OrderStatus } from '../../services/api.service';
+import CancelOrderModal from '../../components/CancelOrderModal';
+import RateOrderModal from '../../components/RateOrderModal';
 
 type Props = StackScreenProps<MainTabParamList, 'OrderTracking'>;
 
-const OrderTrackingScreen: React.FC<Props> = ({ navigation }) => {
-  const [otp, setOtp] = useState(['', '', '', '']);
+// Order status steps for progress tracker
+const STATUS_STEPS: OrderStatus[] = ['PLACED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+
+// Map status to step index
+const getStepIndex = (status: OrderStatus): number => {
+  switch (status) {
+    case 'PLACED':
+    case 'ACCEPTED':
+      return 0;
+    case 'PREPARING':
+    case 'READY':
+    case 'PICKED_UP':
+      return 1;
+    case 'OUT_FOR_DELIVERY':
+      return 2;
+    case 'DELIVERED':
+      return 3;
+    case 'CANCELLED':
+    case 'REJECTED':
+      return -1;
+    default:
+      return 0;
+  }
+};
+
+// Get status display text
+const getStatusDisplayText = (status: OrderStatus): string => {
+  switch (status) {
+    case 'PLACED':
+      return 'Order placed';
+    case 'ACCEPTED':
+      return 'Order confirmed';
+    case 'PREPARING':
+      return 'Meal is cooking';
+    case 'READY':
+      return 'Ready for pickup';
+    case 'PICKED_UP':
+      return 'Picked up';
+    case 'OUT_FOR_DELIVERY':
+      return 'Out for delivery';
+    case 'DELIVERED':
+      return 'Delivered';
+    case 'CANCELLED':
+      return 'Order cancelled';
+    case 'REJECTED':
+      return 'Order rejected';
+    default:
+      return status;
+  }
+};
+
+// Format time
+const formatTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+// Generate OTP from order number (mock - backend would provide this)
+const generateOTP = (orderNumber: string): string[] => {
+  const hash = orderNumber.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const otp = String(hash % 10000).padStart(4, '0');
+  return otp.split('');
+};
+
+const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { orderId } = route.params;
+
+  const [tracking, setTracking] = useState<OrderTrackingData | null>(null);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [pickupNotes, setPickupNotes] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showRateModal, setShowRateModal] = useState(false);
+  const [isRating, setIsRating] = useState(false);
 
-  const handleOtpChange = (value: string, index: number) => {
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch tracking data
+  const fetchTracking = async () => {
+    try {
+      console.log('[OrderTracking] Fetching tracking for order:', orderId);
+      setError(null);
+      const response = await apiService.trackOrder(orderId);
+      console.log('[OrderTracking] API Response:', JSON.stringify(response, null, 2));
+
+      // Handle response format: {message: true, data: 'Order tracking info', error: {...}}
+      // Backend returns: message=true for success, data=string message, error=actual tracking data
+      const isSuccess = response.success === true || (response as any).message === true;
+
+      // Get tracking data from response.data (if object with status) or response.error
+      let trackingData: OrderTrackingData | null = null;
+      if (response.data && typeof response.data === 'object' && 'status' in response.data) {
+        trackingData = response.data;
+      } else if ((response as any).error && typeof (response as any).error === 'object' && 'status' in (response as any).error) {
+        trackingData = (response as any).error;
+      }
+
+      console.log('[OrderTracking] isSuccess:', isSuccess, 'trackingData:', trackingData?.status);
+
+      if (isSuccess && trackingData && trackingData.status) {
+        console.log('[OrderTracking] Tracking loaded - Status:', trackingData.status);
+        setTracking(trackingData);
+        if (trackingData.order) {
+          setOrder(trackingData.order);
+        }
+      } else {
+        console.log('[OrderTracking] Failed to load tracking - No valid data found');
+        setError('Failed to load tracking information');
+      }
+    } catch (err: any) {
+      console.error('[OrderTracking] Error fetching tracking:', err.message);
+      setError(err.message || 'Failed to load tracking information');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Start polling for updates
+  const startPolling = () => {
+    // Poll every 30 seconds
+    pollingRef.current = setInterval(() => {
+      fetchTracking();
+    }, 30000);
+  };
+
+  // Stop polling
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  // Fetch on mount and focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchTracking();
+      startPolling();
+
+      return () => {
+        stopPolling();
+      };
+    }, [orderId])
+  );
+
+  // Handle call delivery guy
   const handleCallDelivery = () => {
-    console.log('Calling delivery guy');
+    if (tracking?.driver?.phone) {
+      Linking.openURL(`tel:${tracking.driver.phone}`);
+    } else {
+      Alert.alert('Not Available', 'Driver contact is not available yet');
+    }
   };
 
+  // Handle message delivery guy
   const handleMessageDelivery = () => {
-    console.log('Messaging delivery guy');
+    if (tracking?.driver?.phone) {
+      Linking.openURL(`sms:${tracking.driver.phone}`);
+    } else {
+      Alert.alert('Not Available', 'Driver contact is not available yet');
+    }
   };
 
+  // Handle cancel order - open modal
   const handleCancelOrder = () => {
-    console.log('Cancel order');
+    console.log('[OrderTracking] Opening cancel modal for order:', orderId);
+    setShowCancelModal(true);
+  };
+
+  // Handle confirm cancel - called from modal
+  const handleConfirmCancel = async (reason: string) => {
+    try {
+      console.log('[OrderTracking] Cancelling order:', orderId, 'Reason:', reason);
+      setIsCancelling(true);
+      const response = await apiService.cancelOrder(orderId, reason);
+      console.log('[OrderTracking] Cancel response:', JSON.stringify(response, null, 2));
+
+      // Handle API response format: {message: true/false, data: string, error?: object}
+      // or standard format: {success: boolean, message: string, data?: object}
+      const isSuccess = response.success === true || (response as any).message === true;
+      const responseData = (response as any).error || response.data;
+
+      if (isSuccess) {
+        console.log('[OrderTracking] Order cancelled successfully');
+        setShowCancelModal(false);
+
+        const successMessage = responseData?.message ||
+          (typeof response.data === 'string' ? response.data : null) ||
+          `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
+
+        Alert.alert('Order Cancelled', successMessage, [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        // Error message is in response.data when message is false
+        const errorMessage = typeof response.data === 'string'
+          ? response.data
+          : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
+        console.log('[OrderTracking] Cancel failed:', errorMessage);
+        Alert.alert('Cannot Cancel Order', errorMessage);
+      }
+    } catch (err: any) {
+      console.error('[OrderTracking] Error cancelling order:', err.message);
+      Alert.alert('Error', err.message || 'Failed to cancel order');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Handle rate order - open modal
+  const handleRateOrder = () => {
+    console.log('[OrderTracking] Opening rate modal for order:', orderId);
+    setShowRateModal(true);
+  };
+
+  // Handle confirm rating - called from modal
+  const handleConfirmRating = async (stars: number, comment?: string) => {
+    try {
+      console.log('[OrderTracking] Rating order:', orderId, 'Stars:', stars);
+      setIsRating(true);
+      const response = await apiService.rateOrder(orderId, stars, comment);
+      console.log('[OrderTracking] Rating response:', JSON.stringify(response, null, 2));
+
+      // Handle API response format: {message: true/false, data: string, error?: object}
+      const isSuccess = response.success === true || (response as any).message === true;
+
+      if (isSuccess) {
+        console.log('[OrderTracking] Order rated successfully');
+        setShowRateModal(false);
+        // Update local order state with rating
+        if (order) {
+          setOrder({
+            ...order,
+            rating: { stars, comment, ratedAt: new Date().toISOString() },
+            canRate: false,
+          });
+        }
+        Alert.alert('Thank you!', 'Your rating has been submitted successfully');
+      } else {
+        const errorMessage = typeof response.data === 'string'
+          ? response.data
+          : (response.message && typeof response.message === 'string' ? response.message : 'Failed to submit rating');
+        console.log('[OrderTracking] Rating failed:', errorMessage);
+        Alert.alert('Error', errorMessage);
+      }
+    } catch (err: any) {
+      console.error('[OrderTracking] Error rating order:', err.message);
+      Alert.alert('Error', err.message || 'Failed to submit rating');
+    } finally {
+      setIsRating(false);
+    }
   };
 
   const handleViewReceipt = () => {
-    console.log('View receipt');
+    // TODO: Implement receipt view/download
+    Alert.alert('Coming Soon', 'Receipt download will be available soon!');
   };
+
+  // Get OTP for delivery
+  const otp = order ? generateOTP(order.orderNumber) : ['0', '0', '0', '0'];
+
+  // Current step in progress tracker
+  const currentStep = tracking ? getStepIndex(tracking.status) : 0;
+  const isCancelledOrRejected = tracking?.status === 'CANCELLED' || tracking?.status === 'REJECTED';
+
+  // Render loading state
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <ActivityIndicator size="large" color="#F56B4C" />
+        <Text className="text-base text-gray-500 mt-4">Loading tracking info...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-5">
+        <Text className="text-base text-gray-500 mb-4 text-center">{error}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            setLoading(true);
+            fetchTracking();
+          }}
+          className="rounded-full px-6 py-3"
+          style={{ backgroundColor: '#F56B4C' }}
+        >
+          <Text className="text-white font-semibold">Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -75,208 +356,302 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Order Status - Combined Container */}
         <View className="bg-white px-5 py-6 mb-2">
-          {/* Meal is cooking */}
+          {/* Status Header */}
           <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-xl font-bold text-gray-900">Meal is cooking</Text>
-            <Text className="text-sm text-gray-500">Order ID - #837</Text>
+            <Text className="text-xl font-bold text-gray-900">
+              {tracking ? getStatusDisplayText(tracking.status) : 'Loading...'}
+            </Text>
+            <Text className="text-sm text-gray-500">
+              Order ID - #{order?.orderNumber || '...'}
+            </Text>
           </View>
-          <Text className="text-sm text-gray-600 mb-6">
-            Arriving at <Text className="font-bold text-gray-900">07:30 PM</Text>
-          </Text>
+
+          {/* Estimated Delivery */}
+          {tracking?.estimatedDelivery && !isCancelledOrRejected && (
+            <Text className="text-sm text-gray-600 mb-6">
+              Arriving at <Text className="font-bold text-gray-900">{formatTime(tracking.estimatedDelivery)}</Text>
+            </Text>
+          )}
+
+          {isCancelledOrRejected && (
+            <Text className="text-sm text-red-500 mb-6">
+              {tracking?.statusMessage || 'This order has been cancelled'}
+            </Text>
+          )}
 
           {/* Progress Tracker */}
-          <View className="flex-row items-center justify-between mb-6">
-            {/* Prepared */}
-            <View className="items-center" style={{ width: 50 }}>
-              <View
-                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+          {!isCancelledOrRejected && (
+            <View className="flex-row items-center justify-between mb-6">
+              {/* Prepared */}
+              <View className="items-center" style={{ width: 50 }}>
+                <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
+                  <Image
+                    source={require('../../assets/icons/prepared2.png')}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      opacity: currentStep >= 0 ? 1 : 0.4,
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: currentStep >= 0 ? '#FB923C' : '#9CA3AF' }}
+                >
+                  Prepared
+                </Text>
+              </View>
 
-              >
-                <Image
-                  source={require('../../assets/icons/prepared2.png')}
-                  style={{ width: 40, height: 40, }}
-                  resizeMode="contain"
+              {/* Line 1 */}
+              <View style={{ flex: 1, height: 2, marginHorizontal: 4, marginBottom: 24, flexDirection: 'row' }}>
+                <View
+                  style={{
+                    flex: currentStep >= 1 ? 1 : 0.5,
+                    height: 2,
+                    backgroundColor: currentStep >= 1 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
+                  }}
+                />
+                <View
+                  style={{
+                    flex: currentStep >= 1 ? 0 : 0.5,
+                    height: 2,
+                    backgroundColor: '#D1D5DB',
+                  }}
                 />
               </View>
-              <Text className="text-xs font-semibold" style={{ color: '#FB923C' }}>
-                Prepared
-              </Text>
-            </View>
 
-            {/* Line */}
-            <View style={{ flex: 1, height: 2, marginHorizontal: 4, marginBottom: 24, flexDirection: 'row' }}>
-              <View style={{ flex: 2, height: 2, backgroundColor: 'rgba(245, 107, 76, 1)' }} />
-              <View style={{ flex: 1, height: 2, backgroundColor: '#D1D5DB' }} />
-            </View>
-
-            {/* Delivery */}
-            <View className="items-center" style={{ width: 50 }}>
-              <View
-                className="w-12 h-12 rounded-full items-center justify-center mb-2"
-              >
-                <Image
-                  source={require('../../assets/icons/delivery2.png')}
-                  style={{ width: 40, height: 40, }}
-                  resizeMode="contain"
-                />
+              {/* Delivery */}
+              <View className="items-center" style={{ width: 50 }}>
+                <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
+                  <Image
+                    source={require('../../assets/icons/delivery2.png')}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      opacity: currentStep >= 2 ? 1 : 0.4,
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: currentStep >= 2 ? '#FB923C' : '#9CA3AF' }}
+                >
+                  Delivery
+                </Text>
               </View>
-              <Text className="text-xs font-semibold text-gray-500">Delivery</Text>
-            </View>
 
-            {/* Line */}
-            <View style={{ flex: 1, height: 2, backgroundColor: '#D1D5DB', marginHorizontal: 4, marginBottom: 24 }} />
-
-            {/* Delivered */}
-            <View className="items-center" style={{ width: 50 }}>
+              {/* Line 2 */}
               <View
-                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+                style={{
+                  flex: 1,
+                  height: 2,
+                  backgroundColor: currentStep >= 3 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
+                  marginHorizontal: 4,
+                  marginBottom: 24,
+                }}
+              />
 
-              >
-                <Image
-                  source={require('../../assets/icons/delievered2.png')}
-                  style={{ width: 40, height: 40,}}
-                  resizeMode="contain"
-                />
+              {/* Delivered */}
+              <View className="items-center" style={{ width: 50 }}>
+                <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
+                  <Image
+                    source={require('../../assets/icons/delievered2.png')}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      opacity: currentStep >= 3 ? 1 : 0.4,
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: currentStep >= 3 ? '#FB923C' : '#9CA3AF' }}
+                >
+                  Delivered
+                </Text>
               </View>
-              <Text className="text-xs font-semibold text-gray-500">Delivered</Text>
             </View>
-          </View>
+          )}
 
           {/* Call Delivery Guy */}
-          <View className="flex-row items-center justify-between mb-6">
-            <View className="flex-row items-center flex-1">
-              <Image
-                source={require('../../assets/images/homepage/lunchThali.png')}
-                style={{ width: 56, height: 56, borderRadius: 28 }}
-                resizeMode="cover"
-              />
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-bold text-gray-900">Call Delivery Guy</Text>
-                <Text className="text-sm text-gray-500">John Doe</Text>
+          {tracking?.canContactDriver && tracking?.driver && (
+            <View className="flex-row items-center justify-between mb-6">
+              <View className="flex-row items-center flex-1">
+                <Image
+                  source={require('../../assets/images/homepage/lunchThali.png')}
+                  style={{ width: 56, height: 56, borderRadius: 28 }}
+                  resizeMode="cover"
+                />
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-bold text-gray-900">Call Delivery Guy</Text>
+                  <Text className="text-sm text-gray-500">{tracking.driver.name}</Text>
+                </View>
+              </View>
+
+              <View className="flex-row">
+                <TouchableOpacity
+                  onPress={handleMessageDelivery}
+                  className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center mr-2"
+                >
+                  <Image
+                    source={require('../../assets/icons/mail2.png')}
+                    style={{ width: 32, height: 32 }}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleCallDelivery}
+                  className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center"
+                >
+                  <Image
+                    source={require('../../assets/icons/call3.png')}
+                    style={{ width: 32, height: 32 }}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
               </View>
             </View>
-
-            <View className="flex-row">
-              <TouchableOpacity
-                onPress={handleMessageDelivery}
-                className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center mr-2"
-              >
-                <Image
-                  source={require('../../assets/icons/mail2.png')}
-                  style={{ width: 32, height: 32,  }}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleCallDelivery}
-                className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center"
-              >
-                <Image
-                  source={require('../../assets/icons/call3.png')}
-                  style={{ width: 32, height: 32, }}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+          )}
 
           {/* Pickup Notes */}
-          <View className="flex-row items-center rounded-full px-4 mb-6" style={{ height: 48, backgroundColor: 'rgba(241, 241, 241, 1)' }}
-                           
->
-            <TextInput
-              placeholder="Any Pickup Notes?"
-              placeholderTextColor="rgba(143, 143, 143, 1)"
-              value={pickupNotes}
-              onChangeText={setPickupNotes}
-              className="flex-1 text-sm text-gray-900"
-            />
-            <Image
-              source={require('../../assets/icons/pen2.png')}
-              style={{ width: 20, height: 20, }}
-              resizeMode="contain"
-            />
-          </View>
+          {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (
+            <View
+              className="flex-row items-center rounded-full px-4 mb-6"
+              style={{ height: 48, backgroundColor: 'rgba(241, 241, 241, 1)' }}
+            >
+              <TextInput
+                placeholder="Any Pickup Notes?"
+                placeholderTextColor="rgba(143, 143, 143, 1)"
+                value={pickupNotes}
+                onChangeText={setPickupNotes}
+                className="flex-1 text-sm text-gray-900"
+              />
+              <Image
+                source={require('../../assets/icons/pen2.png')}
+                style={{ width: 20, height: 20 }}
+                resizeMode="contain"
+              />
+            </View>
+          )}
 
           {/* OTP Section */}
-          <View className="flex-row items-center justify-between">
-            <Text className="text-base font-bold text-gray-900">
-              Give OTP during Delivery
-            </Text>
-            <View className="flex-row">
-              {otp.map((digit, index) => (
-                <View
-                  key={index}
-                  className="bg-gray-100 items-center justify-center"
-                  style={{ width: 33, height: 35, borderRadius: 7, marginRight: index < 3 ? 4 : 0 }}
-                >
-                  <Text className="font-bold" style={{ fontSize: 15, color: 'rgba(81, 81, 81, 1)' }}>{digit || '0'}</Text>
-                </View>
-              ))}
+          {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (
+            <View className="flex-row items-center justify-between">
+              <Text className="text-base font-bold text-gray-900">
+                Give OTP during Delivery
+              </Text>
+              <View className="flex-row">
+                {otp.map((digit, index) => (
+                  <View
+                    key={index}
+                    className="bg-gray-100 items-center justify-center"
+                    style={{ width: 33, height: 35, borderRadius: 7, marginRight: index < 3 ? 4 : 0 }}
+                  >
+                    <Text className="font-bold" style={{ fontSize: 15, color: 'rgba(81, 81, 81, 1)' }}>
+                      {digit}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Order Summary */}
-        <View className="bg-white px-5 py-5 mb-2" style={{ borderRadius: 25 }}>
-          <Text className="text-xl font-bold text-gray-900 mb-4">Order Summary</Text>
+        {order && (
+          <View className="bg-white px-5 py-5 mb-2" style={{ borderRadius: 25 }}>
+            <Text className="text-xl font-bold text-gray-900 mb-4">Order Summary</Text>
 
-          {/* Lunch Meal */}
-          <View className="flex-row justify-between mb-3">
-            <View className="flex-row items-center flex-1">
-              <Text className="text-sm text-gray-900">Lunch Meal</Text>
-              <Text className="text-sm text-gray-500 ml-2">x1</Text>
+            {/* Order Items */}
+            {order.items.map((item, index) => (
+              <View key={index}>
+                <View className="flex-row justify-between mb-3">
+                  <View className="flex-row items-center flex-1">
+                    <Text className="text-sm text-gray-900">{item.name}</Text>
+                    <Text className="text-sm text-gray-500 ml-2">x{item.quantity}</Text>
+                  </View>
+                  {order.voucherUsage && order.voucherUsage.mainCoursesCovered > 0 && index === 0 ? (
+                    <Text
+                      style={{
+                        textDecorationLine: 'line-through',
+                        color: 'rgba(227, 22, 22, 1)',
+                        fontWeight: '600',
+                        fontSize: 14,
+                      }}
+                    >
+                      ₹{item.totalPrice.toFixed(2)}
+                    </Text>
+                  ) : (
+                    <Text style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: '600', fontSize: 14 }}>
+                      ₹{item.totalPrice.toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Addons */}
+                {item.addons?.map((addon, addonIndex) => (
+                  <View key={addonIndex} className="flex-row justify-between mb-3 ml-4">
+                    <View className="flex-row items-center flex-1">
+                      <Text className="text-sm text-gray-600">+ {addon.name}</Text>
+                      <Text className="text-sm text-gray-500 ml-2">x{addon.quantity}</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: '600', fontSize: 14 }}>
+                      ₹{addon.totalPrice.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            {/* Voucher Applied */}
+            {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
+              <View className="flex-row items-center mb-3">
+                <Text className="text-xs font-semibold" style={{ color: '#16A34A' }}>
+                  {order.voucherUsage.voucherCount} Voucher Applied
+                </Text>
+                <View
+                  className="ml-2 w-4 h-4 rounded-full items-center justify-center"
+                  style={{ backgroundColor: '#16A34A' }}
+                >
+                  <Text className="text-white text-xs font-bold">✓</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Other Charges */}
+            {order.charges && (
+              <View className="flex-row justify-between mb-4 pb-4 border-b border-gray-200">
+                <Text className="text-sm text-gray-900">Other Charges</Text>
+                <Text style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: '600', fontSize: 14 }}>
+                  ₹{(
+                    (order.charges.deliveryFee || 0) +
+                    (order.charges.serviceFee || 0) +
+                    (order.charges.packagingFee || 0) +
+                    (order.charges.taxAmount || 0)
+                  ).toFixed(2)}
+                </Text>
+              </View>
+            )}
+
+            {/* Total Amount */}
+            <View className="flex-row justify-between">
+              <Text className="text-lg font-bold text-gray-900">Total Amount:</Text>
+              <Text className="text-lg font-bold" style={{ color: '#FB923C' }}>
+                ₹{order.amountPaid.toFixed(2)}
+              </Text>
             </View>
-            <Text style={{ textDecorationLine: 'line-through', color: 'rgba(227, 22, 22, 1)', fontWeight: '600', fontSize: 14 }}>₹100.00</Text>
           </View>
-
-          {/* Voucher Applied */}
-          <View className="flex-row items-center mb-3">
-            <Text className="text-xs font-semibold" style={{ color: '#16A34A' }}>
-              1 Voucher Applied
-            </Text>
-            <View className="ml-2 w-4 h-4 rounded-full items-center justify-center" style={{ backgroundColor: '#16A34A' }}>
-              <Text className="text-white text-xs font-bold">✓</Text>
-            </View>
-          </View>
-
-          {/* Roti */}
-          <View className="flex-row justify-between mb-3">
-            <View className="flex-row items-center flex-1">
-              <Text className="text-sm text-gray-900">Roti</Text>
-              <Text className="text-sm text-gray-500 ml-2">x2</Text>
-            </View>
-            <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: 600, }}>₹70.00</Text>
-          </View>
-
-          {/* Raita */}
-          <View className="flex-row justify-between mb-3">
-            <View className="flex-row items-center flex-1">
-              <Text className="text-sm text-rgba(108, 108, 108, 1)">Raita</Text>
-              <Text className="text-sm text-gray-500 ml-2">x1</Text>
-            </View>
-            <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: 600, }}>₹70.00</Text>
-          </View>
-
-          {/* Other Charges */}
-          <View className="flex-row justify-between mb-4 pb-4 border-b border-gray-200">
-            <Text className="text-sm text-gray-900">Other Charges</Text>
-            <Text className="text-sm" style={{ color: 'rgba(0, 0, 0, 1)', fontWeight: 600, }}>₹70.00</Text>
-          </View>
-
-          {/* Total Amount */}
-          <View className="flex-row justify-between">
-            <Text className="text-lg font-bold text-gray-900">Total Amount:</Text>
-            <Text className="text-lg font-bold" style={{ color: '#FB923C' }}>₹70.00</Text>
-          </View>
-        </View>
+        )}
 
         {/* View Receipt Button */}
         <View className="px-5 mb-3">
           <TouchableOpacity
             onPress={handleViewReceipt}
-            className=" rounded-full py-4 flex-row items-center justify-center "
+            className="rounded-full py-4 flex-row items-center justify-center"
             style={{ backgroundColor: 'rgba(255, 245, 242, 1)' }}
           >
             <Image
@@ -290,18 +665,132 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Cancel Order Button */}
-        <View className="px-5 mb-8">
-          <TouchableOpacity
-            onPress={handleCancelOrder}
-            className="rounded-full py-4 items-center"
-            style={{ backgroundColor: 'rgba(245, 107, 76, 1)' }}
+        {/* Cancel Order Button - Only show if order can be cancelled */}
+        {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (order?.canCancel !== false) && (
+          <View className="px-5 mb-4">
+            <TouchableOpacity
+              onPress={handleCancelOrder}
+              disabled={isCancelling}
+              className="rounded-full py-4 items-center"
+              style={{
+                backgroundColor: isCancelling ? '#FCA5A5' : 'rgba(245, 107, 76, 1)',
+              }}
+            >
+              {isCancelling ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-bold text-base">Cancel Order</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
-          >
-            <Text className="text-white font-bold text-base">Cancel Order</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Rate Order Button - Only show for delivered orders that haven't been rated */}
+        {tracking?.status === 'DELIVERED' && !order?.rating && (order?.canRate !== false) && (
+          <View className="px-5 mb-4">
+            <TouchableOpacity
+              onPress={handleRateOrder}
+              disabled={isRating}
+              className="rounded-full py-4 items-center"
+              style={{
+                backgroundColor: isRating ? '#FDE68A' : '#F59E0B',
+              }}
+            >
+              {isRating ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <View className="flex-row items-center">
+                  <Image
+                    source={require('../../assets/icons/star.png')}
+                    style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
+                    resizeMode="contain"
+                  />
+                  <Text className="text-white font-bold text-base">Rate Your Order</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Already Rated Display */}
+        {tracking?.status === 'DELIVERED' && order?.rating && (
+          <View className="px-5 mb-4">
+            <View className="bg-green-50 rounded-xl p-4 flex-row items-center">
+              <View className="flex-row items-center mr-3">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Image
+                    key={star}
+                    source={require('../../assets/icons/star.png')}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      tintColor: star <= order.rating!.stars ? '#F59E0B' : '#D1D5DB',
+                      marginRight: 2,
+                    }}
+                    resizeMode="contain"
+                  />
+                ))}
+              </View>
+              <Text className="text-green-700 font-semibold">Thanks for your rating!</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Order Timeline */}
+        {tracking?.timeline && tracking.timeline.length > 0 && (
+          <View className="bg-white px-5 py-5 mb-8">
+            <Text className="text-lg font-bold text-gray-900 mb-4">Order Timeline</Text>
+            {tracking.timeline.map((event, index) => (
+              <View key={index} className="flex-row mb-3">
+                <View className="items-center mr-3">
+                  <View
+                    className="w-3 h-3 rounded-full"
+                    style={{
+                      backgroundColor: index === 0 ? '#F56B4C' : '#D1D5DB',
+                    }}
+                  />
+                  {index < tracking.timeline.length - 1 && (
+                    <View
+                      style={{
+                        width: 2,
+                        height: 30,
+                        backgroundColor: '#D1D5DB',
+                      }}
+                    />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {event.message || event.status}
+                  </Text>
+                  <Text className="text-xs text-gray-500">{formatTime(event.timestamp)}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        visible={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancel}
+        orderNumber={order?.orderNumber}
+        isLoading={isCancelling}
+        voucherCount={order?.voucherUsage?.voucherCount ?? 0}
+        amountPaid={order?.amountPaid ?? 0}
+        mealWindow={order?.mealWindow}
+      />
+
+      {/* Rate Order Modal */}
+      <RateOrderModal
+        visible={showRateModal}
+        onClose={() => setShowRateModal(false)}
+        onSubmit={handleConfirmRating}
+        orderNumber={order?.orderNumber}
+        isLoading={isRating}
+      />
     </SafeAreaView>
   );
 };

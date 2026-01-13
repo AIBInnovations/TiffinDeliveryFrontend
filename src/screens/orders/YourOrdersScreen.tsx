@@ -1,5 +1,5 @@
 // src/screens/orders/YourOrdersScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,118 +7,534 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { useAddress } from '../../context/AddressContext';
+import apiService, { Order, OrderStatus } from '../../services/api.service';
+import CancelOrderModal from '../../components/CancelOrderModal';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  name: string;
-  price: number;
-  quantity: string;
-  image: any;
-  estimatedTime: string;
-  status: string;
-  date?: string;
-  rating?: number;
-}
+// Current order statuses (orders still in progress)
+const CURRENT_STATUSES: OrderStatus[] = [
+  'PLACED',
+  'ACCEPTED',
+  'PREPARING',
+  'READY',
+  'PICKED_UP',
+  'OUT_FOR_DELIVERY',
+];
+
+// History order statuses (completed or cancelled)
+const HISTORY_STATUSES: OrderStatus[] = ['DELIVERED', 'CANCELLED', 'REJECTED'];
+
+// Map order status to user-friendly message
+const getStatusMessage = (status: OrderStatus): string => {
+  switch (status) {
+    case 'PLACED':
+      return 'Order placed';
+    case 'ACCEPTED':
+      return 'Order accepted';
+    case 'PREPARING':
+      return 'Meal is being prepared';
+    case 'READY':
+      return 'Ready for pickup';
+    case 'PICKED_UP':
+      return 'Picked up by driver';
+    case 'OUT_FOR_DELIVERY':
+      return 'Out for delivery';
+    case 'DELIVERED':
+      return 'Delivered';
+    case 'CANCELLED':
+      return 'Cancelled';
+    case 'REJECTED':
+      return 'Rejected';
+    default:
+      return status;
+  }
+};
+
+// Format date
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+// Get item image based on menu type and meal window
+const getOrderImage = (order: Order) => {
+  if (order.menuType === 'MEAL_MENU') {
+    if (order.mealWindow === 'DINNER') {
+      return require('../../assets/images/homepage/dinnerThali.png');
+    }
+    return require('../../assets/images/homepage/lunchThali.png');
+  }
+  return require('../../assets/images/homepage/lunchThali.png');
+};
+
+// Get order title
+const getOrderTitle = (order: Order): string => {
+  if (order.items.length === 1) {
+    return order.items[0].name;
+  }
+  if (order.menuType === 'MEAL_MENU') {
+    return order.mealWindow === 'DINNER' ? 'Dinner Thali' : 'Lunch Thali';
+  }
+  return `${order.items.length} items`;
+};
+
+// Get quantity string
+const getQuantityString = (order: Order): string => {
+  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  if (order.menuType === 'MEAL_MENU') {
+    return `${totalItems} Thali`;
+  }
+  return `${totalItems} item${totalItems > 1 ? 's' : ''}`;
+};
 
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
+  const { usableVouchers } = useSubscription();
+  const { getMainAddress } = useAddress();
+
   const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
 
-  // Sample orders data
-  const currentOrders: Order[] = [
-    {
-      id: '1',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '15 Mins',
-      status: 'Meal is being prepared',
-    },
-    {
-      id: '2',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '15 Mins',
-      status: 'Meal is being prepared',
-    },
-  ];
+  // Current orders state
+  const [currentOrders, setCurrentOrders] = useState<Order[]>([]);
+  const [currentLoading, setCurrentLoading] = useState(true);
+  const [currentError, setCurrentError] = useState<string | null>(null);
 
-  const historyOrders: Order[] = [
-    {
-      id: '1',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '13 Nov, 2025',
-      rating: 4,
-    },
-    {
-      id: '2',
-      orderNumber: '#837',
-      name: 'Dinner Thali',
-      price: 90.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/dinnerThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '09 Nov, 2025',
-      rating: 4,
-    },
-    {
-      id: '3',
-      orderNumber: '#837',
-      name: 'Lunch Thali',
-      price: 70.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/lunchThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '10 Nov, 2025',
-      rating: 4,
-    },
-    {
-      id: '4',
-      orderNumber: '#837',
-      name: 'Dinner Thali',
-      price: 90.00,
-      quantity: '1 Thali',
-      image: require('../../assets/images/homepage/dinnerThali.png'),
-      estimatedTime: '',
-      status: '',
-      date: '09 Nov, 2025',
-      rating: 4,
-    },
-  ];
+  // History orders state
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(true);
 
-  const handleCancel = (orderId: string) => {
-    console.log('Cancel order:', orderId);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedOrderForCancel, setSelectedOrderForCancel] = useState<Order | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Get display location
+  const getDisplayLocation = () => {
+    const mainAddress = getMainAddress();
+    if (mainAddress) {
+      return `${mainAddress.locality}, ${mainAddress.city}`;
+    }
+    return 'Select Location';
+  };
+
+  // Fetch current orders
+  const fetchCurrentOrders = async () => {
+    try {
+      setCurrentError(null);
+      console.log('[YourOrdersScreen] Fetching current orders');
+      const response = await apiService.getMyOrders({ limit: 20 });
+      console.log('[YourOrdersScreen] API Response:', JSON.stringify(response, null, 2));
+
+      // Handle different response formats from backend
+      // Backend may return {success: true, data: {...}} or {message: true, data: '...', error: {...}}
+      const isSuccess = response.success === true || (response as any).message === true;
+      const responseData = response.data && typeof response.data === 'object' && 'orders' in response.data
+        ? response.data
+        : (response as any).error || response.data;
+
+      console.log('[YourOrdersScreen] isSuccess:', isSuccess, 'responseData:', responseData);
+
+      if (isSuccess && responseData && responseData.orders) {
+        // Use activeOrders from API if available, otherwise filter by status
+        let current: Order[];
+        if (responseData.activeOrders && responseData.activeOrders.length > 0) {
+          current = responseData.orders.filter((order: Order) =>
+            responseData.activeOrders!.includes(order._id)
+          );
+        } else {
+          current = responseData.orders.filter((order: Order) =>
+            CURRENT_STATUSES.includes(order.status)
+          );
+        }
+        console.log('[YourOrdersScreen] Current orders count:', current.length);
+        setCurrentOrders(current);
+      } else if (isSuccess && responseData && Array.isArray(responseData)) {
+        // Handle case where data is directly an array of orders
+        const current = responseData.filter((order: Order) =>
+          CURRENT_STATUSES.includes(order.status)
+        );
+        console.log('[YourOrdersScreen] Current orders count (array):', current.length);
+        setCurrentOrders(current);
+      } else {
+        console.log('[YourOrdersScreen] Failed to load current orders - Response:', response);
+        const errorMessage = typeof response.data === 'string' ? response.data :
+          (response.message && typeof response.message === 'string' ? response.message : 'Failed to load orders');
+        setCurrentError(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('[YourOrdersScreen] Error fetching current orders:', error.message || error);
+      console.error('[YourOrdersScreen] Full error:', JSON.stringify(error, null, 2));
+      setCurrentError(error.message || 'Failed to load orders');
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
+
+  // Fetch history orders with pagination
+  const fetchHistoryOrders = async (page: number = 1, append: boolean = false) => {
+    try {
+      if (!append) {
+        setHistoryError(null);
+      }
+      console.log('[YourOrdersScreen] Fetching history orders - Page:', page);
+      const response = await apiService.getMyOrders({ page, limit: 20 });
+      console.log('[YourOrdersScreen] History API Response:', JSON.stringify(response, null, 2));
+
+      // Handle different response formats from backend
+      const isSuccess = response.success === true || (response as any).message === true;
+      const responseData = response.data && typeof response.data === 'object' && 'orders' in response.data
+        ? response.data
+        : (response as any).error || response.data;
+
+      if (isSuccess && responseData && responseData.orders) {
+        const history = responseData.orders.filter((order: Order) =>
+          HISTORY_STATUSES.includes(order.status)
+        );
+        console.log('[YourOrdersScreen] History orders count:', history.length);
+
+        if (append) {
+          setHistoryOrders(prev => [...prev, ...history]);
+        } else {
+          setHistoryOrders(history);
+        }
+
+        // Check if there are more pages
+        const pagination = responseData.pagination;
+        if (pagination) {
+          setHistoryHasMore(pagination.page < pagination.totalPages);
+        } else {
+          setHistoryHasMore(false);
+        }
+        setHistoryPage(page);
+      } else if (isSuccess && responseData && Array.isArray(responseData)) {
+        // Handle case where data is directly an array of orders
+        const history = responseData.filter((order: Order) =>
+          HISTORY_STATUSES.includes(order.status)
+        );
+        console.log('[YourOrdersScreen] History orders count (array):', history.length);
+
+        if (append) {
+          setHistoryOrders(prev => [...prev, ...history]);
+        } else {
+          setHistoryOrders(history);
+        }
+        setHistoryHasMore(false);
+        setHistoryPage(page);
+      } else {
+        console.log('[YourOrdersScreen] Failed to load history orders - Response:', response);
+        if (!append) {
+          setHistoryError('Failed to load order history');
+        }
+      }
+    } catch (error: any) {
+      console.error('[YourOrdersScreen] Error fetching history orders:', error.message || error);
+      if (!append) {
+        setHistoryError(error.message || 'Failed to load order history');
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Fetch all orders
+  const fetchAllOrders = async () => {
+    setCurrentLoading(true);
+    setHistoryLoading(true);
+    await Promise.all([fetchCurrentOrders(), fetchHistoryOrders(1, false)]);
+  };
+
+  // Refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAllOrders();
+    setRefreshing(false);
+  }, []);
+
+  // Load more history orders
+  const loadMoreHistory = () => {
+    if (historyHasMore && !historyLoading) {
+      fetchHistoryOrders(historyPage + 1, true);
+    }
+  };
+
+  // Fetch orders on mount and when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchAllOrders();
+    }, [])
+  );
+
+  // Open cancel modal
+  const handleOpenCancelModal = (order: Order) => {
+    console.log('[YourOrdersScreen] Opening cancel modal for order:', order.orderNumber);
+    setSelectedOrderForCancel(order);
+    setShowCancelModal(true);
+  };
+
+  // Cancel order handler
+  const handleCancelOrder = async (reason: string) => {
+    if (!selectedOrderForCancel) return;
+
+    try {
+      setIsCancelling(true);
+      console.log('[YourOrdersScreen] Cancelling order:', selectedOrderForCancel._id);
+      const response = await apiService.cancelOrder(selectedOrderForCancel._id, reason);
+      console.log('[YourOrdersScreen] Cancel response:', JSON.stringify(response, null, 2));
+
+      // Handle API response format: {message: true/false, data: string, error?: object}
+      // or standard format: {success: boolean, message: string, data?: object}
+      const isSuccess = response.success === true || (response as any).message === true;
+      const responseData = (response as any).error || response.data;
+
+      if (isSuccess) {
+        console.log('[YourOrdersScreen] Order cancelled successfully');
+        setShowCancelModal(false);
+        setSelectedOrderForCancel(null);
+
+        const message = responseData?.message ||
+          (typeof response.data === 'string' ? response.data : null) ||
+          `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
+
+        Alert.alert('Order Cancelled', message, [
+          { text: 'OK', onPress: () => fetchAllOrders() },
+        ]);
+      } else {
+        // Error message is in response.data when message is false
+        const errorMessage = typeof response.data === 'string'
+          ? response.data
+          : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
+        console.log('[YourOrdersScreen] Cancel failed:', errorMessage);
+        Alert.alert('Cannot Cancel Order', errorMessage);
+      }
+    } catch (error: any) {
+      console.error('[YourOrdersScreen] Cancel error:', error.message || error);
+      Alert.alert('Error', error.message || 'Failed to cancel order');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Navigate to order detail
+  const handleViewOrderDetail = (orderId: string) => {
+    console.log('[YourOrdersScreen] Navigating to order detail:', orderId);
+    navigation.navigate('OrderDetail', { orderId });
   };
 
   const handleTrackOrder = (orderId: string) => {
-    console.log('Track order:', orderId);
-    navigation.navigate('OrderTracking');
+    console.log('[YourOrdersScreen] Navigating to order tracking:', orderId);
+    navigation.navigate('OrderTracking', { orderId });
   };
 
   const handleReorder = (orderId: string) => {
-    console.log('Re-order:', orderId);
-    // Navigate to cart or add to cart
+    console.log('[YourOrdersScreen] Reorder:', orderId);
+    Alert.alert('Coming Soon', 'Reorder functionality will be available soon!');
   };
+
+  // Render current order card
+  const renderCurrentOrderCard = (order: Order) => (
+    <TouchableOpacity
+      key={order._id}
+      onPress={() => handleViewOrderDetail(order._id)}
+      activeOpacity={0.7}
+      className="bg-white rounded-3xl p-4 mb-4"
+      style={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+      }}
+    >
+      {/* Order Header */}
+      <View className="flex-row items-center mb-3">
+        <Image
+          source={getOrderImage(order)}
+          style={{ width: 64, height: 64, borderRadius: 12 }}
+          resizeMode="cover"
+        />
+
+        <View className="flex-1 ml-3">
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className="text-lg font-bold text-gray-900">{getOrderTitle(order)}</Text>
+            <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
+          </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - #{order.orderNumber}</Text>
+            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{getQuantityString(order)}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Status Section */}
+      <View className="flex-row items-center justify-between mb-4">
+        <View>
+          <Text className="text-xs text-gray-500 mb-1">Estimated Time</Text>
+          <Text className="text-sm font-semibold text-gray-900">
+            {order.estimatedDeliveryTime
+              ? new Date(order.estimatedDeliveryTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+              : '30-45 mins'}
+          </Text>
+        </View>
+        <View className="items-end">
+          <Text className="text-xs text-gray-500 mb-1">Now</Text>
+          <Text className="text-sm font-semibold text-gray-900">{getStatusMessage(order.status)}</Text>
+        </View>
+      </View>
+
+      {/* Action Buttons */}
+      <View className="flex-row justify-center">
+        {order.canCancel !== false && (
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              handleOpenCancelModal(order);
+            }}
+            className="py-2 rounded-full items-center"
+            style={{ width: 135, marginRight: 12, borderWidth: 2, borderColor: 'rgba(245, 107, 76, 1)' }}
+          >
+            <Text className="text-base font-semibold" style={{ color: 'rgba(245, 107, 76, 1)' }}>Cancel</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            handleTrackOrder(order._id);
+          }}
+          className="py-2 rounded-full items-center"
+          style={{ width: order.canCancel !== false ? 135 : 280, backgroundColor: 'rgba(245, 107, 76, 1)' }}
+        >
+          <Text className="text-base font-semibold text-white">Track Order</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render history order card
+  const renderHistoryOrderCard = (order: Order) => (
+    <TouchableOpacity
+      key={order._id}
+      onPress={() => handleViewOrderDetail(order._id)}
+      activeOpacity={0.7}
+      className="bg-white rounded-2xl p-4 mb-3"
+      style={{
+        height: 160,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
+        justifyContent: 'space-between',
+      }}
+    >
+      {/* Order Info */}
+      <View className="flex-row">
+        <Image
+          source={getOrderImage(order)}
+          style={{ width: 56, height: 56, borderRadius: 12 }}
+          resizeMode="cover"
+        />
+
+        <View className="flex-1 ml-3">
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className="text-base font-bold text-gray-900">{getOrderTitle(order)}</Text>
+            <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
+          </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - #{order.orderNumber}</Text>
+            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{formatDate(order.placedAt)}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Divider Line */}
+      <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 16, marginBottom: 6, marginHorizontal: -16 }} />
+
+      {/* Re-order and Status */}
+      <View className="flex-row items-center justify-between">
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            handleReorder(order._id);
+          }}
+          className="rounded-full px-6 py-2 flex-row items-center"
+          style={{ backgroundColor: 'rgba(245, 107, 76, 1)' }}
+        >
+          <Image
+            source={require('../../assets/icons/reorder2.png')}
+            style={{ width: 16, height: 16, tintColor: 'white', marginRight: 6 }}
+            resizeMode="contain"
+          />
+          <Text className="text-white font-semibold text-sm">Re-order</Text>
+        </TouchableOpacity>
+
+        <View className="flex-row items-center">
+          <Text
+            className="text-sm font-medium"
+            style={{
+              color: order.status === 'DELIVERED' ? '#16A34A' : '#EF4444',
+            }}
+          >
+            {getStatusMessage(order.status)}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render loading state
+  const renderLoading = () => (
+    <View className="items-center justify-center py-20">
+      <ActivityIndicator size="large" color="#F56B4C" />
+      <Text className="text-base text-gray-500 mt-4">Loading orders...</Text>
+    </View>
+  );
+
+  // Render error state
+  const renderError = (message: string, onRetry: () => void) => (
+    <View className="items-center justify-center py-20">
+      <Text className="text-base text-gray-500 mb-4">{message}</Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        className="rounded-full px-6 py-2"
+        style={{ backgroundColor: 'rgba(245, 107, 76, 1)' }}
+      >
+        <Text className="text-white font-semibold">Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render empty state
+  const renderEmpty = (message: string) => (
+    <View className="items-center justify-center py-20">
+      <Image
+        source={require('../../assets/icons/cart3.png')}
+        style={{ width: 60, height: 60, tintColor: '#D1D5DB', marginBottom: 16 }}
+        resizeMode="contain"
+      />
+      <Text className="text-base text-gray-500">{message}</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
@@ -164,8 +580,8 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: 14, height: 14, tintColor: 'white' }}
                 resizeMode="contain"
               />
-              <Text className="text-white text-sm font-semibold ml-1">
-                Vijay Nagar, Indore
+              <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
+                {getDisplayLocation()}
               </Text>
               <Image
                 source={require('../../assets/icons/down2.png')}
@@ -193,7 +609,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               style={{ width: 24, height: 24 }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>
+              {usableVouchers}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -219,7 +637,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 activeTab === 'Current' ? 'text-gray-900' : 'text-gray-500'
               }`}
             >
-              Current
+              Current {currentOrders.length > 0 && `(${currentOrders.length})`}
             </Text>
           </TouchableOpacity>
 
@@ -249,172 +667,68 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* Orders List */}
-      <ScrollView className="flex-1 bg-white px-5 pt-4" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 bg-white px-5 pt-4"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#F56B4C']}
+            tintColor="#F56B4C"
+          />
+        }
+      >
         {activeTab === 'Current' ? (
           // Current Orders Layout
           <>
-            {currentOrders.map((order) => (
-              <View
-                key={order.id}
-                className="bg-white rounded-3xl p-4 mb-4"
-                style={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                  elevation: 3,
-                }}
-              >
-                {/* Order Header */}
-                <View className="flex-row items-center mb-3">
-                  <Image
-                    source={order.image}
-                    style={{ width: 64, height: 64, borderRadius: 12 }}
-                    resizeMode="cover"
-                  />
-
-                  <View className="flex-1 ml-3">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-lg font-bold text-gray-900">{order.name}</Text>
-                      <Text className="text-base font-bold text-gray-900">{order.orderNumber}</Text>
-                    </View>
-                    <Text className="text-sm">
-                      <Text style={{ color: 'rgba(0, 0, 0, 1)' }}>₹{order.price.toFixed(2)} </Text>
-                      <Text style={{ color: 'rgba(145, 145, 145, 1)' }}>| {order.quantity}</Text>
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Status Section */}
-                <View className="flex-row items-center justify-between mb-4">
-                  <View>
-                    <Text className="text-xs text-gray-500 mb-1">Estimated Time</Text>
-                    <Text className="text-sm font-semibold text-gray-900">{order.estimatedTime}</Text>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-xs text-gray-500 mb-1">Now</Text>
-                    <Text className="text-sm font-semibold text-gray-900">{order.status}</Text>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View className="flex-row justify-center">
-                  <TouchableOpacity
-                    onPress={() => handleCancel(order.id)}
-                    className="py-2 rounded-full items-center"
-                    style={{ width: 135, marginRight: 12, borderWidth: 2, borderColor: 'rgba(245, 107, 76, 1)' }}
-                  >
-                    <Text className="text-base font-semibold" style={{ color: 'rgba(245, 107, 76, 1)' }}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => handleTrackOrder(order.id)}
-                    className="py-2 rounded-full items-center"
-                    style={{ width: 135, backgroundColor: 'rgba(245, 107, 76, 1)' }}
-                  >
-                    <Text className="text-base font-semibold text-white">Track Order</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {currentOrders.length === 0 && (
-              <View className="items-center justify-center py-20">
-                <Text className="text-base text-gray-500">No current orders</Text>
-              </View>
+            {currentLoading ? (
+              renderLoading()
+            ) : currentError ? (
+              renderError(currentError, fetchCurrentOrders)
+            ) : currentOrders.length === 0 ? (
+              renderEmpty('No current orders')
+            ) : (
+              currentOrders.map(renderCurrentOrderCard)
             )}
           </>
         ) : (
           // History Orders Layout
           <>
-            {historyOrders.map((order) => (
-              <View
-                key={order.id}
-                className="bg-white rounded-2xl p-4 mb-3"
-                style={{
-                  height: 160,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 6,
-                  elevation: 2,
-                  justifyContent: 'space-between',
-                }}
-              >
-                {/* Order Info */}
-                <View className="flex-row">
-                  <Image
-                    source={order.image}
-                    style={{ width: 56, height: 56, borderRadius: 12 }}
-                    resizeMode="cover"
-                  />
+            {historyLoading && historyOrders.length === 0 ? (
+              renderLoading()
+            ) : historyError ? (
+              renderError(historyError, () => fetchHistoryOrders(1, false))
+            ) : historyOrders.length === 0 ? (
+              renderEmpty('No order history')
+            ) : (
+              <>
+                {historyOrders.map(renderHistoryOrderCard)}
 
-                  <View className="flex-1 ml-3">
-                    <View className="flex-row items-center justify-between mb-1">
-                      <Text className="text-base font-bold text-gray-900">{order.name}</Text>
-                      <Text className="text-base font-bold text-gray-900">₹{order.price.toFixed(2)}</Text>
-                    </View>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - {order.orderNumber}</Text>
-                      <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{order.date}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Divider Line */}
-                <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 16, marginBottom: 6, marginHorizontal: -16 }} />
-
-                {/* Re-order and Rating */}
-                <View className="flex-row items-center justify-between">
+                {/* Load More Button */}
+                {historyHasMore && (
                   <TouchableOpacity
-                    onPress={() => handleReorder(order.id)}
-                    className="rounded-full px-6 py-2 flex-row items-center"
-                    style={{ backgroundColor: 'rgba(245, 107, 76, 1)' }}
+                    onPress={loadMoreHistory}
+                    className="items-center py-4 mb-6 flex-row justify-center"
+                    disabled={historyLoading}
                   >
-                    <Image
-                      source={require('../../assets/icons/reorder2.png')}
-                      style={{ width: 16, height: 16, tintColor: 'white', marginRight: 6 }}
-                      resizeMode="contain"
-                    />
-                    <Text className="text-white font-semibold text-sm">Re-order</Text>
+                    {historyLoading ? (
+                      <ActivityIndicator size="small" color="#F56B4C" />
+                    ) : (
+                      <>
+                        <Image
+                          source={require('../../assets/icons/down2.png')}
+                          style={{ width: 16, height: 16, tintColor: 'rgba(245, 107, 76, 1)', marginRight: 6 }}
+                          resizeMode="contain"
+                        />
+                        <Text className="font-semibold text-base" style={{ color: 'rgba(245, 107, 76, 1)' }}>
+                          Load More Orders
+                        </Text>
+                      </>
+                    )}
                   </TouchableOpacity>
-
-                  <View className="flex-row items-center">
-                    <Text className="text-sm font-medium text-gray-900 mr-2">Rate:</Text>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Image
-                        key={star}
-                        source={require('../../assets/icons/star.png')}
-                        style={{
-                          width: 16,
-                          height: 16,
-                          tintColor: star <= (order.rating || 0) ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
-                          marginHorizontal: 4,
-                        }}
-                        resizeMode="contain"
-                      />
-                    ))}
-                  </View>
-                </View>
-              </View>
-            ))}
-
-            {historyOrders.length === 0 && (
-              <View className="items-center justify-center py-20">
-                <Text className="text-base text-gray-500">No order history</Text>
-              </View>
-            )}
-
-            {/* View All Orders Button */}
-            {historyOrders.length > 0 && (
-              <TouchableOpacity className="items-center py-4 mb-6 flex-row justify-center">
-                <Image
-                  source={require('../../assets/icons/down2.png')}
-                  style={{ width: 16, height: 16, tintColor: 'rgba(245, 107, 76, 1)', marginRight: 6 }}
-                  resizeMode="contain"
-                />
-                <Text className="font-semibold text-base" style={{ color: 'rgba(245, 107, 76, 1)' }}>View All Orders</Text>
-              </TouchableOpacity>
+                )}
+              </>
             )}
           </>
         )}
@@ -424,13 +738,13 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       </ScrollView>
 
       {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View
         style={{
           position: 'absolute',
-          bottom: 20,
+          bottom: 10,
           left: 20,
           right: 20,
           backgroundColor: 'white',
@@ -510,9 +824,12 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Meals Icon */}
+        {/* On-Demand Icon */}
         <TouchableOpacity
-          onPress={() => setNavActiveTab('meals')}
+          onPress={() => {
+            setNavActiveTab('meals');
+            navigation.navigate('OnDemand');
+          }}
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: navActiveTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
@@ -534,7 +851,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           />
           {navActiveTab === 'meals' && (
             <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Meals
+              On-Demand
             </Text>
           )}
         </TouchableOpacity>
@@ -571,6 +888,21 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        visible={showCancelModal}
+        onClose={() => {
+          setShowCancelModal(false);
+          setSelectedOrderForCancel(null);
+        }}
+        onConfirm={handleCancelOrder}
+        orderNumber={selectedOrderForCancel?.orderNumber}
+        isLoading={isCancelling}
+        voucherCount={selectedOrderForCancel?.voucherUsage?.voucherCount ?? 0}
+        amountPaid={selectedOrderForCancel?.amountPaid ?? 0}
+        mealWindow={selectedOrderForCancel?.mealWindow}
+      />
     </SafeAreaView>
   );
 };

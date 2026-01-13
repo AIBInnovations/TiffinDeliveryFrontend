@@ -1,5 +1,5 @@
 // src/screens/home/HomeScreen.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,18 @@ import {
   StatusBar,
   ScrollView,
   ImageSourcePropType,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
+import { useAddress } from '../../context/AddressContext';
+import { useSubscription } from '../../context/SubscriptionContext';
+import apiService, { KitchenInfo, MenuItem, AddonItem } from '../../services/api.service';
+import MealWindowModal from '../../components/MealWindowModal';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -30,51 +36,90 @@ interface AddOn {
   count: number;
 }
 
+interface MenuData {
+  lunch?: MenuItem;
+  dinner?: MenuItem;
+  onDemandMenu: MenuItem[];
+}
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { addToCart } = useCart();
+  const {
+    replaceCart,
+    setKitchenId,
+    setMenuType,
+    setMealWindow,
+    setDeliveryAddressId,
+  } = useCart();
+  const { getMainAddress, selectedAddressId, addresses } = useAddress();
+  const { usableVouchers } = useSubscription();
   const [selectedMeal, setSelectedMeal] = useState<MealType>('lunch');
   const [showCartModal, setShowCartModal] = useState(false);
   const [mealQuantity, setMealQuantity] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('home');
-  const [addOns, setAddOns] = useState<AddOn[]>([
-    {
-      id: '1',
-      name: 'Roti',
-      image: require('../../assets/images/homepage/roti.png'),
-      quantity: '1 piece',
-      price: 10,
-      selected: false,
-      count: 1,
-    },
-    {
-      id: '2',
-      name: 'Dal',
-      image: require('../../assets/images/homepage/dal.png'),
-      quantity: '100ml',
-      price: 40,
-      selected: false,
-      count: 1,
-    },
-    {
-      id: '3',
-      name: 'Papad',
-      image: require('../../assets/images/homepage/papad.png'),
-      quantity: '1 piece',
-      price: 15,
-      selected: false,
-      count: 1,
-    },
-    {
-      id: '4',
-      name: 'Raita',
-      image: require('../../assets/images/homepage/raita.png'),
-      quantity: '100ml',
-      price: 25,
-      selected: false,
-      count: 2,
-    },
-  ]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Menu state
+  const [menuData, setMenuData] = useState<MenuData | null>(null);
+  const [currentKitchen, setCurrentKitchen] = useState<KitchenInfo | null>(null);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(true);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [requiresAddress, setRequiresAddress] = useState(false);
+
+  // Dynamic add-ons from API
+  const [addOns, setAddOns] = useState<AddOn[]>([]);
+
+  // Meal window modal state
+  const [showMealWindowModal, setShowMealWindowModal] = useState(false);
+  const [hasCheckedMealWindow, setHasCheckedMealWindow] = useState(false);
+
+  // Note: We no longer use fallback addons with fake IDs as they cause API validation errors
+  // Addons must come from the API with valid MongoDB ObjectIds
+  // If no addons are returned from API, we show an empty list
+
+  // Meal window time constants (in 24-hour format)
+  // Lunch: Orders accepted from 12:00 AM until 11:00 AM
+  // Dinner: Orders accepted from 11:00 AM until 9:00 PM (21:00)
+  // After 9:00 PM: No ordering window, next is lunch at 6:00 AM
+  const LUNCH_CUTOFF_HOUR = 11; // 11:00 AM
+  const DINNER_CUTOFF_HOUR = 21; // 9:00 PM
+  const LUNCH_START_HOUR = 6; // 6:00 AM (when lunch ordering typically starts next day)
+
+  // Determine the active meal based on current time
+  const getMealWindowInfo = useCallback(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    // Before 11 AM: Lunch window is active
+    if (currentHour < LUNCH_CUTOFF_HOUR) {
+      return {
+        activeMeal: 'lunch' as MealType,
+        isWindowOpen: true,
+        nextMealWindow: 'lunch' as MealType,
+        nextMealWindowTime: '6:00 AM',
+      };
+    }
+
+    // Between 11 AM and 9 PM: Dinner window is active
+    if (currentHour >= LUNCH_CUTOFF_HOUR && currentHour < DINNER_CUTOFF_HOUR) {
+      return {
+        activeMeal: 'dinner' as MealType,
+        isWindowOpen: true,
+        nextMealWindow: 'dinner' as MealType,
+        nextMealWindowTime: '11:00 AM',
+      };
+    }
+
+    // After 9 PM: No window open, next is lunch tomorrow
+    return {
+      activeMeal: 'lunch' as MealType,
+      isWindowOpen: false,
+      nextMealWindow: 'lunch' as MealType,
+      nextMealWindowTime: '6:00 AM tomorrow',
+    };
+  }, []);
+
+  const mealWindowInfo = useMemo(() => getMealWindowInfo(), [getMealWindowInfo]);
 
   // Reset activeTab to 'home' when screen comes into focus
   useFocusEffect(
@@ -83,47 +128,324 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }, [])
   );
 
+  // Initialize meal tab based on current time and show modal if outside window
+  useEffect(() => {
+    if (!hasCheckedMealWindow) {
+      console.log('[HomeScreen] Checking meal window - Current hour:', new Date().getHours());
+      console.log('[HomeScreen] Meal window info:', mealWindowInfo);
+
+      // Set the initial meal based on current time
+      setSelectedMeal(mealWindowInfo.activeMeal);
+
+      // If outside meal window, show the modal
+      if (!mealWindowInfo.isWindowOpen) {
+        console.log('[HomeScreen] Outside meal window, showing modal');
+        setShowMealWindowModal(true);
+      }
+
+      setHasCheckedMealWindow(true);
+    }
+  }, [hasCheckedMealWindow, mealWindowInfo]);
+
+  // Handle modal close - switch to the next meal window tab
+  const handleMealWindowModalClose = () => {
+    setShowMealWindowModal(false);
+    setSelectedMeal(mealWindowInfo.nextMealWindow);
+  };
+
+  // Fetch menu using new flow: address → kitchens → menu
+  const fetchMenu = async () => {
+    setIsLoadingMenu(true);
+    setMenuError(null);
+    setRequiresAddress(false);
+
+    try {
+      const mainAddress = getMainAddress();
+      const addressId = selectedAddressId || mainAddress?.id;
+
+      // If no address, user needs to add one first
+      if (!addressId) {
+        setRequiresAddress(true);
+        setIsLoadingMenu(false);
+        return;
+      }
+
+      // Step 1: Get kitchens for the address
+      const kitchensResponse = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
+
+      if (!kitchensResponse.data?.kitchens?.length) {
+        setMenuError('No kitchens available for your location');
+        setIsLoadingMenu(false);
+        return;
+      }
+
+      // Pick the best kitchen (prefer TIFFSY type if available)
+      const kitchens = kitchensResponse.data.kitchens;
+      console.log('[HomeScreen] Available kitchens:', kitchens.map(k => ({ name: k.name, type: k.type, _id: k._id })));
+
+      // Prefer TIFFSY type kitchen first, then any kitchen
+      // Note: isAcceptingOrders may not be returned by API, so we don't require it
+      const tifsyKitchen = kitchens.find(k => k.type === 'TIFFSY');
+      const selectedKitchen = tifsyKitchen || kitchens[0];
+      console.log('[HomeScreen] Selected kitchen:', selectedKitchen?.name, selectedKitchen?.type);
+
+      setCurrentKitchen(selectedKitchen);
+      // Set kitchen in cart context
+      setKitchenId(selectedKitchen._id);
+      // Set delivery address in cart context
+      setDeliveryAddressId(addressId);
+
+      // Step 2: Get menu for the kitchen
+      const menuResponse = await apiService.getKitchenMenu(selectedKitchen._id, 'MEAL_MENU');
+
+      if (menuResponse.data) {
+        const { lunch, dinner } = menuResponse.data.mealMenu;
+        console.log('[HomeScreen] Menu received - lunch:', lunch?._id || 'null', 'dinner:', dinner?._id || 'null');
+
+        // Warn if menu items are null (kitchen may not have menu configured)
+        if (!lunch && !dinner) {
+          console.warn('[HomeScreen] Kitchen has no menu items configured!');
+        }
+
+        setMenuData({
+          lunch: lunch,
+          dinner: dinner,
+          onDemandMenu: menuResponse.data.onDemandMenu || [],
+        });
+
+        // Set addons from the current meal
+        const currentMealItem = selectedMeal === 'lunch' ? lunch : dinner;
+
+        if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
+          console.log('[HomeScreen] Addons found:', currentMealItem.addonIds.length);
+          const apiAddons: AddOn[] = currentMealItem.addonIds.map((addon: AddonItem) => ({
+            id: addon._id,
+            name: addon.name,
+            image: require('../../assets/images/homepage/roti.png'), // Default image
+            quantity: addon.description || '1 serving',
+            price: addon.price,
+            selected: false,
+            count: 1,
+          }));
+          setAddOns(apiAddons);
+        } else {
+          console.log('[HomeScreen] No addons available for this meal');
+          setAddOns([]);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error fetching menu:', error);
+      setMenuError(error.message || 'Failed to load menu');
+      setAddOns([]);
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  };
+
+  // Fetch menu on mount and when address changes
+  useEffect(() => {
+    console.log('[HomeScreen] useEffect triggered - selectedAddressId:', selectedAddressId, 'addresses.length:', addresses.length);
+    fetchMenu();
+  }, [selectedAddressId, addresses.length]);
+
+  // Also refetch menu when screen comes into focus (e.g., returning from AddressScreen)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[HomeScreen] useFocusEffect triggered - refetching menu');
+      fetchMenu();
+    }, [selectedAddressId])
+  );
+
+  // Update addons when meal type changes
+  useEffect(() => {
+    if (menuData) {
+      const currentMealItem = selectedMeal === 'lunch' ? menuData.lunch : menuData.dinner;
+      if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
+        const apiAddons: AddOn[] = currentMealItem.addonIds.map((addon: AddonItem) => ({
+          id: addon._id,
+          name: addon.name,
+          image: require('../../assets/images/homepage/roti.png'),
+          quantity: addon.description || '1 serving',
+          price: addon.price,
+          selected: false,
+          count: 1,
+        }));
+        setAddOns(apiAddons);
+      } else {
+        setAddOns([]);
+      }
+    }
+  }, [selectedMeal, menuData]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMenu();
+    setRefreshing(false);
+  };
+
+  // Get display location from main address
+  const getDisplayLocation = () => {
+    const mainAddress = getMainAddress();
+    if (mainAddress) {
+      return `${mainAddress.locality}, ${mainAddress.city}`;
+    }
+    return 'Select Location';
+  };
+
+  // Get current meal item from menu
+  const getCurrentMealItem = (): MenuItem | undefined => {
+    if (!menuData) return undefined;
+    return selectedMeal === 'lunch' ? menuData.lunch : menuData.dinner;
+  };
+
+  // Get meal price
+  const getMealPrice = (): number => {
+    const mealItem = getCurrentMealItem();
+    return mealItem?.discountedPrice || mealItem?.price || 119;
+  };
+
+  // Helper to check if ID is a valid MongoDB ObjectId (24-character hex string)
+  const isValidObjectId = (id: string): boolean => {
+    return /^[a-fA-F0-9]{24}$/.test(id);
+  };
+
+  // Helper to update cart with current meal and addons
+  const updateCartWithAddons = (updatedAddOns: AddOn[]) => {
+    const mealItem = getCurrentMealItem();
+    const mealPrice = getMealPrice();
+    const mealName = mealItem?.name || `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`;
+    const mealWindowValue = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
+
+    // Check if we have a valid meal item ID from the API
+    const mealItemId = mealItem?._id;
+    if (!mealItemId || !isValidObjectId(mealItemId)) {
+      console.warn('[HomeScreen] Invalid or missing meal item ID:', mealItemId);
+      // Still allow cart to be created but warn about potential issues
+    }
+
+    // Set cart context for order creation
+    setMenuType('MEAL_MENU');
+    setMealWindow(mealWindowValue);
+
+    // Build addons array - only include addons with valid MongoDB ObjectIds
+    const selectedAddons = updatedAddOns
+      .filter(item => item.selected && isValidObjectId(item.id))
+      .map(item => ({
+        addonId: item.id,
+        name: item.name,
+        quantity: item.count,
+        unitPrice: item.price,
+      }));
+
+    // Log if any selected addons were excluded due to invalid IDs
+    const invalidAddons = updatedAddOns.filter(item => item.selected && !isValidObjectId(item.id));
+    if (invalidAddons.length > 0) {
+      console.warn('[HomeScreen] Excluded addons with invalid IDs:', invalidAddons.map(a => ({ id: a.id, name: a.name })));
+    }
+
+    const cartItem = {
+      id: mealItemId || `meal-${selectedMeal}`, // Use actual _id from API
+      name: mealName,
+      image: selectedMeal === 'lunch'
+        ? require('../../assets/images/homepage/lunch2.png')
+        : require('../../assets/images/homepage/dinneritem.png'),
+      subtitle: '1 Thali',
+      price: mealPrice,
+      quantity: mealQuantity,
+      hasVoucher: mealItem?.canUseVoucher ?? true,
+      addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+    };
+
+    console.log('[HomeScreen] updateCartWithAddons - Cart item:', JSON.stringify({
+      id: cartItem.id,
+      name: cartItem.name,
+      addons: cartItem.addons,
+    }));
+
+    replaceCart(cartItem);
+  };
+
   const toggleAddOn = (id: string) => {
-    setAddOns(addOns.map(item =>
+    // Calculate the new addons state
+    const updatedAddOns = addOns.map(item =>
       item.id === id ? { ...item, selected: !item.selected } : item
-    ));
+    );
+
+    // Update local state
+    setAddOns(updatedAddOns);
+
+    // Immediately update cart with the new addons
+    updateCartWithAddons(updatedAddOns);
+
+    // Show cart modal when an addon is selected
+    const toggledItem = updatedAddOns.find(item => item.id === id);
+    if (toggledItem?.selected) {
+      setShowCartModal(true);
+    }
   };
 
   const updateQuantity = (id: string, increment: boolean) => {
-    setAddOns(addOns.map(item => {
+    const updatedAddOns = addOns.map(item => {
       if (item.id === id) {
         const newCount = increment ? item.count + 1 : Math.max(1, item.count - 1);
         return { ...item, count: newCount };
       }
       return item;
-    }));
+    });
+
+    // Update local state
+    setAddOns(updatedAddOns);
+
+    // Immediately update cart with the new quantity
+    updateCartWithAddons(updatedAddOns);
   };
 
   const handleAddToCart = () => {
-    // Add the meal to cart
-    addToCart({
-      id: `meal-${selectedMeal}`,
-      name: `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`,
+    const mealItem = getCurrentMealItem();
+    const mealPrice = getMealPrice();
+    const mealName = mealItem?.name || `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`;
+    const mealWindow = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
+
+    // Set cart context for order creation
+    setMenuType('MEAL_MENU');
+    setMealWindow(mealWindow);
+
+    // Build addons array for the meal item
+    const selectedAddons = addOns
+      .filter(item => item.selected)
+      .map(item => ({
+        addonId: item.id,
+        name: item.name,
+        quantity: item.count,
+        unitPrice: item.price,
+      }));
+
+    // Debug logging
+    console.log('[HomeScreen] handleAddToCart called');
+    console.log('[HomeScreen] All addOns state:', JSON.stringify(addOns.map(a => ({ name: a.name, selected: a.selected, count: a.count }))));
+    console.log('[HomeScreen] Selected addons:', JSON.stringify(selectedAddons));
+
+    const cartItem = {
+      id: mealItem?._id || `meal-${selectedMeal}`,
+      name: mealName,
       image: selectedMeal === 'lunch'
         ? require('../../assets/images/homepage/lunch2.png')
         : require('../../assets/images/homepage/dinneritem.png'),
       subtitle: '1 Thali',
-      price: 119,
+      price: mealPrice,
       quantity: mealQuantity,
-      hasVoucher: true,
-    });
+      hasVoucher: mealItem?.canUseVoucher ?? true,
+      addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+    };
 
-    // Add selected add-ons to cart
-    addOns.filter(item => item.selected).forEach(item => {
-      addToCart({
-        id: `addon-${item.id}`,
-        name: item.name,
-        image: item.image,
-        subtitle: `${item.count} × ${item.quantity}`,
-        price: item.price * item.count,
-        quantity: item.count,
-      });
-    });
+    console.log('[HomeScreen] Cart item to add:', JSON.stringify({
+      id: cartItem.id,
+      name: cartItem.name,
+      addons: cartItem.addons,
+    }));
+
+    // Replace cart with new meal (atomic operation to avoid race conditions with addons)
+    replaceCart(cartItem);
 
     // Show cart modal
     setShowCartModal(true);
@@ -152,10 +474,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const filteredAddOns = getFilteredAddOns();
 
+  // Get meal name
+  const getMealName = (): string => {
+    const mealItem = getCurrentMealItem();
+    return mealItem?.name || 'Special Thali';
+  };
+
+  // Get meal description
+  const getMealDescription = (): string => {
+    const mealItem = getCurrentMealItem();
+    return mealItem?.description || 'Lorem ipsum dolor sit amet consectetur. Adipiscing ultricies dui morbi varius ac id. Lorem ipsum dolor sit amet consectetur.';
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 bg-white"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F56B4C']} />
+        }
+      >
         {/* Header */}
         <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
@@ -192,8 +532,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   style={{ width: 14, height: 14, tintColor: 'white' }}
                   resizeMode="contain"
                 />
-                <Text className="text-white text-sm font-semibold ml-1">
-                  Vijay Nagar, Indore
+                <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
+                  {getDisplayLocation()}
                 </Text>
                 <Image
                   source={require('../../assets/icons/down2.png')}
@@ -221,7 +561,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: 24, height: 24 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>
+                {usableVouchers}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -356,12 +698,53 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             elevation: 4,
           }}
         >
+          {/* Loading State */}
+          {isLoadingMenu && (
+            <View className="items-center justify-center py-8">
+              <ActivityIndicator size="large" color="#F56B4C" />
+              <Text className="text-gray-500 mt-3">Loading menu...</Text>
+            </View>
+          )}
+
+          {/* Error State */}
+          {menuError && !isLoadingMenu && (
+            <View className="items-center justify-center py-8 px-4">
+              <Text className="text-red-500 text-lg mb-2">Oops!</Text>
+              <Text className="text-gray-600 text-center mb-4">{menuError}</Text>
+              <TouchableOpacity
+                onPress={fetchMenu}
+                className="bg-orange-400 px-6 py-3 rounded-full"
+              >
+                <Text className="text-white font-semibold">Try Again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Requires Address State */}
+          {requiresAddress && !isLoadingMenu && (
+            <View className="items-center justify-center py-8 px-4">
+              <Text className="text-6xl mb-4">📍</Text>
+              <Text className="text-xl font-bold text-gray-900 mb-2">Add Your Address</Text>
+              <Text className="text-gray-600 text-center mb-4">
+                Please add a delivery address to see the menu
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Address')}
+                className="bg-orange-400 px-6 py-3 rounded-full"
+              >
+                <Text className="text-white font-semibold">Add Address</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Special Thali and Add to Cart */}
+          {!isLoadingMenu && !menuError && !requiresAddress && (
+          <>
           <View className="flex-row items-center justify-between mb-6">
             <View className="flex-1">
-              <Text className="text-2xl font-bold text-gray-900">Special Thali</Text>
+              <Text className="text-2xl font-bold text-gray-900">{getMealName()}</Text>
               <Text className="text-base text-gray-600 mt-1">
-                From: <Text className="font-semibold text-gray-900">₹119.00</Text>
+                From: <Text className="font-semibold text-gray-900">₹{getMealPrice().toFixed(2)}</Text>
               </Text>
             </View>
             {!showCartModal ? (
@@ -453,9 +836,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View className="mb-6">
             <Text className="text-xl font-bold text-gray-900 mb-3">Details</Text>
             <Text className="text-gray-600 leading-6">
-              Lorem ipsum dolor sit amet consectetur. Adipiscing ultricies dui morbi
-              varius ac id. Lorem ipsum dolor sit amet consectetur.
+              {getMealDescription()}
             </Text>
+            {getCurrentMealItem()?.includes && getCurrentMealItem()!.includes!.length > 0 && (
+              <View className="mt-3">
+                <Text className="text-sm font-semibold text-gray-700 mb-2">Includes:</Text>
+                <View className="flex-row flex-wrap">
+                  {getCurrentMealItem()!.includes!.map((item, index) => (
+                    <View key={index} className="bg-orange-50 px-3 py-1 rounded-full mr-2 mb-2">
+                      <Text className="text-orange-600 text-sm">{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Add-ons Section */}
@@ -523,9 +917,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             )}
           </View>
+          </>
+          )}
 
-          {/* Bottom Spacing for Navigation Bar */}
-          <View style={{ height: 50 }} />
+          {/* Bottom Spacing for Navigation Bar and Cart Popup */}
+          <View style={{ height: showCartModal ? 180 : 100 }} />
         </View>
       </ScrollView>
 
@@ -534,7 +930,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View
           className="absolute left-5 right-5 bg-white rounded-full px-5 py-3 flex-row items-center justify-between"
           style={{
-            top: 550,
+            bottom: 120,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.2,
@@ -553,8 +949,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               style={{ width: 48, height: 48, borderRadius: 24 }}
               resizeMode="cover"
             />
-            <View className="ml-3" style={{ marginRight: 60 }}>
-              <Text className="text-base font-bold text-gray-900">Special Thali</Text>
+            <View className="ml-3 flex-1" style={{ marginRight: 10 }}>
+              <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{getMealName()}</Text>
               <Text className="text-xs text-gray-500 mt-0.5">
                 {getSelectedAddOnsCount()} Add-ons
               </Text>
@@ -585,14 +981,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       )}
 
+      {/* Meal Window Modal - Shows when ordering window is closed */}
+      <MealWindowModal
+        visible={showMealWindowModal}
+        nextMealWindow={mealWindowInfo.nextMealWindow}
+        nextMealWindowTime={mealWindowInfo.nextMealWindowTime}
+        onClose={handleMealWindowModalClose}
+      />
+
       {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View
         style={{
           position: 'absolute',
-          bottom: 20,
+          bottom: 10,
           left: 20,
           right: 20,
           backgroundColor: 'white',
@@ -672,9 +1076,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Meals Icon */}
+        {/* On-Demand Icon */}
         <TouchableOpacity
-          onPress={() => setActiveTab('meals')}
+          onPress={() => {
+            console.log('[HomeScreen] On-Demand button pressed, navigating to OnDemand');
+            setActiveTab('meals');
+            navigation.navigate('OnDemand');
+          }}
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
@@ -696,7 +1104,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           />
           {activeTab === 'meals' && (
             <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Meals
+              On-Demand
             </Text>
           )}
         </TouchableOpacity>

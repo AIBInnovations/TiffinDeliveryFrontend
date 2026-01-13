@@ -7,13 +7,14 @@ import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import SplashScreen from '../screens/SplashScreen';
 import UserOnboardingScreen from '../screens/auth/UserOnboardingScreen';
+import AddressSetupScreen from '../screens/auth/AddressSetupScreen';
 import { RootStackParamList } from '../types/navigation';
 import { useUser } from '../context/UserContext';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
-  const { firebaseUser, user, isLoading, isGuest } = useUser();
+  const { firebaseUser, user, isLoading, isGuest, needsAddressSetup } = useUser();
 
   // Show loading screen while checking auth state
   if (isLoading) {
@@ -40,8 +41,11 @@ const AppNavigator = () => {
         ) : !user?.isOnboarded ? (
           // User is authenticated but hasn't completed profile onboarding
           <Stack.Screen name="UserOnboarding" component={UserOnboardingScreen} />
+        ) : needsAddressSetup ? (
+          // User is onboarded but needs to set up delivery address
+          <Stack.Screen name="AddressSetup" component={AddressSetupScreen} />
         ) : (
-          // User is authenticated and onboarded - show main app
+          // User is fully authenticated, onboarded, and has address - show main app
           <Stack.Screen name="Main" component={MainNavigator} />
         )}
       </Stack.Navigator>
