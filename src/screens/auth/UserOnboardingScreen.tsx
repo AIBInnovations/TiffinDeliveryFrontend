@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useUser, DietaryPreferences } from '../../context/UserContext';
+import NotificationPermissionModal from '../../components/NotificationPermissionModal';
+import notificationService from '../../services/notification.service';
 
 // This screen is rendered directly in RootStackNavigator when user is authenticated but not onboarded
 // Navigation is handled automatically by AppNavigator based on state changes
@@ -33,7 +35,7 @@ const SPICE_LEVELS = [
 ];
 
 const UserOnboardingScreen: React.FC = () => {
-  const { completeOnboarding, logout } = useUser();
+  const { completeOnboarding, registerFcmToken, logout } = useUser();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
@@ -44,6 +46,10 @@ const UserOnboardingScreen: React.FC = () => {
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Notification permission modal state
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,9 +97,9 @@ const UserOnboardingScreen: React.FC = () => {
         dietaryPreferences,
       });
 
-      // Navigation is handled automatically by AppNavigator
-      // When completeOnboarding succeeds, user.isOnboarded becomes true
-      // AppNavigator will then render MainNavigator
+      // Profile saved successfully - now show notification permission modal
+      setIsLoading(false);
+      setShowNotificationModal(true);
     } catch (error: any) {
       console.error('Error completing onboarding:', error);
       Alert.alert(
@@ -102,7 +108,35 @@ const UserOnboardingScreen: React.FC = () => {
       );
       setIsLoading(false);
     }
-    // Don't set loading to false on success - let screen transition happen
+  };
+
+  const handleAllowNotifications = async () => {
+    setIsRequestingPermission(true);
+    try {
+      // Request notification permission
+      const granted = await notificationService.requestPermission();
+
+      if (granted) {
+        // Permission granted - register FCM token with backend
+        await registerFcmToken();
+      }
+
+      // Close modal - navigation will happen automatically via AppNavigator
+      // (needsAddressSetup was set to true by completeOnboarding)
+      setShowNotificationModal(false);
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      // Close modal anyway - don't block the flow
+      setShowNotificationModal(false);
+    } finally {
+      setIsRequestingPermission(false);
+    }
+  };
+
+  const handleSkipNotifications = () => {
+    // User chose to skip - close modal and proceed
+    // Navigation will happen automatically via AppNavigator
+    setShowNotificationModal(false);
   };
 
   const handleSkip = () => {
@@ -410,6 +444,14 @@ const UserOnboardingScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Notification Permission Modal */}
+      <NotificationPermissionModal
+        visible={showNotificationModal}
+        onAllow={handleAllowNotifications}
+        onSkip={handleSkipNotifications}
+        isLoading={isRequestingPermission}
+      />
     </KeyboardAvoidingView>
   );
 };

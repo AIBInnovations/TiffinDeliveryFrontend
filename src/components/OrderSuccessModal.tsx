@@ -16,6 +16,8 @@ interface OrderSuccessModalProps {
   onClose: () => void;
   onGoHome: () => void;
   onTrackOrder: () => void;
+  orderNumber?: string;
+  amountToPay?: number;
 }
 
 const { height } = Dimensions.get('window');
@@ -25,6 +27,8 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   onClose,
   onGoHome,
   onTrackOrder,
+  orderNumber,
+  amountToPay,
 }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -124,6 +128,46 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               >
                 Order Successful!
               </Text>
+
+              {/* Order Number */}
+              {orderNumber && (
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: '#F56B4C',
+                    textAlign: 'center',
+                    marginBottom: 8,
+                  }}
+                >
+                  Order #{orderNumber}
+                </Text>
+              )}
+
+              {/* Amount to Pay */}
+              {amountToPay !== undefined && amountToPay > 0 && (
+                <View
+                  style={{
+                    backgroundColor: '#FFF5F2',
+                    borderRadius: 12,
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    alignSelf: 'center',
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: '#F56B4C',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Amount to Pay: ₹{amountToPay.toFixed(2)}
+                  </Text>
+                </View>
+              )}
 
               {/* Description */}
               <Text

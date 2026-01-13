@@ -1,43 +1,130 @@
 // src/context/CartContext.tsx
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { OrderItem, OrderItemAddon } from '../services/api.service';
 
+// Addon item in cart
+export interface CartItemAddon {
+  addonId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+// Cart item interface
 export interface CartItem {
-  id: string;
+  id: string;                    // menuItemId
   name: string;
   image: any;
   subtitle: string;
-  price: number;
+  price: number;                 // Unit price
   quantity: number;
-  hasVoucher?: boolean;
+  hasVoucher?: boolean;          // Can use voucher for this item
+  addons?: CartItemAddon[];      // Nested addons
 }
 
+// Menu type for order
+export type MenuType = 'MEAL_MENU' | 'ON_DEMAND_MENU';
+
+// Meal window for MEAL_MENU orders
+export type MealWindow = 'LUNCH' | 'DINNER';
+
 interface CartContextType {
+  // Cart items
   cartItems: CartItem[];
   addToCart: (item: CartItem) => void;
+  replaceCart: (item: CartItem) => void;  // Atomic clear + add (avoids race condition)
   updateQuantity: (id: string, quantity: number) => void;
+  updateAddonQuantity: (itemId: string, addonIndex: number, quantity: number) => void;
+  removeAddon: (itemId: string, addonIndex: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
   getTotalItems: () => number;
+  getSubtotal: () => number;
+
+  // Order context
+  kitchenId: string | null;
+  menuType: MenuType | null;
+  mealWindow: MealWindow | null;
+  deliveryAddressId: string | null;
+  voucherCount: number;
+  couponCode: string | null;
+  specialInstructions: string;
+  deliveryNotes: string;
+
+  // Setters for order context
+  setKitchenId: (id: string | null) => void;
+  setMenuType: (type: MenuType | null) => void;
+  setMealWindow: (window: MealWindow | null) => void;
+  setDeliveryAddressId: (id: string | null) => void;
+  setVoucherCount: (count: number) => void;
+  setCouponCode: (code: string | null) => void;
+  setSpecialInstructions: (instructions: string) => void;
+  setDeliveryNotes: (notes: string) => void;
+
+  // Helper to build order items for API
+  getOrderItems: () => OrderItem[];
+
+  // Reset order context (after successful order)
+  resetOrderContext: () => void;
+
+  // Check if cart is ready for checkout
+  isReadyForCheckout: () => boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Cart items state
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  const addToCart = (item: CartItem) => {
+  // Order context state
+  const [kitchenId, setKitchenId] = useState<string | null>(null);
+  const [menuType, setMenuType] = useState<MenuType | null>(null);
+  const [mealWindow, setMealWindow] = useState<MealWindow | null>(null);
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
+  const [voucherCount, setVoucherCount] = useState<number>(0);
+  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const [specialInstructions, setSpecialInstructions] = useState<string>('');
+  const [deliveryNotes, setDeliveryNotes] = useState<string>('');
+
+  const addToCart = useCallback((item: CartItem) => {
+    console.log('[CartContext] addToCart called with item:', JSON.stringify({
+      id: item.id,
+      name: item.name,
+      addons: item.addons,
+    }));
     setCartItems(prevItems => {
+      console.log('[CartContext] addToCart - prevItems count:', prevItems.length);
       const existingItem = prevItems.find(i => i.id === item.id);
       if (existingItem) {
+        console.log('[CartContext] addToCart - Found existing item, updating with addons');
+        // Update quantity AND addons for existing item
         return prevItems.map(i =>
-          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
+          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity, addons: item.addons } : i
         );
       }
+      console.log('[CartContext] addToCart - Adding new item with addons:', item.addons?.length || 0);
       return [...prevItems, item];
     });
-  };
+  }, []);
 
-  const updateQuantity = (id: string, quantity: number) => {
+  // Replace cart with a single item (atomic clear + add to avoid race conditions)
+  const replaceCart = useCallback((item: CartItem) => {
+    console.log('[CartContext] replaceCart called with item:', JSON.stringify({
+      id: item.id,
+      name: item.name,
+      addons: item.addons,
+    }));
+    // Single atomic operation - clear and set new item
+    setCartItems([item]);
+    // Also reset voucher and coupon when replacing cart
+    setVoucherCount(0);
+    setCouponCode(null);
+    setSpecialInstructions('');
+    setDeliveryNotes('');
+  }, []);
+
+  const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity <= 0) {
       removeItem(id);
       return;
@@ -47,29 +134,174 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         item.id === id ? { ...item, quantity } : item
       )
     );
-  };
+  }, []);
 
-  const removeItem = (id: string) => {
+  const removeItem = useCallback((id: string) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== id));
-  };
+  }, []);
 
-  const clearCart = () => {
+  // Update addon quantity for a specific item
+  const updateAddonQuantity = useCallback((itemId: string, addonIndex: number, quantity: number) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId && item.addons) {
+          const updatedAddons = item.addons.map((addon, idx) =>
+            idx === addonIndex ? { ...addon, quantity: Math.max(1, quantity) } : addon
+          );
+          return { ...item, addons: updatedAddons };
+        }
+        return item;
+      })
+    );
+  }, []);
+
+  // Remove an addon from a specific item
+  const removeAddon = useCallback((itemId: string, addonIndex: number) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId && item.addons) {
+          const updatedAddons = item.addons.filter((_, idx) => idx !== addonIndex);
+          return { ...item, addons: updatedAddons.length > 0 ? updatedAddons : undefined };
+        }
+        return item;
+      })
+    );
+  }, []);
+
+  const clearCart = useCallback(() => {
     setCartItems([]);
+    // Also reset voucher and coupon when clearing cart
+    setVoucherCount(0);
+    setCouponCode(null);
+    setSpecialInstructions('');
+    setDeliveryNotes('');
+  }, []);
+
+  const getTotalItems = useCallback(() => {
+    return cartItems.reduce((total, item) => total + item.quantity, 0);
+  }, [cartItems]);
+
+  const getSubtotal = useCallback(() => {
+    return cartItems.reduce((total, item) => {
+      // Item total
+      let itemTotal = item.price * item.quantity;
+
+      // Add addon totals
+      if (item.addons && item.addons.length > 0) {
+        const addonTotal = item.addons.reduce(
+          (sum, addon) => sum + addon.unitPrice * addon.quantity,
+          0
+        );
+        itemTotal += addonTotal * item.quantity; // Addons per item quantity
+      }
+
+      return total + itemTotal;
+    }, 0);
+  }, [cartItems]);
+
+  // Helper to check if ID is a valid MongoDB ObjectId (24-character hex string)
+  const isValidObjectId = (id: string): boolean => {
+    return /^[a-fA-F0-9]{24}$/.test(id);
   };
 
-  const getTotalItems = () => {
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
-  };
+  // Build order items for API call
+  const getOrderItems = useCallback((): OrderItem[] => {
+    return cartItems.map(item => {
+      // Validate menuItemId
+      if (!isValidObjectId(item.id)) {
+        console.warn('[CartContext] Invalid menuItemId:', item.id, '- this may cause API errors');
+      }
+
+      const orderItem: OrderItem = {
+        menuItemId: item.id,
+        quantity: item.quantity,
+      };
+
+      // Add addons if present - only include addons with valid ObjectIds
+      if (item.addons && item.addons.length > 0) {
+        const validAddons = item.addons.filter(addon => {
+          const isValid = isValidObjectId(addon.addonId);
+          if (!isValid) {
+            console.warn('[CartContext] Excluding addon with invalid ID:', addon.addonId, addon.name);
+          }
+          return isValid;
+        });
+
+        if (validAddons.length > 0) {
+          orderItem.addons = validAddons.map(addon => ({
+            addonId: addon.addonId,
+            quantity: addon.quantity,
+          }));
+        }
+      }
+
+      return orderItem;
+    });
+  }, [cartItems]);
+
+  // Reset order context after successful order
+  const resetOrderContext = useCallback(() => {
+    setCartItems([]);
+    setKitchenId(null);
+    setMenuType(null);
+    setMealWindow(null);
+    // Keep delivery address selected
+    setVoucherCount(0);
+    setCouponCode(null);
+    setSpecialInstructions('');
+    setDeliveryNotes('');
+  }, []);
+
+  // Check if cart is ready for checkout
+  const isReadyForCheckout = useCallback(() => {
+    return (
+      cartItems.length > 0 &&
+      kitchenId !== null &&
+      menuType !== null &&
+      deliveryAddressId !== null &&
+      (menuType === 'ON_DEMAND_MENU' || mealWindow !== null)
+    );
+  }, [cartItems, kitchenId, menuType, mealWindow, deliveryAddressId]);
 
   return (
     <CartContext.Provider
       value={{
+        // Cart items
         cartItems,
         addToCart,
+        replaceCart,
         updateQuantity,
+        updateAddonQuantity,
+        removeAddon,
         removeItem,
         clearCart,
         getTotalItems,
+        getSubtotal,
+
+        // Order context
+        kitchenId,
+        menuType,
+        mealWindow,
+        deliveryAddressId,
+        voucherCount,
+        couponCode,
+        specialInstructions,
+        deliveryNotes,
+
+        // Setters
+        setKitchenId,
+        setMenuType,
+        setMealWindow,
+        setDeliveryAddressId,
+        setVoucherCount,
+        setCouponCode,
+        setSpecialInstructions,
+        setDeliveryNotes,
+
+        // Helpers
+        getOrderItems,
+        resetOrderContext,
+        isReadyForCheckout,
       }}
     >
       {children}

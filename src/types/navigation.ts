@@ -9,6 +9,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
   UserOnboarding: undefined;
+  AddressSetup: undefined;
   Main: undefined;
 };
 
@@ -38,13 +39,17 @@ export type MainTabParamList = {
   Profile: undefined;
   Payment: undefined;
   Account: undefined;
+  EditProfile: undefined;  // Edit user profile (name, email, dietary preferences, image)
   HelpSupport: undefined;
   About: undefined;
   OurJourney: undefined;
   YourOrders: undefined;
-  OrderTracking: undefined;
+  OrderDetail: { orderId: string };  // Requires orderId for order details
+  OrderTracking: { orderId: string };  // Requires orderId to track
   MealPlans: undefined;
   BulkOrders: undefined;
+  Vouchers: undefined;  // View all vouchers with status filters
+  OnDemand: undefined;  // On-Demand screen (Coming Soon)
 };
 
 // Root navigation props

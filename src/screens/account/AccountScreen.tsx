@@ -13,16 +13,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
-import apiService from '../../services/api.service';
+import { useSubscription } from '../../context/SubscriptionContext';
+// import apiService from '../../services/api.service'; // OFFLINE MODE: Backend disabled
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
 
+// ============================================
+// OFFLINE MODE FLAG - Set to false to enable backend
+// ============================================
+const OFFLINE_MODE = true;
+
 type Props = StackScreenProps<MainTabParamList, 'Account'>;
+
+// Menu items configuration for search filtering
+const ACCOUNT_MENU_ITEMS = [
+  { id: 'orders', label: 'My Orders', icon: require('../../assets/icons/order2.png'), route: 'YourOrders' as const, authRequired: true },
+  { id: 'addresses', label: 'Saved Addresses', icon: require('../../assets/icons/address2.png'), route: 'Address' as const, authRequired: true },
+  { id: 'mealplans', label: 'Meal Plans', icon: require('../../assets/icons/mealplan.png'), route: 'MealPlans' as const, authRequired: false },
+  { id: 'vouchers', label: 'My Vouchers', icon: require('../../assets/icons/meal.png'), route: 'Vouchers' as const, authRequired: true },
+  { id: 'bulkorders', label: 'Bulk Orders', icon: require('../../assets/icons/bulkorders.png'), route: 'BulkOrders' as const, authRequired: false },
+];
+
+const SUPPORT_MENU_ITEMS = [
+  { id: 'help', label: 'Help & Support', icon: require('../../assets/icons/help2.png'), route: 'HelpSupport' as const, authRequired: false },
+  { id: 'about', label: 'About', icon: require('../../assets/icons/about2.png'), route: 'About' as const, authRequired: false },
+];
 
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
   const [lunchAutoOrder, setLunchAutoOrder] = React.useState(false);
   const [dinnerAutoOrder, setDinnerAutoOrder] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   // Modal states
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = React.useState(false);
@@ -31,6 +52,38 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   const [modalMessage, setModalMessage] = React.useState('');
 
   const { isGuest, user, logout, exitGuestMode } = useUser();
+  const { activeSubscription, vouchers, usableVouchers } = useSubscription();
+
+  // Get nearest expiry date from usable vouchers (AVAILABLE or RESTORED)
+  const getNearestVoucherExpiry = () => {
+    const usableVouchersList = vouchers.filter(v => v.status === 'AVAILABLE' || v.status === 'RESTORED');
+    if (usableVouchersList.length === 0) return null;
+
+    // Sort by expiry date ascending and get the nearest
+    const sorted = [...usableVouchersList].sort(
+      (a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
+    );
+    return sorted[0]?.expiryDate || null;
+  };
+
+  // Format expiry date
+  const formatExpiryDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}${getDaySuffix(day)} ${month} ${year}`;
+  };
+
+  const getDaySuffix = (day: number) => {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -51,6 +104,16 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   const confirmDeleteAccount = async () => {
     setShowDeleteConfirmModal(false);
+
+    // OFFLINE MODE: Simulate successful account deletion
+    if (OFFLINE_MODE) {
+      console.log('[OFFLINE MODE] Simulating account deletion');
+      setModalMessage('Your account will be deleted in 10 days. (OFFLINE MODE)');
+      setShowSuccessModal(true);
+      return;
+    }
+
+    /* BACKEND CODE - Uncomment when backend is ready
     try {
       const response: any = await apiService.deleteAccount();
       if (response.success) {
@@ -65,6 +128,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
       setModalMessage(error.message || 'Failed to delete account. Please try again.');
       setShowErrorModal(true);
     }
+    */
   };
 
   const handleSuccessModalClose = () => {
@@ -121,7 +185,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: 24, height: 24 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>12</Text>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
             </TouchableOpacity>
           </View>
 
@@ -133,10 +197,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               resizeMode="contain"
             />
             <TextInput
-              placeholder="Search for addons to your meal..."
+              placeholder="Search menu options..."
               placeholderTextColor="#9CA3AF"
               className="flex-1 text-gray-700 text-sm ml-2"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Text style={{ color: '#9CA3AF', fontSize: 18 }}>✕</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -182,17 +253,25 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             /* Authenticated User - Profile Section */
             <View className="flex-row items-center justify-between mb-6">
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/images/myaccount/user2.png')}
-                  style={{ width: 70, height: 70, borderRadius: 35 }}
-                  resizeMode="cover"
-                />
+                {user?.profileImage ? (
+                  <Image
+                    source={{ uri: user.profileImage }}
+                    style={{ width: 70, height: 70, borderRadius: 35 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={require('../../assets/images/myaccount/user2.png')}
+                    style={{ width: 70, height: 70, borderRadius: 35 }}
+                    resizeMode="cover"
+                  />
+                )}
                 <View className="ml-8">
                   <Text className="text-lg font-bold text-gray-900">{user?.name || 'User'}</Text>
                   <Text className="text-sm text-gray-500 mt-0.5">{user?.phone || 'No phone'}</Text>
                 </View>
               </View>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
                 <Image
                   source={require('../../assets/icons/edit.png')}
                   style={{ width: 40, height: 40 }}
@@ -221,7 +300,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 />
                 <View className="ml-3">
                   <Text className="text-4xl font-bold text-gray-900">
-                    12 <Text className="text-base font-normal text-gray-700">vouchers</Text>
+                    {usableVouchers} <Text className="text-base font-normal text-gray-700">vouchers</Text>
                   </Text>
                 </View>
               </View>
@@ -236,25 +315,48 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Description Text */}
             <Text className="text-sm text-gray-600 mb-4" style={{ lineHeight: 20 }}>
-              Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.
+              {activeSubscription && activeSubscription.planName
+                ? `Active plan: ${activeSubscription.planName}`
+                : 'Purchase a plan to get vouchers for your meals.'}
             </Text>
 
-            {/* Validity Section */}
-            <View className="flex-row items-center mb-2">
-              <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
-              <Text className="text-xs font-semibold px-3" style={{ color: 'rgba(59, 59, 59, 1)' }}>Validity</Text>
-              <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
-            </View>
+            {/* Validity Section - Show if we have activeSubscription with expiry OR available vouchers */}
+            {(() => {
+              const expiryDate = activeSubscription?.expiryDate || getNearestVoucherExpiry();
+              const vouchersCount = activeSubscription?.vouchersRemaining ?? usableVouchers;
 
-            <View className="mb-2">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <View className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
-                  <Text className="text-sm text-gray-700">6 vouchers expires</Text>
-                </View>
-                <Text className="text-sm font-semibold text-gray-900">31st Nov 25</Text>
-              </View>
-            </View>
+              if (!expiryDate || vouchersCount === 0) return null;
+
+              return (
+                <>
+                  <View className="flex-row items-center mb-2">
+                    <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
+                    <Text className="text-xs font-semibold px-3" style={{ color: 'rgba(59, 59, 59, 1)' }}>Validity</Text>
+                    <View className="flex-1" style={{ height: 1, backgroundColor: 'rgba(243, 243, 243, 1)' }} />
+                  </View>
+
+                  <View className="mb-2">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center">
+                        <View className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
+                        <Text className="text-sm text-gray-700">{vouchersCount} vouchers expires</Text>
+                      </View>
+                      <Text className="text-sm font-semibold text-gray-900">{formatExpiryDate(expiryDate)}</Text>
+                    </View>
+                  </View>
+                </>
+              );
+            })()}
+
+            {/* View All Vouchers Link */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Vouchers')}
+              className="mt-2"
+            >
+              <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+                View All Vouchers →
+              </Text>
+            </TouchableOpacity>
 
             {/* Auto Order Toggles */}
             <View className="flex-row items-center justify-between">
@@ -334,130 +436,117 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Account Section */}
-        <View className="px-5 mb-3">
-          <Text className="text-xl font-bold text-gray-900 mb-3">Account</Text>
+        {(() => {
+          const filteredAccountItems = ACCOUNT_MENU_ITEMS.filter(item => {
+            // Filter by auth requirement
+            if (item.authRequired && isGuest) return false;
+            // Filter by search query
+            if (searchQuery.trim()) {
+              return item.label.toLowerCase().includes(searchQuery.toLowerCase());
+            }
+            return true;
+          });
 
-          <View className="bg-white rounded-2xl overflow-hidden">
-            {/* My Orders - Only for authenticated users */}
-            {!isGuest && (
-            <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-2"
-              onPress={() => navigation.navigate('YourOrders')}
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
-                  <Image
-                    source={require('../../assets/icons/order2.png')}
-                    style={{ width: 36, height: 36,  }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-base font-medium text-gray-900 ml-3">My Orders</Text>
-              </View>
-              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
-            </TouchableOpacity>
-            )}
+          if (filteredAccountItems.length === 0 && searchQuery.trim()) return null;
 
-            {/* Saved Addresses - Only for authenticated users */}
-            {!isGuest && (
-            <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-2"
-              onPress={() => navigation.navigate('Address')}
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
-                  <Image
-                    source={require('../../assets/icons/address2.png')}
-                    style={{ width: 36, height: 36,  }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-base font-medium text-gray-900 ml-3">Saved Addresses</Text>
+          return (
+            <View className="px-5 mb-3">
+              <Text className="text-xl font-bold text-gray-900 mb-3">Account</Text>
+              <View className="bg-white rounded-2xl overflow-hidden">
+                {filteredAccountItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    className="flex-row items-center justify-between pl-3 pr-5 py-3"
+                    onPress={() => navigation.navigate(item.route)}
+                  >
+                    <View className="flex-row items-center">
+                      <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                        <Image
+                          source={item.icon}
+                          style={{ width: 36, height: 36 }}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <Text className="text-base font-medium text-gray-900 ml-3">{item.label}</Text>
+                    </View>
+                    <Text style={{ color: '#9CA3AF', fontSize: 32 }}>›</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
-            </TouchableOpacity>
-            )}
-
-            {/* Meal Plans */}
-            <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-2"
-              onPress={() => navigation.navigate('MealPlans')}
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
-                  <Image
-                    source={require('../../assets/icons/mealplan.png')}
-                    style={{ width: 36, height: 36,  }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-base font-medium text-gray-900 ml-3">Meal Plans</Text>
-              </View>
-              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
-            </TouchableOpacity>
-
-            {/* Bulk Orders */}
-            <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-2"
-              onPress={() => navigation.navigate('BulkOrders')}
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
-                  <Image
-                    source={require('../../assets/icons/bulkorders.png')}
-                    style={{ width: 36, height: 36, }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-base font-medium text-gray-900 ml-3">Bulk Orders</Text>
-              </View>
-              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+          );
+        })()}
 
         {/* Support Section */}
-        <View className="px-5 mb-6">
-          <Text className="text-xl font-bold text-gray-900 mb-3">Support</Text>
+        {(() => {
+          const filteredSupportItems = SUPPORT_MENU_ITEMS.filter(item => {
+            // Filter by auth requirement
+            if (item.authRequired && isGuest) return false;
+            // Filter by search query
+            if (searchQuery.trim()) {
+              return item.label.toLowerCase().includes(searchQuery.toLowerCase());
+            }
+            return true;
+          });
 
-          <View className="bg-white rounded-2xl overflow-hidden">
-            {/* Help & Support */}
-            <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-2"
-              onPress={() => navigation.navigate('HelpSupport')}
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
-                  <Image
-                    source={require('../../assets/icons/help2.png')}
-                    style={{ width: 36, height: 36, }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-base font-medium text-gray-900 ml-3">Help & Support</Text>
-              </View>
-              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
-            </TouchableOpacity>
+          if (filteredSupportItems.length === 0 && searchQuery.trim()) return null;
 
-            {/* About */}
-            <TouchableOpacity
-              className="flex-row items-center justify-between px-5 py-2"
-              onPress={() => navigation.navigate('About')}
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
-                  <Image
-                    source={require('../../assets/icons/about2.png')}
-                    style={{ width: 36, height: 36, }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text className="text-base font-medium text-gray-900 ml-3">About</Text>
+          return (
+            <View className="px-5 mb-6">
+              <Text className="text-xl font-bold text-gray-900 mb-3">Support</Text>
+              <View className="bg-white rounded-2xl overflow-hidden">
+                {filteredSupportItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    className="flex-row items-center justify-between pl-3 pr-5 py-3"
+                    onPress={() => navigation.navigate(item.route)}
+                  >
+                    <View className="flex-row items-center">
+                      <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                        <Image
+                          source={item.icon}
+                          style={{ width: 36, height: 36 }}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <Text className="text-base font-medium text-gray-900 ml-3">{item.label}</Text>
+                    </View>
+                    <Text style={{ color: '#9CA3AF', fontSize: 32 }}>›</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 18 }}>›</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+          );
+        })()}
+
+        {/* No Results State */}
+        {searchQuery.trim() && (() => {
+          const hasAccountResults = ACCOUNT_MENU_ITEMS.some(item => {
+            if (item.authRequired && isGuest) return false;
+            return item.label.toLowerCase().includes(searchQuery.toLowerCase());
+          });
+          const hasSupportResults = SUPPORT_MENU_ITEMS.some(item => {
+            if (item.authRequired && isGuest) return false;
+            return item.label.toLowerCase().includes(searchQuery.toLowerCase());
+          });
+
+          if (!hasAccountResults && !hasSupportResults) {
+            return (
+              <View className="px-5 py-8 items-center">
+                <Image
+                  source={require('../../assets/icons/search2.png')}
+                  style={{ width: 48, height: 48, opacity: 0.3, marginBottom: 12 }}
+                  resizeMode="contain"
+                />
+                <Text className="text-gray-400 text-base">No results found for "{searchQuery}"</Text>
+                <TouchableOpacity onPress={() => setSearchQuery('')} className="mt-3">
+                  <Text className="text-orange-400 font-semibold">Clear Search</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+          return null;
+        })()}
 
         {/* Logout Button - Only for authenticated users */}
         {!isGuest && (
@@ -479,17 +568,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             className="bg-white rounded-full py-4 items-center"
             style={{
               borderWidth: 2,
-              borderColor: '#EF4444',
+              borderColor: '#F56B4C',
             }}
           >
-            <Text className="font-bold text-lg" style={{ color: '#EF4444' }}>Delete Account</Text>
+            <Text className="font-bold text-lg" style={{ color: '#F56B4C' }}>Delete Account</Text>
           </TouchableOpacity>
         </View>
         )}
       </ScrollView>
 
       {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, backgroundColor: 'white' }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View
@@ -583,9 +672,12 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        {/* Meals Icon */}
+        {/* On-Demand Icon */}
         <TouchableOpacity
-          onPress={() => setActiveTab('meals')}
+          onPress={() => {
+            setActiveTab('meals');
+            navigation.navigate('OnDemand');
+          }}
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
@@ -607,7 +699,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           />
           {activeTab === 'meals' && (
             <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Meals
+              On-Demand
             </Text>
           )}
         </TouchableOpacity>
