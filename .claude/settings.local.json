@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"subst T: \"\"D:\\\\AIB Innovations\\\\Tiffsy\\\\Frontend\\\\TiffinDeliveryFrontend\"\"\")",
+      "Bash(test:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(subst T: \"D:\\\\AIB Innovations\\\\Tiffsy\\\\Frontend\\\\TiffinDeliveryFrontend\")",
+      "Bash(subst)",
+      "Bash(dir:*)",
+      "Bash(cmd /c \"cd /d T:\\\\ && dir\")"
+    ]
+  }
+}

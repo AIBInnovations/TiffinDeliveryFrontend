@@ -198,11 +198,32 @@ export interface KitchenInfo {
   averageRating: number;
   totalRatings: number;
   isAcceptingOrders: boolean;
+  operatingHours?: {
+    lunch?: {
+      startTime: string;  // Format: "HH:mm"
+      endTime: string;
+    };
+    dinner?: {
+      startTime: string;
+      endTime: string;
+    };
+    onDemand?: {
+      startTime: string;
+      endTime: string;
+      isAlwaysOpen: boolean;
+    };
+  };
+  isTiffsyKitchen?: boolean;
+  badges?: string[];
 }
 
 export interface KitchensForZoneResponse {
   success: boolean;
-  data: KitchenInfo[];
+  message?: string;
+  data: {
+    tiffsyKitchens: KitchenInfo[];
+    partnerKitchens: KitchenInfo[];
+  } | KitchenInfo[]; // Support both old and new response formats
 }
 
 export interface AddonItem {
@@ -252,13 +273,16 @@ export interface KitchenMenuResponse {
 
 export interface AddressKitchensResponse {
   success: boolean;
+  message?: string;
   data: {
     address: {
       _id: string;
       label: string;
       zoneId: string;
     };
-    kitchens: KitchenInfo[];
+    tiffsyKitchens?: KitchenInfo[];
+    partnerKitchens?: KitchenInfo[];
+    kitchens?: KitchenInfo[]; // Legacy support
   };
 }
 
@@ -442,6 +466,7 @@ export interface Order {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    isMainCourse?: boolean; // True if this is a main course item (can be covered by voucher)
     addons?: {
       addonId: string;
       name: string;
@@ -458,6 +483,7 @@ export interface Order {
   paymentStatus: PaymentStatus;
   paymentMethod: string;
   status: OrderStatus;
+  statusDisplay?: string; // Human-readable status text (e.g., "Meal is being prepared")
   placedAt: string;
   deliveryAddress: {
     addressLine1: string;
@@ -494,12 +520,12 @@ export interface CreateOrderResponse {
 }
 
 export interface GetOrdersParams {
-  status?: OrderStatus;
+  status?: OrderStatus; // Single status value - backend doesn't support comma-separated values
   menuType?: 'MEAL_MENU' | 'ON_DEMAND_MENU';
-  dateFrom?: string;
-  dateTo?: string;
-  page?: number;
-  limit?: number;
+  dateFrom?: string; // ISO 8601 date
+  dateTo?: string; // ISO 8601 date
+  page?: number; // Default: 1
+  limit?: number; // Default: 20, max: 100
 }
 
 export interface GetOrdersResponse {
@@ -768,6 +794,35 @@ export interface CheckVoucherEligibilityResponse {
     reason?: string;
   };
 }
+
+/**
+ * Helper function to extract kitchens from API response
+ * Handles both old (single array) and new (separate arrays) response formats
+ */
+export const extractKitchensFromResponse = (
+  response: AddressKitchensResponse | KitchensForZoneResponse
+): KitchenInfo[] => {
+  const data = response.data;
+
+  // Handle new format with separate arrays
+  if ('tiffsyKitchens' in data || 'partnerKitchens' in data) {
+    const tiffsyKitchens = (data as any).tiffsyKitchens || [];
+    const partnerKitchens = (data as any).partnerKitchens || [];
+    return [...tiffsyKitchens, ...partnerKitchens];
+  }
+
+  // Handle old format with single array
+  if ('kitchens' in data) {
+    return (data as any).kitchens || [];
+  }
+
+  // Handle direct array format
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return [];
+};
 
 class ApiService {
   private api: AxiosInstance;

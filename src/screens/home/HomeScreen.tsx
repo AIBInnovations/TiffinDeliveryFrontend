@@ -19,8 +19,9 @@ import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import apiService, { KitchenInfo, MenuItem, AddonItem } from '../../services/api.service';
+import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromResponse } from '../../services/api.service';
 import MealWindowModal from '../../components/MealWindowModal';
+import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -77,49 +78,50 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Addons must come from the API with valid MongoDB ObjectIds
   // If no addons are returned from API, we show an empty list
 
-  // Meal window time constants (in 24-hour format)
-  // Lunch: Orders accepted from 12:00 AM until 11:00 AM
-  // Dinner: Orders accepted from 11:00 AM until 9:00 PM (21:00)
-  // After 9:00 PM: No ordering window, next is lunch at 6:00 AM
-  const LUNCH_CUTOFF_HOUR = 11; // 11:00 AM
-  const DINNER_CUTOFF_HOUR = 21; // 9:00 PM
-  const LUNCH_START_HOUR = 6; // 6:00 AM (when lunch ordering typically starts next day)
+  // Get meal window info dynamically from kitchen's operating hours
+  const mealWindowInfo = useMemo(() => {
+    console.log('[HomeScreen] Calculating meal window info - Kitchen:', currentKitchen?.name);
+    console.log('[HomeScreen] Operating hours available:', !!currentKitchen?.operatingHours);
+    console.log('[HomeScreen] Operating hours:', JSON.stringify(currentKitchen?.operatingHours, null, 2));
 
-  // Determine the active meal based on current time
-  const getMealWindowInfo = useCallback(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
+    if (!currentKitchen?.operatingHours) {
+      console.log('[HomeScreen] Using fallback logic (no operating hours)');
+      // Fallback to default behavior if no operating hours available
+      const now = new Date();
+      const currentHour = now.getHours();
 
-    // Before 11 AM: Lunch window is active
-    if (currentHour < LUNCH_CUTOFF_HOUR) {
+      if (currentHour < 11) {
+        return {
+          activeMeal: 'lunch' as MealType,
+          isWindowOpen: true,
+          nextMealWindow: 'lunch' as MealType,
+          nextMealWindowTime: '6:00 AM',
+        };
+      }
+
+      if (currentHour >= 11 && currentHour < 21) {
+        return {
+          activeMeal: 'dinner' as MealType,
+          isWindowOpen: true,
+          nextMealWindow: 'dinner' as MealType,
+          nextMealWindowTime: '11:00 AM',
+        };
+      }
+
       return {
         activeMeal: 'lunch' as MealType,
-        isWindowOpen: true,
+        isWindowOpen: false,
         nextMealWindow: 'lunch' as MealType,
-        nextMealWindowTime: '6:00 AM',
+        nextMealWindowTime: '6:00 AM tomorrow',
       };
     }
 
-    // Between 11 AM and 9 PM: Dinner window is active
-    if (currentHour >= LUNCH_CUTOFF_HOUR && currentHour < DINNER_CUTOFF_HOUR) {
-      return {
-        activeMeal: 'dinner' as MealType,
-        isWindowOpen: true,
-        nextMealWindow: 'dinner' as MealType,
-        nextMealWindowTime: '11:00 AM',
-      };
-    }
-
-    // After 9 PM: No window open, next is lunch tomorrow
-    return {
-      activeMeal: 'lunch' as MealType,
-      isWindowOpen: false,
-      nextMealWindow: 'lunch' as MealType,
-      nextMealWindowTime: '6:00 AM tomorrow',
-    };
-  }, []);
-
-  const mealWindowInfo = useMemo(() => getMealWindowInfo(), [getMealWindowInfo]);
+    // Use dynamic operating hours from kitchen
+    console.log('[HomeScreen] Using dynamic operating hours');
+    const windowInfo = getWindowInfo(currentKitchen.operatingHours);
+    console.log('[HomeScreen] Calculated window info:', windowInfo);
+    return windowInfo;
+  }, [currentKitchen]);
 
   // Reset activeTab to 'home' when screen comes into focus
   useFocusEffect(
@@ -173,21 +175,67 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       // Step 1: Get kitchens for the address
       const kitchensResponse = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
 
-      if (!kitchensResponse.data?.kitchens?.length) {
+      console.log('[HomeScreen] Raw kitchens response:', JSON.stringify(kitchensResponse, null, 2));
+
+      // Extract kitchens using helper function (handles both old and new formats)
+      const allKitchens = extractKitchensFromResponse(kitchensResponse);
+
+      console.log('[HomeScreen] Extracted kitchens count:', allKitchens.length);
+      console.log('[HomeScreen] First kitchen full data:', JSON.stringify(allKitchens[0], null, 2));
+
+      if (!allKitchens.length) {
         setMenuError('No kitchens available for your location');
         setIsLoadingMenu(false);
         return;
       }
 
-      // Pick the best kitchen (prefer TIFFSY type if available)
-      const kitchens = kitchensResponse.data.kitchens;
-      console.log('[HomeScreen] Available kitchens:', kitchens.map(k => ({ name: k.name, type: k.type, _id: k._id })));
+      console.log('[HomeScreen] Available kitchens:', allKitchens.map(k => ({
+        name: k.name,
+        type: k.type,
+        _id: k._id,
+        hasOperatingHours: !!k.operatingHours,
+        lunchAvailable: !!k.operatingHours?.lunch,
+        dinnerAvailable: !!k.operatingHours?.dinner,
+      })));
 
-      // Prefer TIFFSY type kitchen first, then any kitchen
-      // Note: isAcceptingOrders may not be returned by API, so we don't require it
-      const tifsyKitchen = kitchens.find(k => k.type === 'TIFFSY');
-      const selectedKitchen = tifsyKitchen || kitchens[0];
-      console.log('[HomeScreen] Selected kitchen:', selectedKitchen?.name, selectedKitchen?.type);
+      // Select the best kitchen based on:
+      // 1. TIFFSY type preferred
+      // 2. Has operating hours for current meal window
+      // 3. Is accepting orders
+      const now = new Date();
+      const tifsyKitchens = allKitchens.filter(k => k.type === 'TIFFSY');
+      const acceptingKitchens = allKitchens.filter(k => k.isAcceptingOrders !== false);
+
+      let selectedKitchen: KitchenInfo | undefined;
+
+      // Try to find TIFFSY kitchen with active meal window
+      if (tifsyKitchens.length > 0) {
+        selectedKitchen = tifsyKitchens.find(k => {
+          if (!k.operatingHours) return true; // If no hours defined, assume available
+          const info = getWindowInfo(k.operatingHours, now);
+          return info.isWindowOpen;
+        }) || tifsyKitchens[0]; // Fallback to first TIFFSY kitchen
+      }
+
+      // If no TIFFSY kitchen, try accepting kitchens with active window
+      if (!selectedKitchen && acceptingKitchens.length > 0) {
+        selectedKitchen = acceptingKitchens.find(k => {
+          if (!k.operatingHours) return true;
+          const info = getWindowInfo(k.operatingHours, now);
+          return info.isWindowOpen;
+        }) || acceptingKitchens[0];
+      }
+
+      // Last resort: pick any kitchen
+      if (!selectedKitchen) {
+        selectedKitchen = allKitchens[0];
+      }
+
+      console.log('[HomeScreen] Selected kitchen:', {
+        name: selectedKitchen?.name,
+        type: selectedKitchen?.type,
+        operatingHours: selectedKitchen?.operatingHours,
+      });
 
       setCurrentKitchen(selectedKitchen);
       // Set kitchen in cart context
@@ -921,7 +969,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           )}
 
           {/* Bottom Spacing for Navigation Bar and Cart Popup */}
-          <View style={{ height: showCartModal ? 180 : 100 }} />
+          <View style={{ height: showCartModal ? 100 : 80 }} />
         </View>
       </ScrollView>
 
@@ -930,7 +978,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View
           className="absolute left-5 right-5 bg-white rounded-full px-5 py-3 flex-row items-center justify-between"
           style={{
-            bottom: 120,
+            bottom: 80,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.2,

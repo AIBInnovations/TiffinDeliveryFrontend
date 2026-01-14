@@ -110,28 +110,44 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       console.log('[OrderTracking] Fetching tracking for order:', orderId);
       setError(null);
-      const response = await apiService.trackOrder(orderId);
-      console.log('[OrderTracking] API Response:', JSON.stringify(response, null, 2));
 
-      // Handle response format: {message: true, data: 'Order tracking info', error: {...}}
-      // Backend returns: message=true for success, data=string message, error=actual tracking data
-      const isSuccess = response.success === true || (response as any).message === true;
+      // Fetch both tracking and order data in parallel for complete information
+      const [trackingResponse, orderResponse] = await Promise.all([
+        apiService.trackOrder(orderId),
+        apiService.getOrder(orderId),
+      ]);
 
-      // Get tracking data from response.data (if object with status) or response.error
-      let trackingData: OrderTrackingData | null = null;
-      if (response.data && typeof response.data === 'object' && 'status' in response.data) {
-        trackingData = response.data;
-      } else if ((response as any).error && typeof (response as any).error === 'object' && 'status' in (response as any).error) {
-        trackingData = (response as any).error;
+      console.log('[OrderTracking] Tracking Response:', JSON.stringify(trackingResponse, null, 2));
+      console.log('[OrderTracking] Order Response:', JSON.stringify(orderResponse, null, 2));
+
+      // Parse tracking response - API returns: { success: true, data: OrderTrackingData }
+      const isTrackingSuccess = trackingResponse.success === true || (trackingResponse as any).message === true;
+      const trackingData = trackingResponse.data || (trackingResponse as any).error;
+
+      // Parse order response
+      const isOrderSuccess = orderResponse.success === true || (orderResponse as any).message === true;
+      let orderData: Order | null = null;
+
+      const resp = orderResponse as any;
+      if (resp?.data?.order?._id) {
+        orderData = resp.data.order;
+      } else if (resp?.error?.order?._id) {
+        orderData = resp.error.order;
+      } else if (resp?.data?._id) {
+        orderData = resp.data;
       }
 
-      console.log('[OrderTracking] isSuccess:', isSuccess, 'trackingData:', trackingData?.status);
+      console.log('[OrderTracking] Tracking success:', isTrackingSuccess, 'Order success:', isOrderSuccess);
 
-      if (isSuccess && trackingData && trackingData.status) {
+      if (isTrackingSuccess && trackingData && trackingData.status) {
         console.log('[OrderTracking] Tracking loaded - Status:', trackingData.status);
         setTracking(trackingData);
+
+        // Use order from tracking response if available, otherwise use fetched order
         if (trackingData.order) {
           setOrder(trackingData.order);
+        } else if (orderData) {
+          setOrder(orderData);
         }
       } else {
         console.log('[OrderTracking] Failed to load tracking - No valid data found');

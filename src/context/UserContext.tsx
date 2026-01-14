@@ -76,7 +76,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // ALWAYS set up Firebase auth listener (even for guests who may login later)
-      const unsubscribe = firebaseAuth.onAuthStateChanged(async (fbUser) => {
+      // Using the imported onAuthStateChanged function from the modular API
+      const { onAuthStateChanged } = require('@react-native-firebase/auth').default;
+      const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser: FirebaseAuthTypes.User | null) => {
         console.log('Auth state changed:', fbUser?.uid);
         setFirebaseUser(fbUser);
 

@@ -130,17 +130,21 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       const response = await apiService.getOrder(orderId);
       console.log('[OrderDetailScreen] Response:', JSON.stringify(response, null, 2));
 
-      // API response format (unusual):
-      // { message: true, data: "Order retrieved", error: { order: {...}, kitchen: {...} } }
-      // The actual order is in error.order when message=true
+      // API response format:
+      // Standard: { success: true, message: "Order retrieved", data: { order: {...}, kitchen: {...}, ... } }
+      // Legacy: { message: true, data: "Order retrieved", error: { order: {...}, kitchen: {...} } }
       const resp = response as any;
       let orderData: any = null;
 
-      // Check if order is in error.order (weird API format where error contains success data)
-      if (resp?.error?.order?._id) {
+      // Check standard format: response.data.order
+      if (resp?.data?.order?._id) {
+        orderData = resp.data.order;
+      }
+      // Check legacy format: order in error.order (weird API format where error contains success data)
+      else if (resp?.error?.order?._id) {
         orderData = resp.error.order;
       }
-      // Check if response.data is the order (has _id)
+      // Check if response.data is the order directly (has _id)
       else if (resp?.data?._id) {
         orderData = resp.data;
       }
@@ -153,9 +157,17 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         console.log('[OrderDetailScreen] Order fetched successfully:', orderData.orderNumber);
         setOrder(orderData);
       } else {
-        const errorMsg = typeof resp?.data === 'string' && resp.message !== true
-          ? resp.data
-          : 'Failed to load order details';
+        // Extract error message from various possible formats
+        let errorMsg = 'Failed to load order details';
+
+        if (typeof resp?.data === 'string') {
+          errorMsg = resp.data;
+        } else if (typeof resp?.message === 'string' && resp.message !== 'true') {
+          errorMsg = resp.message;
+        } else if (resp?.error && typeof resp.error === 'string') {
+          errorMsg = resp.error;
+        }
+
         console.log('[OrderDetailScreen] Failed to fetch order:', errorMsg);
         setError(errorMsg);
       }

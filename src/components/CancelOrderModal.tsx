@@ -21,18 +21,41 @@ interface CancelOrderModalProps {
   amountPaid?: number;
   mealWindow?: 'LUNCH' | 'DINNER';
   isAfterCutoff?: boolean;
+  /**
+   * Optional cutoff time in "HH:mm" format (e.g., "14:00")
+   * If provided, this will be used to determine if the order is past cutoff
+   * If not provided, falls back to default cutoff times (11:00 for LUNCH, 21:00 for DINNER)
+   */
+  cutoffTime?: string;
 }
 
 // Helper to check if current time is after cutoff
-const checkIfAfterCutoff = (mealWindow?: 'LUNCH' | 'DINNER'): boolean => {
+const checkIfAfterCutoff = (
+  mealWindow?: 'LUNCH' | 'DINNER',
+  cutoffTime?: string
+): boolean => {
   if (!mealWindow) return false;
 
   const now = new Date();
-  const hours = now.getHours();
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
-  // LUNCH cutoff: 11:00, DINNER cutoff: 21:00
-  if (mealWindow === 'LUNCH' && hours >= 11) return true;
-  if (mealWindow === 'DINNER' && hours >= 21) return true;
+  // If custom cutoff time provided, use it
+  if (cutoffTime) {
+    const [cutoffHoursStr, cutoffMinutesStr] = cutoffTime.split(':');
+    const cutoffHours = parseInt(cutoffHoursStr, 10);
+    const cutoffMinutes = parseInt(cutoffMinutesStr, 10);
+
+    if (!isNaN(cutoffHours) && !isNaN(cutoffMinutes)) {
+      const cutoffTotalMinutes = cutoffHours * 60 + cutoffMinutes;
+      return currentTotalMinutes >= cutoffTotalMinutes;
+    }
+  }
+
+  // Default cutoff times: LUNCH: 11:00, DINNER: 21:00
+  if (mealWindow === 'LUNCH' && currentHours >= 11) return true;
+  if (mealWindow === 'DINNER' && currentHours >= 21) return true;
 
   return false;
 };
@@ -47,12 +70,13 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
   amountPaid = 0,
   mealWindow,
   isAfterCutoff,
+  cutoffTime,
 }) => {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Determine if after cutoff (use prop if provided, otherwise calculate)
-  const afterCutoff = isAfterCutoff ?? checkIfAfterCutoff(mealWindow);
+  const afterCutoff = isAfterCutoff ?? checkIfAfterCutoff(mealWindow, cutoffTime);
 
   // Reset state when modal opens
   useEffect(() => {

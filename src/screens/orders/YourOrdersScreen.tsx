@@ -142,7 +142,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setCurrentError(null);
       console.log('[YourOrdersScreen] Fetching current orders');
-      const response = await apiService.getMyOrders({ limit: 20 });
+      // Note: Backend doesn't support comma-separated status values
+      // Fetch all orders and filter client-side
+      const response = await apiService.getMyOrders({ limit: 50 });
       console.log('[YourOrdersScreen] API Response:', JSON.stringify(response, null, 2));
 
       // Handle different response formats from backend
@@ -197,6 +199,8 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         setHistoryError(null);
       }
       console.log('[YourOrdersScreen] Fetching history orders - Page:', page);
+      // Note: Backend doesn't support comma-separated status values
+      // Fetch all orders and filter client-side
       const response = await apiService.getMyOrders({ page, limit: 20 });
       console.log('[YourOrdersScreen] History API Response:', JSON.stringify(response, null, 2));
 
