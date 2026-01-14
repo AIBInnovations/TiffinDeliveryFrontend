@@ -78,6 +78,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    // Shorten build directory to avoid Windows path length issues
+    buildDir = "C:/tmp/tiffin-build"
+
     namespace "com.tiffindelivery"
     defaultConfig {
         applicationId "com.tiffindelivery"
