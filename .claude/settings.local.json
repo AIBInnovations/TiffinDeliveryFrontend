@@ -7,7 +7,10 @@
       "Bash(subst T: \"D:\\\\AIB Innovations\\\\Tiffsy\\\\Frontend\\\\TiffinDeliveryFrontend\")",
       "Bash(subst)",
       "Bash(dir:*)",
-      "Bash(cmd /c \"cd /d T:\\\\ && dir\")"
+      "Bash(cmd /c \"cd /d T:\\\\ && dir\")",
+      "Bash(npm install:*)",
+      "Bash(powershell -Command \"New-ItemProperty -Path ''HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\FileSystem'' -Name ''LongPathsEnabled'' -Value 1 -PropertyType DWORD -Force\")",
+      "Bash(./gradlew assembleRelease:*)"
     ]
   }
 }

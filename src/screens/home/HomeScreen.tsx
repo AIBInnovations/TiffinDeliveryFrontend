@@ -51,7 +51,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setMealWindow,
     setDeliveryAddressId,
   } = useCart();
-  const { getMainAddress, selectedAddressId, addresses } = useAddress();
+  const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
   const { usableVouchers } = useSubscription();
   const [selectedMeal, setSelectedMeal] = useState<MealType>('lunch');
   const [showCartModal, setShowCartModal] = useState(false);
@@ -165,15 +165,36 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const mainAddress = getMainAddress();
       const addressId = selectedAddressId || mainAddress?.id;
 
-      // If no address, user needs to add one first
-      if (!addressId) {
+      let kitchensResponse;
+
+      // If no address but location is available, use pincode to get kitchens
+      if (!addressId && currentLocation?.pincode) {
+        console.log('[HomeScreen] No address, using location pincode:', currentLocation.pincode);
+
+        // Step 1a: Get zone by pincode
+        const zoneResponse = await apiService.getZoneByPincode(currentLocation.pincode);
+
+        if (!zoneResponse.data?.zone?._id) {
+          setMenuError('No kitchens available for your location. Please add a delivery address.');
+          setRequiresAddress(true);
+          setIsLoadingMenu(false);
+          return;
+        }
+
+        const zoneId = zoneResponse.data.zone._id;
+        console.log('[HomeScreen] Zone found:', zoneId);
+
+        // Step 1b: Get kitchens for the zone
+        kitchensResponse = await apiService.getKitchensForZone(zoneId, 'MEAL_MENU');
+      } else if (!addressId) {
+        // If no address and no location, user needs to add one
         setRequiresAddress(true);
         setIsLoadingMenu(false);
         return;
+      } else {
+        // Step 1: Get kitchens for the address
+        kitchensResponse = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
       }
-
-      // Step 1: Get kitchens for the address
-      const kitchensResponse = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
 
       console.log('[HomeScreen] Raw kitchens response:', JSON.stringify(kitchensResponse, null, 2));
 
@@ -331,11 +352,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  // Get display location from main address
+  // Get display location from main address or current location
   const getDisplayLocation = () => {
     const mainAddress = getMainAddress();
     if (mainAddress) {
       return `${mainAddress.locality}, ${mainAddress.city}`;
+    }
+    // Fallback to current location if available
+    if (currentLocation?.address?.city) {
+      return `${currentLocation.address.locality || currentLocation.address.city}, ${currentLocation.address.city}`;
     }
     return 'Select Location';
   };
@@ -575,19 +600,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             >
               <Text className="text-white text-xs opacity-90">Location</Text>
               <View className="flex-row items-center">
-                <Image
-                  source={require('../../assets/icons/address3.png')}
-                  style={{ width: 14, height: 14, tintColor: 'white' }}
-                  resizeMode="contain"
-                />
-                <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
-                  {getDisplayLocation()}
-                </Text>
-                <Image
-                  source={require('../../assets/icons/down2.png')}
-                  style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
-                  resizeMode="contain"
-                />
+                {isGettingLocation ? (
+                  <>
+                    <ActivityIndicator size="small" color="white" style={{ marginRight: 4 }} />
+                    <Text className="text-white text-sm font-semibold" numberOfLines={1}>
+                      Detecting...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Image
+                      source={require('../../assets/icons/address3.png')}
+                      style={{ width: 14, height: 14, tintColor: 'white' }}
+                      resizeMode="contain"
+                    />
+                    <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
+                      {getDisplayLocation()}
+                    </Text>
+                    <Image
+                      source={require('../../assets/icons/down2.png')}
+                      style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
+                      resizeMode="contain"
+                    />
+                  </>
+                )}
               </View>
             </TouchableOpacity>
 

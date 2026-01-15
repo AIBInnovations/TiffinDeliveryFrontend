@@ -63,6 +63,9 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
     deleteAddressOnServer,
     setDefaultAddressOnServer,
     checkServiceability,
+    getCurrentLocationWithAddress,
+    currentLocation,
+    isGettingLocation,
   } = useAddress();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -627,27 +630,67 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => {
-              console.log('Use Current Location pressed');
-              Alert.alert(
-                'Use Current Location',
-                'This feature will use your device GPS to auto-fill your address. For now, please add your address manually.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Add Manually',
-                    onPress: () => {
-                      resetForm();
-                      setShowAddModal(true);
+            disabled={isGettingLocation}
+            onPress={async () => {
+              console.log('[AddressScreen] Use Current Location pressed');
+              try {
+                // Fetch current location
+                const location = await getCurrentLocationWithAddress();
+                console.log('[AddressScreen] Location fetched:', location);
+
+                if (!location.pincode) {
+                  Alert.alert(
+                    'Location Error',
+                    'Unable to get pincode from your location. Please enter your address manually.',
+                    [{ text: 'OK' }]
+                  );
+                  return;
+                }
+
+                // Auto-fill form with location data
+                setFormData({
+                  label: 'HOME',
+                  addressLine1: location.address?.addressLine1 || '',
+                  addressLine2: '',
+                  landmark: '',
+                  locality: location.address?.locality || '',
+                  city: location.address?.city || '',
+                  state: location.address?.state || '',
+                  pincode: location.pincode,
+                  contactName: formData.contactName, // Keep existing contact info
+                  contactPhone: formData.contactPhone,
+                });
+
+                // Open add address modal with pre-filled data
+                setShowAddModal(true);
+
+                Alert.alert(
+                  'Location Detected',
+                  `We've auto-filled your address details. Please review and add any missing information.`,
+                  [{ text: 'OK' }]
+                );
+              } catch (error: any) {
+                console.error('[AddressScreen] Location error:', error);
+                Alert.alert(
+                  'Location Error',
+                  error.message || 'Unable to get your current location. Please ensure location services are enabled and try again.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Add Manually',
+                      onPress: () => {
+                        resetForm();
+                        setShowAddModal(true);
+                      },
                     },
-                  },
-                ]
-              );
+                  ]
+                );
+              }
             }}
             style={{
               flex: 1,
               marginLeft: 8,
-              backgroundColor: 'white',
+              backgroundColor: isGettingLocation ? '#F3F4F6' : 'white',
               borderRadius: 16,
               padding: 16,
               flexDirection: 'row',
@@ -660,16 +703,22 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
               elevation: 3,
             }}
           >
-            <View style={{ width: 32, height: 32, marginRight: 12 }}>
-              <Image
-                source={require('../../assets/icons/location3.png')}
-                style={{ width: 35, height: 35 }}
-              />
-            </View>
-            <View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Use Current</Text>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Location</Text>
-            </View>
+            {isGettingLocation ? (
+              <ActivityIndicator size="small" color="#F56B4C" />
+            ) : (
+              <>
+                <View style={{ width: 32, height: 32, marginRight: 12 }}>
+                  <Image
+                    source={require('../../assets/icons/location3.png')}
+                    style={{ width: 35, height: 35 }}
+                  />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Use Current</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Location</Text>
+                </View>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 

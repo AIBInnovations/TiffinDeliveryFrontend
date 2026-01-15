@@ -172,8 +172,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       const response = await apiService.getMyVouchers({ status });
       console.log('[SubscriptionContext] fetchVouchers - Success');
-      console.log('[SubscriptionContext] fetchVouchers - Vouchers count:', response.data.vouchers.length);
-      console.log('[SubscriptionContext] fetchVouchers - Summary:', JSON.stringify(response.data.summary));
+      console.log('[SubscriptionContext] fetchVouchers - Vouchers array length:', response.data.vouchers.length);
+      console.log('[SubscriptionContext] fetchVouchers - Summary from API:', JSON.stringify(response.data.summary));
+
+      // DEBUG: Log each voucher status
+      const statusCounts = response.data.vouchers.reduce((acc: any, v: any) => {
+        acc[v.status] = (acc[v.status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('[SubscriptionContext] fetchVouchers - Status breakdown:', JSON.stringify(statusCounts));
 
       const vouchersData = response.data.vouchers || [];
       setVouchers(vouchersData);
@@ -311,6 +318,22 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   // Calculate usable vouchers (AVAILABLE + RESTORED)
   const usableVouchers = (voucherSummary?.available ?? 0) + (voucherSummary?.restored ?? 0);
+
+  // DEBUG: Log voucher calculation details whenever it changes
+  useEffect(() => {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[SubscriptionContext] VOUCHER COUNT CALCULATION:');
+    console.log('  voucherSummary.available:', voucherSummary?.available ?? 'undefined');
+    console.log('  voucherSummary.restored:', voucherSummary?.restored ?? 'undefined');
+    console.log('  voucherSummary.redeemed:', voucherSummary?.redeemed ?? 'undefined');
+    console.log('  voucherSummary.expired:', voucherSummary?.expired ?? 'undefined');
+    console.log('  voucherSummary.total:', voucherSummary?.total ?? 'undefined');
+    console.log('  → usableVouchers (available+restored):', usableVouchers);
+    console.log('  totalVouchersAvailable from API:', totalVouchersAvailable);
+    console.log('  vouchers array length:', vouchers.length);
+    console.log('  active subscriptions count:', subscriptions.filter(s => s.status === 'ACTIVE').length);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }, [voucherSummary, usableVouchers, totalVouchersAvailable, vouchers.length, subscriptions]);
 
   const value: SubscriptionContextType = {
     // State

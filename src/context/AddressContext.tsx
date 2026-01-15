@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService, { AddressData, ServerAddress } from '../services/api.service';
+import locationService, { LocationResult } from '../services/location.service';
 
 export interface Address {
   id: string;
@@ -40,6 +41,8 @@ interface AddressContextType {
   selectedAddressId: string | null;
   isCheckingServiceability: boolean;
   isLoadingAddresses: boolean;
+  currentLocation: LocationResult | null;
+  isGettingLocation: boolean;
   addAddress: (address: Omit<Address, 'id'>) => void;
   updateAddress: (id: string, address: Partial<Address>) => void;
   removeAddress: (id: string) => void;
@@ -52,6 +55,8 @@ interface AddressContextType {
   updateAddressOnServer: (id: string, address: Partial<AddressData>) => Promise<void>;
   deleteAddressOnServer: (id: string) => Promise<void>;
   setDefaultAddressOnServer: (id: string) => Promise<void>;
+  getCurrentLocationWithAddress: () => Promise<LocationResult>;
+  requestLocationPermission: () => Promise<boolean>;
 }
 
 const AddressContext = createContext<AddressContextType | undefined>(undefined);
@@ -84,6 +89,8 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [isCheckingServiceability, setIsCheckingServiceability] = useState(false);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<LocationResult | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Load addresses from AsyncStorage on mount
   useEffect(() => {
@@ -318,6 +325,36 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  // Request location permission
+  const requestLocationPermission = async (): Promise<boolean> => {
+    try {
+      const granted = await locationService.requestLocationPermission();
+      return granted;
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+      return false;
+    }
+  };
+
+  // Get current location with full address including pincode
+  const getCurrentLocationWithAddress = async (): Promise<LocationResult> => {
+    setIsGettingLocation(true);
+    try {
+      const locationResult = await locationService.getLocationWithAddress();
+      setCurrentLocation(locationResult);
+
+      // Store in AsyncStorage for persistence
+      await AsyncStorage.setItem('lastKnownLocation', JSON.stringify(locationResult));
+
+      return locationResult;
+    } catch (error: any) {
+      console.error('Error getting location:', error);
+      throw error;
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
   return (
     <AddressContext.Provider
       value={{
@@ -325,6 +362,8 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
         selectedAddressId,
         isCheckingServiceability,
         isLoadingAddresses,
+        currentLocation,
+        isGettingLocation,
         addAddress,
         updateAddress,
         removeAddress,
@@ -337,6 +376,8 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
         updateAddressOnServer,
         deleteAddressOnServer,
         setDefaultAddressOnServer,
+        getCurrentLocationWithAddress,
+        requestLocationPermission,
       }}
     >
       {children}

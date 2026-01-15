@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
@@ -51,7 +52,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   } = useCart();
 
   const { addresses, getMainAddress } = useAddress();
-  const { voucherSummary, usableVouchers } = useSubscription();
+  const { voucherSummary, usableVouchers, fetchVouchers } = useSubscription();
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -69,6 +70,16 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
+
+  // Refresh voucher data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[CartScreen] Screen focused - Refreshing voucher data');
+      fetchVouchers().catch(err => {
+        console.error('[CartScreen] Error refreshing vouchers on focus:', err);
+      });
+    }, [fetchVouchers])
+  );
 
   // Sync local address selection with cart context
   useEffect(() => {
@@ -277,6 +288,15 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         console.log('[CartScreen] Order created successfully!');
         console.log('  - orderId:', orderData.order._id);
         console.log('  - orderNumber:', orderData.order.orderNumber);
+
+        // Refresh voucher data immediately if vouchers were used
+        if (selectedVoucherCount > 0) {
+          console.log('[CartScreen] Refreshing voucher data after using', selectedVoucherCount, 'voucher(s)');
+          fetchVouchers().catch(err => {
+            console.error('[CartScreen] Error refreshing vouchers:', err);
+          });
+        }
+
         setOrderResult({
           orderId: orderData.order._id,
           orderNumber: orderData.order.orderNumber,
@@ -371,8 +391,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   // Show "Click to Redeem" button when:
   // 1. User has vouchers in their account (hasVouchers)
   // 2. No voucher is currently applied to this order (voucherCount === 0)
-  // 3. Either voucherInfo is not loaded yet OR canUse > 0 (voucher can be used for this order)
-  // If voucherInfo is null, still show the button - we'll validate on click
+  // 3. Either voucherInfo is not loaded yet OR (canUse > 0 AND cutoff not passed)
+  // The backend now correctly calculates canUse based on available vouchers, main courses, and cutoff time
   const canUseVoucher = voucherInfo ? voucherInfo.canUse > 0 && !voucherInfo.cutoffPassed : true;
   const showRedeemButton = hasVouchers && voucherCount === 0 && canUseVoucher;
 
@@ -405,13 +425,15 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     console.log('  - current voucherCount:', voucherCount);
     console.log('  - voucherInfo:', JSON.stringify(voucherInfo));
     console.log('  - hasVouchers:', hasVouchers);
+    console.log('  - usableVouchers:', usableVouchers);
 
-    // If voucherInfo is available and canUse > 0, use that value
+    // Use the backend's canUse value if available, otherwise default to 1 voucher
+    // The backend calculates canUse based on available vouchers, main courses, and cutoff time
     if (voucherInfo && voucherInfo.canUse > 0) {
       console.log('  - Setting voucherCount to:', Math.min(1, voucherInfo.canUse));
       setVoucherCount(Math.min(1, voucherInfo.canUse));
     } else if (hasVouchers) {
-      // Fallback: try to apply 1 voucher, the API will validate during price calculation
+      // Fallback: apply 1 voucher if voucherInfo not loaded yet
       console.log('  - Fallback: Setting voucherCount to 1');
       setVoucherCount(1);
     }

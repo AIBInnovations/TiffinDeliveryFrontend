@@ -26,6 +26,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
   const {
     plans,
     plansLoading,
+    subscriptions,
     activeSubscription,
     voucherSummary,
     usableVouchers,
@@ -78,11 +79,29 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
   const confirmPurchase = async () => {
     if (!selectedPlan) return;
 
-    console.log('[MealPlansScreen] confirmPurchase - Starting purchase for plan:', selectedPlan._id);
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('[MealPlansScreen] BEFORE PURCHASE:');
+    console.log('  - usableVouchers:', usableVouchers);
+    console.log('  - voucherSummary:', JSON.stringify(voucherSummary));
+    console.log('  - active subscriptions:', subscriptions.filter(sub => sub.status === 'ACTIVE').length);
+    console.log('  - purchasing plan:', selectedPlan.name);
+    console.log('  - plan vouchers:', selectedPlan.totalVouchers);
+    console.log('═══════════════════════════════════════════════════════════');
+
     setIsProcessing(true);
     try {
       const result = await purchasePlan(selectedPlan._id);
-      console.log('[MealPlansScreen] confirmPurchase - Purchase successful');
+
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[MealPlansScreen] AFTER PURCHASE:');
+      console.log('  - Purchase result:', JSON.stringify(result.data));
+      console.log('  - vouchersIssued from API:', result.data.vouchersIssued);
+      console.log('  - NEW usableVouchers:', usableVouchers);
+      console.log('  - NEW voucherSummary:', JSON.stringify(voucherSummary));
+      console.log('  - NEW active subscriptions:', subscriptions.filter(sub => sub.status === 'ACTIVE').length);
+      console.log('  - EXPECTED total:', usableVouchers, '+', selectedPlan.totalVouchers, '=', usableVouchers + selectedPlan.totalVouchers);
+      console.log('═══════════════════════════════════════════════════════════');
+
       setPurchaseResult(result);
       setShowPurchaseModal(false);
       setShowSuccessModal(true);
@@ -259,8 +278,10 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Description */}
               <Text className="text-sm mb-4" style={{ lineHeight: 20, color: 'rgba(71, 71, 71, 1)' }}>
-                {activeSubscription && activeSubscription.planName
-                  ? `Active plan: ${activeSubscription.planName}`
+                {subscriptions.filter(sub => sub.status === 'ACTIVE').length > 0
+                  ? subscriptions.filter(sub => sub.status === 'ACTIVE').length === 1
+                    ? `Active plan: ${activeSubscription?.planName || 'Subscription'}`
+                    : `${subscriptions.filter(sub => sub.status === 'ACTIVE').length} active subscriptions`
                   : 'Purchase a plan to get vouchers for your meals'}
               </Text>
 
@@ -313,6 +334,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   {/* Expanded Details */}
                   {showSubscriptionDetails && (
                     <View className="mt-4 pt-4 border-t border-gray-200">
+                      {/* Overall Voucher Stats */}
                       <View className="flex-row justify-between mb-2">
                         <Text className="text-sm text-gray-600">Vouchers Used</Text>
                         <Text className="text-sm font-semibold text-gray-900">
@@ -322,7 +344,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                       <View className="flex-row justify-between mb-4">
                         <Text className="text-sm text-gray-600">Vouchers Remaining</Text>
                         <Text className="text-sm font-semibold text-gray-900">
-                          {activeSubscription?.vouchersRemaining ?? usableVouchers}
+                          {usableVouchers}
                         </Text>
                       </View>
 
@@ -337,13 +359,41 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                         />
                       </View>
 
-                      {/* Cancel Button */}
-                      <TouchableOpacity
-                        onPress={handleCancelSubscription}
-                        className="py-2 rounded-full border border-red-500"
-                      >
-                        <Text className="text-center text-red-500 font-semibold">Cancel Subscription</Text>
-                      </TouchableOpacity>
+                      {/* List All Active Subscriptions */}
+                      {subscriptions.filter(sub => sub.status === 'ACTIVE').length > 0 && (
+                        <View className="mb-4">
+                          <Text className="text-sm font-semibold text-gray-900 mb-2">
+                            Active Subscriptions ({subscriptions.filter(sub => sub.status === 'ACTIVE').length})
+                          </Text>
+                          {subscriptions
+                            .filter(sub => sub.status === 'ACTIVE')
+                            .map((sub, index) => (
+                              <View key={sub._id} className="bg-gray-50 rounded-lg p-3 mb-2">
+                                <View className="flex-row justify-between items-center mb-1">
+                                  <Text className="text-sm font-medium text-gray-900">
+                                    {sub.planSnapshot?.name || 'Subscription'} #{index + 1}
+                                  </Text>
+                                  <Text className="text-xs text-gray-500">
+                                    {sub.vouchersRemaining ?? 0} vouchers
+                                  </Text>
+                                </View>
+                                <Text className="text-xs text-gray-500">
+                                  Expires: {formatDate(sub.voucherExpiryDate || sub.endDate)}
+                                </Text>
+                              </View>
+                            ))}
+                        </View>
+                      )}
+
+                      {/* Cancel Button - Only show if there's an active subscription */}
+                      {activeSubscription && (
+                        <TouchableOpacity
+                          onPress={handleCancelSubscription}
+                          className="py-2 rounded-full border border-red-500"
+                        >
+                          <Text className="text-center text-red-500 font-semibold">Cancel Subscription</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 </>
@@ -441,7 +491,11 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             plans.map((plan) => {
               const savings = calculateSavings(plan);
               const pricePerVoucher = calculatePricePerVoucher(plan);
-              const isActivePlan = activeSubscription?.planName === plan.name;
+              // Check if user has any active subscription with this plan name
+              const activeSubscriptionsForPlan = subscriptions.filter(
+                sub => sub.status === 'ACTIVE' && sub.planSnapshot?.name === plan.name
+              );
+              const hasActivePlan = activeSubscriptionsForPlan.length > 0;
 
               return (
                 <View
@@ -451,8 +505,8 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                     position: 'relative',
                     overflow: 'hidden',
                     borderRadius: 33,
-                    borderWidth: isActivePlan ? 2 : 1,
-                    borderColor: isActivePlan ? '#22C55E' : 'rgba(245, 107, 76, 1)',
+                    borderWidth: hasActivePlan ? 2 : 1,
+                    borderColor: hasActivePlan ? '#22C55E' : 'rgba(245, 107, 76, 1)',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.15,
@@ -468,13 +522,13 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   <View className="p-6">
                     {/* Badge - Savings or Active */}
                     <View className="absolute top-4 right-4 flex-row">
-                      {isActivePlan && (
+                      {hasActivePlan && (
                         <View
                           className="rounded-full px-3 py-1 mr-2"
                           style={{ backgroundColor: 'rgba(220, 252, 231, 1)' }}
                         >
                           <Text className="text-xs font-bold" style={{ color: '#22C55E' }}>
-                            Active
+                            Active{activeSubscriptionsForPlan.length > 1 ? ` (${activeSubscriptionsForPlan.length}x)` : ''}
                           </Text>
                         </View>
                       )}
@@ -495,7 +549,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                           </Text>
                         </View>
                       )}
-                      {plan.badge && !isActivePlan && (
+                      {plan.badge && !hasActivePlan && (
                         <View
                           className="rounded-full px-3 py-1"
                           style={{
@@ -570,7 +624,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
 
                     {/* Subscribe Button */}
-                    {!isGuest && !isActivePlan && (
+                    {!isGuest ? (
                       <TouchableOpacity
                         onPress={() => handleSubscribe(plan)}
                         className="bg-orange-400 rounded-full py-3"
@@ -583,20 +637,10 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                         }}
                       >
                         <Text className="text-center text-white font-bold text-base">
-                          Subscribe
+                          {hasActivePlan ? 'Purchase Again' : 'Subscribe'}
                         </Text>
                       </TouchableOpacity>
-                    )}
-
-                    {isActivePlan && (
-                      <View className="bg-green-100 rounded-full py-3">
-                        <Text className="text-center text-green-600 font-bold text-base">
-                          Current Plan
-                        </Text>
-                      </View>
-                    )}
-
-                    {isGuest && (
+                    ) : (
                       <TouchableOpacity
                         onPress={() => navigation.navigate('Account')}
                         className="bg-gray-300 rounded-full py-3"
@@ -605,6 +649,13 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                           Login to Subscribe
                         </Text>
                       </TouchableOpacity>
+                    )}
+
+                    {/* Helper text for active plans */}
+                    {hasActivePlan && !isGuest && (
+                      <Text className="text-xs text-gray-600 text-center mt-2">
+                        Purchase again to add {plan.totalVouchers} more vouchers!
+                      </Text>
                     )}
                   </View>
                 </View>
@@ -785,6 +836,15 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
 
             {selectedPlan && (
               <>
+                {/* Show helpful message if user already has this plan active */}
+                {subscriptions.filter(sub => sub.status === 'ACTIVE' && sub.planSnapshot?.name === selectedPlan.name).length > 0 && (
+                  <View className="bg-blue-50 rounded-xl p-3 mb-4">
+                    <Text className="text-sm text-blue-800 text-center">
+                      You already have this plan active. Purchasing again will add {selectedPlan.totalVouchers} more vouchers to your account!
+                    </Text>
+                  </View>
+                )}
+
                 <View className="bg-gray-50 rounded-xl p-4 mb-4">
                   <Text className="text-lg font-semibold text-gray-900 mb-2">
                     {selectedPlan.name}
@@ -800,6 +860,10 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   <View className="flex-row justify-between mb-1">
                     <Text className="text-gray-600">Price</Text>
                     <Text className="font-semibold text-lg">Rs.{selectedPlan.price}</Text>
+                  </View>
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">After Purchase</Text>
+                    <Text className="font-semibold text-green-600">{usableVouchers + selectedPlan.totalVouchers} total vouchers</Text>
                   </View>
                 </View>
 
@@ -842,7 +906,9 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
-              Purchase Successful!
+              {subscriptions.filter(sub => sub.status === 'ACTIVE').length > 1
+                ? 'Subscription Added!'
+                : 'Purchase Successful!'}
             </Text>
 
             {purchaseResult && (
@@ -855,6 +921,16 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                     <Text className="text-gray-600">Vouchers Issued</Text>
                     <Text className="font-semibold">{purchaseResult.data.vouchersIssued}</Text>
                   </View>
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-600">Total Vouchers Available</Text>
+                    <Text className="font-semibold text-green-600">{usableVouchers}</Text>
+                  </View>
+                  {subscriptions.filter(sub => sub.status === 'ACTIVE').length > 1 && (
+                    <View className="flex-row justify-between mb-1">
+                      <Text className="text-gray-600">Active Subscriptions</Text>
+                      <Text className="font-semibold">{subscriptions.filter(sub => sub.status === 'ACTIVE').length}</Text>
+                    </View>
+                  )}
                   <View className="flex-row justify-between">
                     <Text className="text-gray-600">Valid Until</Text>
                     <Text className="font-semibold">

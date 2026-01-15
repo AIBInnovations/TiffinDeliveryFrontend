@@ -1,8 +1,7 @@
-import auth, { getAuth } from '@react-native-firebase/auth';
-import { getApp } from '@react-native-firebase/app';
+import auth from '@react-native-firebase/auth';
 
-// Use the modular API
-export const firebaseAuth = getAuth(getApp());
+// Use the auth instance directly (React Native Firebase already provides the initialized instance)
+export const firebaseAuth = auth();
 
 export const sendOTP = async (phoneNumber: string) => {
   const confirmation = await firebaseAuth.signInWithPhoneNumber(phoneNumber);

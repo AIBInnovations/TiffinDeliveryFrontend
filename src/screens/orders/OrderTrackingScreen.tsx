@@ -309,6 +309,9 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const currentStep = tracking ? getStepIndex(tracking.status) : 0;
   const isCancelledOrRejected = tracking?.status === 'CANCELLED' || tracking?.status === 'REJECTED';
 
+  // Debug logging
+  console.log('[OrderTracking] Status:', tracking?.status, 'Current Step:', currentStep);
+
   // Render loading state
   if (loading) {
     return (
@@ -398,8 +401,8 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Progress Tracker */}
           {!isCancelledOrRejected && (
             <View className="flex-row items-center justify-between mb-6">
-              {/* Prepared */}
-              <View className="items-center" style={{ width: 50 }}>
+              {/* Preparing */}
+              <View className="items-center" style={{ width: 80 }}>
                 <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
                   <Image
                     source={require('../../assets/icons/prepared2.png')}
@@ -415,30 +418,23 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                   className="text-xs font-semibold"
                   style={{ color: currentStep >= 0 ? '#FB923C' : '#9CA3AF' }}
                 >
-                  Prepared
+                  Preparing
                 </Text>
               </View>
 
               {/* Line 1 */}
-              <View style={{ flex: 1, height: 2, marginHorizontal: 4, marginBottom: 24, flexDirection: 'row' }}>
+              <View style={{ flex: 1, height: 2, marginHorizontal: 4, marginBottom: 24 }}>
                 <View
                   style={{
-                    flex: currentStep >= 1 ? 1 : 0.5,
+                    flex: 1,
                     height: 2,
                     backgroundColor: currentStep >= 1 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
                   }}
                 />
-                <View
-                  style={{
-                    flex: currentStep >= 1 ? 0 : 0.5,
-                    height: 2,
-                    backgroundColor: '#D1D5DB',
-                  }}
-                />
               </View>
 
-              {/* Delivery */}
-              <View className="items-center" style={{ width: 50 }}>
+              {/* Out For Delivery */}
+              <View className="items-center" style={{ width: 80 }}>
                 <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
                   <Image
                     source={require('../../assets/icons/delivery2.png')}
@@ -451,10 +447,10 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                   />
                 </View>
                 <Text
-                  className="text-xs font-semibold"
+                  className="text-xs font-semibold text-center"
                   style={{ color: currentStep >= 2 ? '#FB923C' : '#9CA3AF' }}
                 >
-                  Delivery
+                  Out For Delivery
                 </Text>
               </View>
 
@@ -463,14 +459,14 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={{
                   flex: 1,
                   height: 2,
-                  backgroundColor: currentStep >= 3 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
+                  backgroundColor: currentStep >= 2 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
                   marginHorizontal: 4,
                   marginBottom: 24,
                 }}
               />
 
               {/* Delivered */}
-              <View className="items-center" style={{ width: 50 }}>
+              <View className="items-center" style={{ width: 80 }}>
                 <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
                   <Image
                     source={require('../../assets/icons/delievered2.png')}

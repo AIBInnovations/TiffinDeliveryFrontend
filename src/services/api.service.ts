@@ -795,6 +795,39 @@ export interface CheckVoucherEligibilityResponse {
   };
 }
 
+// Voucher Balance Types (from consumer-checkout-api.md)
+export interface VoucherBalance {
+  total: number;
+  available: number;
+  redeemed: number;
+  expired: number;
+  restored: number;
+  cancelled: number;
+}
+
+export interface ExpiringVouchers {
+  count: number;
+  date: string;
+  daysRemaining: number;
+}
+
+export interface NextCutoff {
+  mealWindow: 'LUNCH' | 'DINNER';
+  cutoffTime: string;
+  isPastCutoff: boolean;
+  message: string;
+}
+
+export interface GetVoucherBalanceResponse {
+  message: string;
+  data: {
+    balance: VoucherBalance;
+    expiringNext: ExpiringVouchers | null;
+    canRedeemToday: boolean;
+    nextCutoff: NextCutoff;
+  };
+}
+
 /**
  * Helper function to extract kitchens from API response
  * Handles both old (single array) and new (separate arrays) response formats
@@ -1165,6 +1198,11 @@ class ApiService {
   // ============================================
   // VOUCHER ENDPOINTS
   // ============================================
+
+  // Get voucher balance summary
+  async getVoucherBalance(): Promise<GetVoucherBalanceResponse> {
+    return this.api.get('/api/vouchers/balance');
+  }
 
   // Get user's vouchers
   async getMyVouchers(
