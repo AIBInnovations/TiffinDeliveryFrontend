@@ -95,10 +95,25 @@ android {
         }
         release {
             if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
-                storeFile file(MYAPP_RELEASE_STORE_FILE)
-                storePassword MYAPP_RELEASE_STORE_PASSWORD
-                keyAlias MYAPP_RELEASE_KEY_ALIAS
-                keyPassword MYAPP_RELEASE_KEY_PASSWORD
+                def releaseKeystore = file(MYAPP_RELEASE_STORE_FILE)
+                if (releaseKeystore.exists()) {
+                    storeFile releaseKeystore
+                    storePassword MYAPP_RELEASE_STORE_PASSWORD
+                    keyAlias MYAPP_RELEASE_KEY_ALIAS
+                    keyPassword MYAPP_RELEASE_KEY_PASSWORD
+                } else {
+                    // Fall back to debug keystore if release keystore doesn't exist
+                    storeFile file('debug.keystore')
+                    storePassword 'android'
+                    keyAlias 'androiddebugkey'
+                    keyPassword 'android'
+                }
+            } else {
+                // Use debug keystore if no release config is set
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
             }
         }
     }
