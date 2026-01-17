@@ -14,7 +14,10 @@
       "Bash(./gradlew :react-native-gesture-handler:clean :react-native-gesture-handler:assembleRelease:*)",
       "Bash(./gradlew assembleDebug:*)",
       "Bash(adb devices:*)",
-      "Bash(./gradlew installDebug:*)"
+      "Bash(./gradlew installDebug:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
