@@ -74,12 +74,19 @@ export const isWithinTimeWindow = (
   const startTotalMinutes = start.hours * 60 + start.minutes;
   const endTotalMinutes = end.hours * 60 + end.minutes;
 
+  console.log('[isWithinTimeWindow] Window:', timeWindow.startTime, '-', timeWindow.endTime);
+  console.log('[isWithinTimeWindow] Current minutes:', currentTotalMinutes, 'Start:', startTotalMinutes, 'End:', endTotalMinutes);
+
   // Handle cases where end time is on the next day (e.g., 22:00 to 02:00)
   if (endTotalMinutes < startTotalMinutes) {
-    return currentTotalMinutes >= startTotalMinutes || currentTotalMinutes < endTotalMinutes;
+    const result = currentTotalMinutes >= startTotalMinutes || currentTotalMinutes < endTotalMinutes;
+    console.log('[isWithinTimeWindow] Overnight window, result:', result);
+    return result;
   }
 
-  return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
+  const result = currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
+  console.log('[isWithinTimeWindow] Regular window, result:', result);
+  return result;
 };
 
 /**
@@ -111,21 +118,36 @@ export const getActiveMealWindow = (
   currentTime?: Date
 ): MealType | null => {
   if (!operatingHours) {
+    console.log('[getActiveMealWindow] No operating hours provided');
     return null;
   }
 
   const now = currentTime || new Date();
+  console.log('[getActiveMealWindow] Checking active meal window');
+  console.log('[getActiveMealWindow] Current time:', now.toLocaleTimeString());
+  console.log('[getActiveMealWindow] Current hour:', now.getHours(), 'minute:', now.getMinutes());
 
   // Check if we're in lunch window
-  if (operatingHours.lunch && isWithinTimeWindow(operatingHours.lunch, now)) {
-    return 'lunch';
+  if (operatingHours.lunch) {
+    console.log('[getActiveMealWindow] Checking lunch window:', operatingHours.lunch);
+    const isInLunch = isWithinTimeWindow(operatingHours.lunch, now);
+    console.log('[getActiveMealWindow] Is in lunch window:', isInLunch);
+    if (isInLunch) {
+      return 'lunch';
+    }
   }
 
   // Check if we're in dinner window
-  if (operatingHours.dinner && isWithinTimeWindow(operatingHours.dinner, now)) {
-    return 'dinner';
+  if (operatingHours.dinner) {
+    console.log('[getActiveMealWindow] Checking dinner window:', operatingHours.dinner);
+    const isInDinner = isWithinTimeWindow(operatingHours.dinner, now);
+    console.log('[getActiveMealWindow] Is in dinner window:', isInDinner);
+    if (isInDinner) {
+      return 'dinner';
+    }
   }
 
+  console.log('[getActiveMealWindow] Not in any window, returning null');
   return null;
 };
 

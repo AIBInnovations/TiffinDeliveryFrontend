@@ -10,7 +10,9 @@
       "Bash(cmd /c \"cd /d T:\\\\ && dir\")",
       "Bash(npm install:*)",
       "Bash(powershell -Command \"New-ItemProperty -Path ''HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\FileSystem'' -Name ''LongPathsEnabled'' -Value 1 -PropertyType DWORD -Force\")",
-      "Bash(./gradlew assembleRelease:*)"
+      "Bash(./gradlew assembleRelease:*)",
+      "Bash(./gradlew :react-native-gesture-handler:clean :react-native-gesture-handler:assembleRelease:*)",
+      "Bash(./gradlew assembleDebug:*)"
     ]
   }
 }

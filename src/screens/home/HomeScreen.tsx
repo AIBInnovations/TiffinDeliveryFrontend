@@ -22,6 +22,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromResponse } from '../../services/api.service';
 import MealWindowModal from '../../components/MealWindowModal';
 import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
+import { MealTimingDebug } from '../../components/MealTimingDebug';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -117,9 +118,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     // Use dynamic operating hours from kitchen
+    const now = new Date();
     console.log('[HomeScreen] Using dynamic operating hours');
+    console.log('[HomeScreen] Current time:', now.toLocaleString());
+    console.log('[HomeScreen] Current hour:', now.getHours(), 'Current minute:', now.getMinutes());
+    console.log('[HomeScreen] Lunch hours:', currentKitchen.operatingHours.lunch);
+    console.log('[HomeScreen] Dinner hours:', currentKitchen.operatingHours.dinner);
+
     const windowInfo = getWindowInfo(currentKitchen.operatingHours);
     console.log('[HomeScreen] Calculated window info:', windowInfo);
+    console.log('[HomeScreen] Active meal selected:', windowInfo.activeMeal);
+    console.log('[HomeScreen] Is window open:', windowInfo.isWindowOpen);
     return windowInfo;
   }, [currentKitchen]);
 
@@ -133,21 +142,34 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Initialize meal tab based on current time and show modal if outside window
   useEffect(() => {
     if (!hasCheckedMealWindow) {
-      console.log('[HomeScreen] Checking meal window - Current hour:', new Date().getHours());
-      console.log('[HomeScreen] Meal window info:', mealWindowInfo);
+      const now = new Date();
+      console.log('==================================================');
+      console.log('[HomeScreen] TAB SELECTION INITIALIZATION');
+      console.log('==================================================');
+      console.log('[HomeScreen] Current time:', now.toLocaleString());
+      console.log('[HomeScreen] Current hour:', now.getHours(), 'minute:', now.getMinutes());
+      console.log('[HomeScreen] Kitchen:', currentKitchen?.name);
+      console.log('[HomeScreen] Has operating hours:', !!currentKitchen?.operatingHours);
+      console.log('[HomeScreen] Meal window info:', JSON.stringify(mealWindowInfo, null, 2));
+      console.log('[HomeScreen] Selected meal will be:', mealWindowInfo.activeMeal);
+      console.log('==================================================');
 
       // Set the initial meal based on current time
       setSelectedMeal(mealWindowInfo.activeMeal);
+      console.log('[HomeScreen] Tab set to:', mealWindowInfo.activeMeal);
 
       // If outside meal window, show the modal
       if (!mealWindowInfo.isWindowOpen) {
         console.log('[HomeScreen] Outside meal window, showing modal');
+        console.log('[HomeScreen] Next meal window:', mealWindowInfo.nextMealWindow, 'at', mealWindowInfo.nextMealWindowTime);
         setShowMealWindowModal(true);
+      } else {
+        console.log('[HomeScreen] Within meal window, no modal shown');
       }
 
       setHasCheckedMealWindow(true);
     }
-  }, [hasCheckedMealWindow, mealWindowInfo]);
+  }, [hasCheckedMealWindow, mealWindowInfo, currentKitchen]);
 
   // Handle modal close - switch to the next meal window tab
   const handleMealWindowModalClose = () => {
@@ -562,6 +584,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+
+      {/* Debug Component - Remove this after debugging */}
+      <MealTimingDebug
+        currentKitchen={currentKitchen}
+        mealWindowInfo={mealWindowInfo}
+        selectedMeal={selectedMeal}
+      />
+
       <ScrollView
         className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}
