@@ -17,7 +17,10 @@
       "Bash(./gradlew installDebug:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(react-native run-android)",
+      "Bash(npm run android:*)",
+      "Bash(./gradlew bundleRelease:*)"
     ]
   }
 }
