@@ -1,5 +1,5 @@
 // src/screens/account/AccountScreen.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,19 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-// import apiService from '../../services/api.service'; // OFFLINE MODE: Backend disabled
+import { useAddress } from '../../context/AddressContext';
+import { MealWindowType, Subscription } from '../../services/api.service';
+import apiService from '../../services/api.service';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
 
@@ -39,18 +45,112 @@ const SUPPORT_MENU_ITEMS = [
 ];
 
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
-  const [lunchAutoOrder, setLunchAutoOrder] = React.useState(false);
-  const [dinnerAutoOrder, setDinnerAutoOrder] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
+  const [lunchAutoOrder, setLunchAutoOrder] = useState(false);
+  const [dinnerAutoOrder, setDinnerAutoOrder] = useState(true);
+  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
 
   // Modal states
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = React.useState(false);
-  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
-  const [showErrorModal, setShowErrorModal] = React.useState(false);
-  const [modalMessage, setModalMessage] = React.useState('');
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
+  // Auto-ordering modal states
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [showSkipMealModal, setShowSkipMealModal] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+  const [pauseUntilDate, setPauseUntilDate] = useState('');
+  const [skipMealDate, setSkipMealDate] = useState('');
+  const [skipMealWindow, setSkipMealWindow] = useState<MealWindowType>('LUNCH');
+  const [skipMealReason, setSkipMealReason] = useState('');
+  const [isAutoOrderLoading, setIsAutoOrderLoading] = useState(false);
 
   const { isGuest, user, logout, exitGuestMode } = useUser();
-  const { activeSubscription, vouchers, usableVouchers } = useSubscription();
+  const {
+    activeSubscription,
+    vouchers,
+    usableVouchers,
+    subscriptions,
+    loading,
+    updateAutoOrderSettings,
+    pauseAutoOrdering,
+    resumeAutoOrdering,
+    skipMeal,
+  } = useSubscription();
+  const { addresses, getMainAddress } = useAddress();
+
+  // State for default kitchen (fetched when needed)
+  const [defaultKitchenId, setDefaultKitchenId] = useState<string | null>(null);
+
+  // Get the active subscription object (not just summary)
+  const getActiveSubscriptionFull = (): Subscription | null => {
+    return subscriptions.find(s => s.status === 'ACTIVE') || null;
+  };
+
+  const activeSubFull = getActiveSubscriptionFull();
+
+  // Get default address ID
+  const getDefaultAddressId = (): string | null => {
+    // First check if subscription already has a default address
+    if (activeSubFull?.defaultAddressId) {
+      return activeSubFull.defaultAddressId;
+    }
+    // Otherwise use user's main/default address
+    const mainAddress = getMainAddress();
+    return mainAddress?.id || null;
+  };
+
+  // Fetch default kitchen for the user's address
+  const fetchDefaultKitchen = async (addressId: string): Promise<string | null> => {
+    try {
+      console.log('[AccountScreen] Fetching kitchens for address:', addressId);
+      const response = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
+      console.log('[AccountScreen] Kitchens response:', JSON.stringify(response, null, 2));
+
+      // Handle different response formats
+      const data = response.data as any;
+      let allKitchens: any[] = [];
+
+      // Check for direct kitchens array (current format)
+      if (data.kitchens && Array.isArray(data.kitchens)) {
+        allKitchens = data.kitchens;
+        console.log('[AccountScreen] Found kitchens array with', allKitchens.length, 'kitchens');
+      }
+      // Check for separate tiffsy/partner arrays (legacy format)
+      else if (data.tiffsyKitchens || data.partnerKitchens) {
+        const tiffsyKitchens = data.tiffsyKitchens || [];
+        const partnerKitchens = data.partnerKitchens || [];
+        allKitchens = [...tiffsyKitchens, ...partnerKitchens];
+        console.log('[AccountScreen] Found tiffsy/partner arrays with', allKitchens.length, 'total kitchens');
+      }
+
+      if (allKitchens.length > 0) {
+        const kitchenId = allKitchens[0]._id;
+        console.log('[AccountScreen] Using default kitchen:', kitchenId, 'name:', allKitchens[0].name);
+        return kitchenId;
+      }
+
+      console.log('[AccountScreen] No kitchens found in response');
+      return null;
+    } catch (error) {
+      console.log('[AccountScreen] Error fetching kitchens:', error);
+      return null;
+    }
+  };
+
+  // Sync auto-order toggles with subscription data
+  useEffect(() => {
+    if (activeSubFull) {
+      const mealType = activeSubFull.defaultMealType || 'BOTH';
+      setLunchAutoOrder(mealType === 'LUNCH' || mealType === 'BOTH');
+      setDinnerAutoOrder(mealType === 'DINNER' || mealType === 'BOTH');
+
+      // Store existing kitchen ID if subscription has one
+      if (activeSubFull.defaultKitchenId) {
+        setDefaultKitchenId(activeSubFull.defaultKitchenId);
+      }
+    }
+  }, [activeSubFull]);
 
   // Get nearest expiry date from usable vouchers (AVAILABLE or RESTORED)
   const getNearestVoucherExpiry = () => {
@@ -101,13 +201,232 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handlePause = () => {
-    // TODO: Implement pause functionality
-    console.log('Pause meal plan');
+    if (!activeSubFull) {
+      Alert.alert('No Active Subscription', 'You need an active subscription to pause auto-ordering.');
+      return;
+    }
+
+    if (activeSubFull.isPaused) {
+      // Resume if already paused
+      handleResumeAutoOrdering();
+    } else {
+      // Show pause modal
+      setShowPauseModal(true);
+    }
+  };
+
+  const handleResumeAutoOrdering = async () => {
+    if (!activeSubFull) return;
+
+    setIsAutoOrderLoading(true);
+    try {
+      const response = await resumeAutoOrdering(activeSubFull._id);
+      setModalMessage(response.data.message || 'Auto-ordering has been resumed successfully.');
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      setModalMessage(error.message || 'Failed to resume auto-ordering.');
+      setShowErrorModal(true);
+    } finally {
+      setIsAutoOrderLoading(false);
+    }
+  };
+
+  const confirmPause = async () => {
+    if (!activeSubFull) return;
+
+    setIsAutoOrderLoading(true);
+    setShowPauseModal(false);
+
+    try {
+      const response = await pauseAutoOrdering(activeSubFull._id, {
+        pauseUntil: pauseUntilDate || undefined,
+        pauseReason: pauseReason || undefined,
+      });
+      setModalMessage(response.data.message || 'Auto-ordering has been paused.');
+      setShowSuccessModal(true);
+      // Reset form
+      setPauseReason('');
+      setPauseUntilDate('');
+    } catch (error: any) {
+      setModalMessage(error.message || 'Failed to pause auto-ordering.');
+      setShowErrorModal(true);
+    } finally {
+      setIsAutoOrderLoading(false);
+    }
   };
 
   const handleSkipNextMeal = () => {
-    // TODO: Implement skip next meal functionality
-    console.log('Skip next meal');
+    if (!activeSubFull) {
+      Alert.alert('No Active Subscription', 'You need an active subscription to skip meals.');
+      return;
+    }
+
+    // Pre-fill with tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setSkipMealDate(tomorrow.toISOString().split('T')[0]);
+
+    // Determine next meal window based on current time
+    const currentHour = new Date().getHours();
+    setSkipMealWindow(currentHour < 14 ? 'LUNCH' : 'DINNER');
+
+    setShowSkipMealModal(true);
+  };
+
+  const confirmSkipMeal = async () => {
+    if (!activeSubFull || !skipMealDate) return;
+
+    setIsAutoOrderLoading(true);
+    setShowSkipMealModal(false);
+
+    try {
+      const response = await skipMeal(activeSubFull._id, {
+        date: skipMealDate,
+        mealWindow: skipMealWindow,
+        reason: skipMealReason || undefined,
+      });
+      setModalMessage(response.message || 'Meal skipped successfully.');
+      setShowSuccessModal(true);
+      // Reset form
+      setSkipMealDate('');
+      setSkipMealReason('');
+    } catch (error: any) {
+      setModalMessage(error.message || 'Failed to skip meal.');
+      setShowErrorModal(true);
+    } finally {
+      setIsAutoOrderLoading(false);
+    }
+  };
+
+  const handleAutoOrderToggle = async (mealType: 'LUNCH' | 'DINNER', newValue: boolean) => {
+    if (!activeSubFull) {
+      Alert.alert('No Active Subscription', 'You need an active subscription to change auto-order settings.');
+      return;
+    }
+
+    // Calculate the new defaultMealType
+    let newLunch = mealType === 'LUNCH' ? newValue : lunchAutoOrder;
+    let newDinner = mealType === 'DINNER' ? newValue : dinnerAutoOrder;
+
+    let newMealType: 'LUNCH' | 'DINNER' | 'BOTH';
+    if (newLunch && newDinner) {
+      newMealType = 'BOTH';
+    } else if (newLunch) {
+      newMealType = 'LUNCH';
+    } else if (newDinner) {
+      newMealType = 'DINNER';
+    } else {
+      // If both are being disabled, confirm with user
+      Alert.alert(
+        'Disable Auto-Ordering',
+        'Disabling both lunch and dinner will turn off auto-ordering. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Disable',
+            style: 'destructive',
+            onPress: async () => {
+              setIsAutoOrderLoading(true);
+              try {
+                await updateAutoOrderSettings(activeSubFull._id, {
+                  autoOrderingEnabled: false,
+                });
+                setLunchAutoOrder(false);
+                setDinnerAutoOrder(false);
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to update settings.');
+              } finally {
+                setIsAutoOrderLoading(false);
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Optimistically update UI
+    if (mealType === 'LUNCH') {
+      setLunchAutoOrder(newValue);
+    } else {
+      setDinnerAutoOrder(newValue);
+    }
+
+    setIsAutoOrderLoading(true);
+    try {
+      // Get address ID - required for enabling auto-ordering
+      const addressId = getDefaultAddressId();
+      console.log('[AccountScreen] handleAutoOrderToggle - addressId:', addressId);
+
+      if (!addressId) {
+        // Revert UI
+        if (mealType === 'LUNCH') {
+          setLunchAutoOrder(!newValue);
+        } else {
+          setDinnerAutoOrder(!newValue);
+        }
+        setIsAutoOrderLoading(false);
+        Alert.alert(
+          'Address Required',
+          'Please add a delivery address before enabling auto-ordering.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Get kitchen ID - check subscription first, then fetch if needed
+      let kitchenId = activeSubFull.defaultKitchenId || defaultKitchenId;
+      console.log('[AccountScreen] handleAutoOrderToggle - existing kitchenId:', kitchenId);
+
+      if (!kitchenId) {
+        // Fetch available kitchens for the address
+        kitchenId = await fetchDefaultKitchen(addressId);
+        console.log('[AccountScreen] handleAutoOrderToggle - fetched kitchenId:', kitchenId);
+
+        if (!kitchenId) {
+          // Revert UI
+          if (mealType === 'LUNCH') {
+            setLunchAutoOrder(!newValue);
+          } else {
+            setDinnerAutoOrder(!newValue);
+          }
+          setIsAutoOrderLoading(false);
+          Alert.alert(
+            'No Kitchen Available',
+            'No kitchens are available for your address. Please check your delivery location.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Store for future use
+        setDefaultKitchenId(kitchenId);
+      }
+
+      console.log('[AccountScreen] handleAutoOrderToggle - Updating settings with:', {
+        defaultMealType: newMealType,
+        autoOrderingEnabled: true,
+        defaultKitchenId: kitchenId,
+        defaultAddressId: addressId,
+      });
+
+      await updateAutoOrderSettings(activeSubFull._id, {
+        defaultMealType: newMealType,
+        autoOrderingEnabled: true,
+        defaultKitchenId: kitchenId,
+        defaultAddressId: addressId,
+      });
+    } catch (error: any) {
+      // Revert on error
+      if (mealType === 'LUNCH') {
+        setLunchAutoOrder(!newValue);
+      } else {
+        setDinnerAutoOrder(!newValue);
+      }
+      Alert.alert('Error', error.message || 'Failed to update auto-order settings.');
+    } finally {
+      setIsAutoOrderLoading(false);
+    }
   };
 
   const confirmDeleteAccount = async () => {
@@ -347,23 +666,29 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Pause and Skip Meal Buttons */}
             <View className="flex-row justify-between mt-4 mb-4">
-              {/* Pause Button */}
+              {/* Pause/Resume Button */}
               <TouchableOpacity
                 onPress={handlePause}
+                disabled={isAutoOrderLoading || loading}
                 className="flex-1 mr-2 bg-white rounded-full py-2.5 items-center"
                 style={{
                   borderWidth: 1.5,
-                  borderColor: '#F56B4C',
+                  borderColor: activeSubFull?.isPaused ? '#10B981' : '#F56B4C',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
                   shadowRadius: 4,
                   elevation: 2,
+                  opacity: isAutoOrderLoading || loading ? 0.6 : 1,
                 }}
               >
-                <Text className="font-semibold text-sm" style={{ color: '#F56B4C' }}>
-                  Pause
-                </Text>
+                {isAutoOrderLoading ? (
+                  <ActivityIndicator size="small" color="#F56B4C" />
+                ) : (
+                  <Text className="font-semibold text-sm" style={{ color: activeSubFull?.isPaused ? '#10B981' : '#F56B4C' }}>
+                    {activeSubFull?.isPaused ? 'Resume' : 'Pause'}
+                  </Text>
+                )}
               </TouchableOpacity>
 
               {/* Skip Next Meal Button */}
@@ -391,8 +716,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               <View className="flex-row items-center">
                 {/* Lunch Toggle */}
                 <TouchableOpacity
-                  onPress={() => setLunchAutoOrder(!lunchAutoOrder)}
+                  onPress={() => handleAutoOrderToggle('LUNCH', !lunchAutoOrder)}
+                  disabled={isAutoOrderLoading || loading}
                   className="flex-row items-center mr-4"
+                  style={{ opacity: isAutoOrderLoading || loading ? 0.6 : 1 }}
                 >
                   <Text
                     className="text-sm font-medium mr-2"
@@ -424,8 +751,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
                 {/* Dinner Toggle */}
                 <TouchableOpacity
-                  onPress={() => setDinnerAutoOrder(!dinnerAutoOrder)}
+                  onPress={() => handleAutoOrderToggle('DINNER', !dinnerAutoOrder)}
+                  disabled={isAutoOrderLoading || loading}
                   className="flex-row items-center"
+                  style={{ opacity: isAutoOrderLoading || loading ? 0.6 : 1 }}
                 >
                   <Text
                     className="text-sm font-medium mr-2"
@@ -750,6 +1079,163 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         type="error"
         onClose={() => setShowErrorModal(false)}
       />
+
+      {/* Pause Auto-Ordering Modal */}
+      <Modal visible={showPauseModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <View className="bg-white rounded-3xl w-full max-w-md p-6">
+            <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+              Pause Auto-Ordering
+            </Text>
+            <Text className="text-sm text-gray-600 text-center mb-4">
+              Your meals will not be auto-ordered while paused.
+            </Text>
+
+            {/* Pause Until Date (Optional) */}
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Resume automatically on (optional):
+            </Text>
+            <TextInput
+              placeholder="YYYY-MM-DD (e.g., 2024-02-15)"
+              value={pauseUntilDate}
+              onChangeText={setPauseUntilDate}
+              className="bg-gray-50 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            {/* Pause Reason (Optional) */}
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Reason (optional):
+            </Text>
+            <TextInput
+              placeholder="Why are you pausing? (optional)"
+              value={pauseReason}
+              onChangeText={setPauseReason}
+              className="bg-gray-50 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={2}
+              maxLength={500}
+            />
+
+            {/* Buttons */}
+            <View className="flex-row justify-between mt-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowPauseModal(false);
+                  setPauseReason('');
+                  setPauseUntilDate('');
+                }}
+                className="flex-1 mr-2 bg-gray-100 rounded-full py-3 items-center"
+              >
+                <Text className="font-semibold text-gray-700">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmPause}
+                className="flex-1 ml-2 bg-orange-400 rounded-full py-3 items-center"
+              >
+                <Text className="font-semibold text-white">Pause</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Skip Meal Modal */}
+      <Modal visible={showSkipMealModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <View className="bg-white rounded-3xl w-full max-w-md p-6">
+            <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
+              Skip a Meal
+            </Text>
+            <Text className="text-sm text-gray-600 text-center mb-4">
+              Select the date and meal window you want to skip.
+            </Text>
+
+            {/* Skip Date */}
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Date to skip:
+            </Text>
+            <TextInput
+              placeholder="YYYY-MM-DD (e.g., 2024-02-15)"
+              value={skipMealDate}
+              onChangeText={setSkipMealDate}
+              className="bg-gray-50 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            {/* Meal Window Selection */}
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Meal window:
+            </Text>
+            <View className="flex-row mb-4">
+              <TouchableOpacity
+                onPress={() => setSkipMealWindow('LUNCH')}
+                className="flex-1 mr-2 rounded-full py-3 items-center"
+                style={{
+                  backgroundColor: skipMealWindow === 'LUNCH' ? '#F56B4C' : '#F3F4F6',
+                }}
+              >
+                <Text
+                  className="font-semibold"
+                  style={{ color: skipMealWindow === 'LUNCH' ? 'white' : '#6B7280' }}
+                >
+                  Lunch
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSkipMealWindow('DINNER')}
+                className="flex-1 ml-2 rounded-full py-3 items-center"
+                style={{
+                  backgroundColor: skipMealWindow === 'DINNER' ? '#F56B4C' : '#F3F4F6',
+                }}
+              >
+                <Text
+                  className="font-semibold"
+                  style={{ color: skipMealWindow === 'DINNER' ? 'white' : '#6B7280' }}
+                >
+                  Dinner
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Skip Reason (Optional) */}
+            <Text className="text-sm font-medium text-gray-700 mb-2">
+              Reason (optional):
+            </Text>
+            <TextInput
+              placeholder="Why are you skipping? (optional)"
+              value={skipMealReason}
+              onChangeText={setSkipMealReason}
+              className="bg-gray-50 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              placeholderTextColor="#9CA3AF"
+              maxLength={200}
+            />
+
+            {/* Buttons */}
+            <View className="flex-row justify-between mt-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSkipMealModal(false);
+                  setSkipMealDate('');
+                  setSkipMealReason('');
+                }}
+                className="flex-1 mr-2 bg-gray-100 rounded-full py-3 items-center"
+              >
+                <Text className="font-semibold text-gray-700">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmSkipMeal}
+                disabled={!skipMealDate}
+                className="flex-1 ml-2 bg-orange-400 rounded-full py-3 items-center"
+                style={{ opacity: skipMealDate ? 1 : 0.5 }}
+              >
+                <Text className="font-semibold text-white">Skip Meal</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

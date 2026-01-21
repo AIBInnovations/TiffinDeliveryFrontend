@@ -11,6 +11,18 @@ import apiService, {
   PurchaseSubscriptionResponse,
   CancelSubscriptionResponse,
   CheckVoucherEligibilityResponse,
+  // Auto-ordering types
+  UpdateSubscriptionSettingsRequest,
+  UpdateSubscriptionSettingsResponse,
+  PauseSubscriptionRequest,
+  PauseSubscriptionResponse,
+  ResumeSubscriptionResponse,
+  SkipMealRequest,
+  SkipMealResponse,
+  UnskipMealRequest,
+  UnskipMealResponse,
+  DefaultMealType,
+  MealWindowType,
 } from '../services/api.service';
 import { useUser } from './UserContext';
 
@@ -41,6 +53,13 @@ interface SubscriptionContextType {
   checkEligibility: (data: CheckVoucherEligibilityRequest) => Promise<CheckVoucherEligibilityResponse>;
   refreshAll: () => Promise<void>;
   clearError: () => void;
+
+  // Auto-ordering actions
+  updateAutoOrderSettings: (subscriptionId: string, data: UpdateSubscriptionSettingsRequest) => Promise<UpdateSubscriptionSettingsResponse>;
+  pauseAutoOrdering: (subscriptionId: string, data?: PauseSubscriptionRequest) => Promise<PauseSubscriptionResponse>;
+  resumeAutoOrdering: (subscriptionId: string) => Promise<ResumeSubscriptionResponse>;
+  skipMeal: (subscriptionId: string, data: SkipMealRequest) => Promise<SkipMealResponse>;
+  unskipMeal: (subscriptionId: string, data: UnskipMealRequest) => Promise<UnskipMealResponse>;
 }
 
 const defaultVoucherSummary: VoucherSummary = {
@@ -287,6 +306,151 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   }, []);
 
+  // ============================================
+  // AUTO-ORDERING ACTIONS
+  // ============================================
+
+  // Update auto-order settings for a subscription
+  const updateAutoOrderSettings = useCallback(async (
+    subscriptionId: string,
+    data: UpdateSubscriptionSettingsRequest
+  ): Promise<UpdateSubscriptionSettingsResponse> => {
+    console.log('[SubscriptionContext] updateAutoOrderSettings - Starting for subscription:', subscriptionId);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.updateSubscriptionSettings(subscriptionId, data);
+
+      console.log('[SubscriptionContext] updateAutoOrderSettings - Success');
+      console.log('[SubscriptionContext] updateAutoOrderSettings - Auto-ordering enabled:', response.data.autoOrderingEnabled);
+      console.log('[SubscriptionContext] updateAutoOrderSettings - Default meal type:', response.data.defaultMealType);
+
+      // Refresh subscriptions to get updated data
+      await fetchSubscriptions();
+
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] updateAutoOrderSettings - Error:', err.message || err);
+      setError(err.message || 'Failed to update auto-order settings');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSubscriptions]);
+
+  // Pause auto-ordering for a subscription
+  const pauseAutoOrdering = useCallback(async (
+    subscriptionId: string,
+    data?: PauseSubscriptionRequest
+  ): Promise<PauseSubscriptionResponse> => {
+    console.log('[SubscriptionContext] pauseAutoOrdering - Starting for subscription:', subscriptionId);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.pauseSubscription(subscriptionId, data);
+
+      console.log('[SubscriptionContext] pauseAutoOrdering - Success');
+      console.log('[SubscriptionContext] pauseAutoOrdering - Is paused:', response.data.isPaused);
+      console.log('[SubscriptionContext] pauseAutoOrdering - Paused until:', response.data.pausedUntil);
+
+      // Refresh subscriptions to get updated data
+      await fetchSubscriptions();
+
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] pauseAutoOrdering - Error:', err.message || err);
+      setError(err.message || 'Failed to pause auto-ordering');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSubscriptions]);
+
+  // Resume auto-ordering after it was paused
+  const resumeAutoOrdering = useCallback(async (
+    subscriptionId: string
+  ): Promise<ResumeSubscriptionResponse> => {
+    console.log('[SubscriptionContext] resumeAutoOrdering - Starting for subscription:', subscriptionId);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.resumeSubscription(subscriptionId);
+
+      console.log('[SubscriptionContext] resumeAutoOrdering - Success');
+      console.log('[SubscriptionContext] resumeAutoOrdering - Is paused:', response.data.isPaused);
+      console.log('[SubscriptionContext] resumeAutoOrdering - Auto-ordering enabled:', response.data.autoOrderingEnabled);
+
+      // Refresh subscriptions to get updated data
+      await fetchSubscriptions();
+
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] resumeAutoOrdering - Error:', err.message || err);
+      setError(err.message || 'Failed to resume auto-ordering');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSubscriptions]);
+
+  // Skip auto-ordering for a specific meal slot
+  const skipMeal = useCallback(async (
+    subscriptionId: string,
+    data: SkipMealRequest
+  ): Promise<SkipMealResponse> => {
+    console.log('[SubscriptionContext] skipMeal - Starting for subscription:', subscriptionId);
+    console.log('[SubscriptionContext] skipMeal - Date:', data.date, 'Meal window:', data.mealWindow);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.skipMeal(subscriptionId, data);
+
+      console.log('[SubscriptionContext] skipMeal - Success');
+      console.log('[SubscriptionContext] skipMeal - Skipped slot:', response.data.skippedSlot);
+      console.log('[SubscriptionContext] skipMeal - Total skipped slots:', response.data.totalSkippedSlots);
+
+      // Refresh subscriptions to get updated data
+      await fetchSubscriptions();
+
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] skipMeal - Error:', err.message || err);
+      setError(err.message || 'Failed to skip meal');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSubscriptions]);
+
+  // Remove a meal from skipped slots (re-enable auto-ordering for that slot)
+  const unskipMeal = useCallback(async (
+    subscriptionId: string,
+    data: UnskipMealRequest
+  ): Promise<UnskipMealResponse> => {
+    console.log('[SubscriptionContext] unskipMeal - Starting for subscription:', subscriptionId);
+    console.log('[SubscriptionContext] unskipMeal - Date:', data.date, 'Meal window:', data.mealWindow);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.unskipMeal(subscriptionId, data);
+
+      console.log('[SubscriptionContext] unskipMeal - Success');
+      console.log('[SubscriptionContext] unskipMeal - Unskipped slot:', response.data.unskippedSlot);
+      console.log('[SubscriptionContext] unskipMeal - Total skipped slots:', response.data.totalSkippedSlots);
+
+      // Refresh subscriptions to get updated data
+      await fetchSubscriptions();
+
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] unskipMeal - Error:', err.message || err);
+      setError(err.message || 'Failed to unskip meal');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSubscriptions]);
+
   // Refresh all data
   const refreshAll = useCallback(async () => {
     console.log('[SubscriptionContext] refreshAll - Starting');
@@ -358,6 +522,13 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     checkEligibility,
     refreshAll,
     clearError,
+
+    // Auto-ordering actions
+    updateAutoOrderSettings,
+    pauseAutoOrdering,
+    resumeAutoOrdering,
+    skipMeal,
+    unskipMeal,
   };
 
   return (

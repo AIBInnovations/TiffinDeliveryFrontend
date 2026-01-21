@@ -620,6 +620,17 @@ export interface PlanSnapshot {
 
 export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAUSED';
 
+// Auto-ordering types
+export type MealWindowType = 'LUNCH' | 'DINNER';
+export type DefaultMealType = 'LUNCH' | 'DINNER' | 'BOTH';
+
+export interface SkippedSlot {
+  date: string;
+  mealWindow: MealWindowType;
+  reason?: string;
+  skippedAt: string;
+}
+
 export interface Subscription {
   _id: string;
   userId: string;
@@ -647,6 +658,14 @@ export interface Subscription {
   cancelledAt?: string;
   cancellationReason?: string;
   refundAmount?: number;
+  // Auto-ordering fields
+  autoOrderingEnabled?: boolean;
+  isPaused?: boolean;
+  pausedUntil?: string;
+  skippedSlots?: SkippedSlot[];
+  defaultMealType?: DefaultMealType;
+  defaultKitchenId?: string;
+  defaultAddressId?: string;
 }
 
 export type VoucherStatus =
@@ -825,6 +844,97 @@ export interface GetVoucherBalanceResponse {
     expiringNext: ExpiringVouchers | null;
     canRedeemToday: boolean;
     nextCutoff: NextCutoff;
+  };
+}
+
+// ============================================
+// AUTO-ORDERING API TYPES
+// ============================================
+
+// PUT /api/subscriptions/:id/settings
+export interface UpdateSubscriptionSettingsRequest {
+  autoOrderingEnabled?: boolean;
+  defaultMealType?: DefaultMealType;
+  defaultKitchenId?: string | null;
+  defaultAddressId?: string | null;
+}
+
+export interface UpdateSubscriptionSettingsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    subscription: Subscription;
+    autoOrderingEnabled: boolean;
+    defaultMealType: DefaultMealType;
+    defaultKitchen: { name: string } | null;
+    defaultAddress: { addressLine1: string; city: string } | null;
+  };
+}
+
+// POST /api/subscriptions/:id/pause
+export interface PauseSubscriptionRequest {
+  pauseUntil?: string; // ISO date string
+  pauseReason?: string; // Max 500 characters
+}
+
+export interface PauseSubscriptionResponse {
+  success: boolean;
+  message: string;
+  data: {
+    subscriptionId: string;
+    isPaused: boolean;
+    pausedUntil: string | null;
+    message: string;
+  };
+}
+
+// POST /api/subscriptions/:id/resume
+export interface ResumeSubscriptionResponse {
+  success: boolean;
+  message: string;
+  data: {
+    subscriptionId: string;
+    isPaused: boolean;
+    autoOrderingEnabled: boolean;
+    message: string;
+  };
+}
+
+// POST /api/subscriptions/:id/skip-meal
+export interface SkipMealRequest {
+  date: string; // ISO date string - cannot be in the past
+  mealWindow: MealWindowType;
+  reason?: string; // Max 200 characters
+}
+
+export interface SkipMealResponse {
+  success: boolean;
+  message: string;
+  data: {
+    skippedSlot: {
+      date: string;
+      mealWindow: MealWindowType;
+      reason: string | null;
+    };
+    totalSkippedSlots: number;
+  };
+}
+
+// POST /api/subscriptions/:id/unskip-meal
+export interface UnskipMealRequest {
+  date: string; // ISO date string
+  mealWindow: MealWindowType;
+}
+
+export interface UnskipMealResponse {
+  success: boolean;
+  message: string;
+  data: {
+    unskippedSlot: {
+      date: string;
+      mealWindow: MealWindowType;
+    };
+    totalSkippedSlots: number;
   };
 }
 
@@ -1193,6 +1303,78 @@ class ApiService {
     return this.api.post(`/api/subscriptions/${subscriptionId}/cancel`, {
       reason,
     });
+  }
+
+  // ============================================
+  // AUTO-ORDERING ENDPOINTS
+  // ============================================
+
+  // Update auto-ordering settings for a subscription
+  async updateSubscriptionSettings(
+    subscriptionId: string,
+    data: UpdateSubscriptionSettingsRequest,
+  ): Promise<UpdateSubscriptionSettingsResponse> {
+    console.log('[ApiService] updateSubscriptionSettings - Request:', {
+      subscriptionId,
+      data,
+    });
+    const response = await this.api.put(`/api/subscriptions/${subscriptionId}/settings`, data);
+    console.log('[ApiService] updateSubscriptionSettings - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Pause auto-ordering for a subscription
+  async pauseSubscription(
+    subscriptionId: string,
+    data?: PauseSubscriptionRequest,
+  ): Promise<PauseSubscriptionResponse> {
+    console.log('[ApiService] pauseSubscription - Request:', {
+      subscriptionId,
+      data: data || {},
+    });
+    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/pause`, data || {});
+    console.log('[ApiService] pauseSubscription - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Resume auto-ordering after it was paused
+  async resumeSubscription(
+    subscriptionId: string,
+  ): Promise<ResumeSubscriptionResponse> {
+    console.log('[ApiService] resumeSubscription - Request:', {
+      subscriptionId,
+    });
+    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/resume`, {});
+    console.log('[ApiService] resumeSubscription - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Skip auto-ordering for a specific meal slot
+  async skipMeal(
+    subscriptionId: string,
+    data: SkipMealRequest,
+  ): Promise<SkipMealResponse> {
+    console.log('[ApiService] skipMeal - Request:', {
+      subscriptionId,
+      data,
+    });
+    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/skip-meal`, data);
+    console.log('[ApiService] skipMeal - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Remove a meal from skipped slots (re-enable auto-ordering for that slot)
+  async unskipMeal(
+    subscriptionId: string,
+    data: UnskipMealRequest,
+  ): Promise<UnskipMealResponse> {
+    console.log('[ApiService] unskipMeal - Request:', {
+      subscriptionId,
+      data,
+    });
+    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/unskip-meal`, data);
+    console.log('[ApiService] unskipMeal - Response:', JSON.stringify(response, null, 2));
+    return response;
   }
 
   // ============================================
