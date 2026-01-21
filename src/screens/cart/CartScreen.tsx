@@ -140,23 +140,46 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
         let finalPricing = response.data.breakdown;
 
-        // If voucherCount > 0 but API didn't apply voucher discount, apply it locally
-        if (voucherCount > 0 && !response.data.breakdown?.voucherCoverage) {
-          console.log('[CartScreen] API did not apply voucher, applying locally');
-          // Find the main item (thali) price to cover with voucher
-          const mainItem = cartItems.find(item => item.hasVoucher !== false);
-          if (mainItem) {
-            const voucherDiscountAmount = mainItem.price * Math.min(voucherCount, mainItem.quantity);
-            const newAmountToPay = Math.max(0, (finalPricing?.amountToPay || finalPricing?.grandTotal || 0) - voucherDiscountAmount);
+        // If voucherCount > 0, set charges to 0 and apply voucher discount
+        if (voucherCount > 0) {
+          console.log('[CartScreen] Voucher applied, setting charges to 0');
 
-            console.log('[CartScreen] Local voucher calculation:');
-            console.log('  - thali price:', mainItem.price);
-            console.log('  - voucherDiscountAmount:', voucherDiscountAmount);
-            console.log('  - newAmountToPay:', newAmountToPay);
+          // Set charges to 0 when voucher is applied
+          const zeroCharges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
+
+          // If API didn't apply voucher discount, apply it locally
+          if (!response.data.breakdown?.voucherCoverage) {
+            console.log('[CartScreen] API did not apply voucher, applying locally');
+            // Find the main item (thali) price to cover with voucher
+            const mainItem = cartItems.find(item => item.hasVoucher !== false);
+            if (mainItem) {
+              const voucherDiscountAmount = mainItem.price * Math.min(voucherCount, mainItem.quantity);
+              const subtotal = finalPricing?.subtotal || 0;
+              const newAmountToPay = Math.max(0, subtotal - voucherDiscountAmount);
+
+              console.log('[CartScreen] Local voucher calculation:');
+              console.log('  - thali price:', mainItem.price);
+              console.log('  - voucherDiscountAmount:', voucherDiscountAmount);
+              console.log('  - newAmountToPay:', newAmountToPay);
+
+              finalPricing = {
+                ...finalPricing,
+                charges: zeroCharges,
+                voucherCoverage: { type: 'VOUCHER', value: voucherDiscountAmount, description: `${voucherCount} voucher applied` },
+                grandTotal: subtotal,
+                amountToPay: newAmountToPay,
+              };
+            }
+          } else {
+            // API applied voucher, just override charges to 0
+            const subtotal = finalPricing?.subtotal || 0;
+            const voucherDiscountAmount = finalPricing?.voucherCoverage?.value || 0;
+            const newAmountToPay = Math.max(0, subtotal - voucherDiscountAmount);
 
             finalPricing = {
               ...finalPricing,
-              voucherCoverage: { type: 'VOUCHER', value: voucherDiscountAmount, description: `${voucherCount} voucher applied` },
+              charges: zeroCharges,
+              grandTotal: subtotal,
               amountToPay: newAmountToPay,
             };
           }
@@ -190,7 +213,10 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         }
       }
 
-      const charges = { deliveryFee: 30, serviceFee: 5, packagingFee: 10, handlingFee: 0, taxAmount: subtotal * 0.05 };
+      // If voucher is applied, set charges to 0, otherwise use normal charges
+      const charges = voucherCount > 0
+        ? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 }
+        : { deliveryFee: 30, serviceFee: 5, packagingFee: 10, handlingFee: 0, taxAmount: subtotal * 0.05 };
       const totalCharges = charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount;
       const grandTotal = subtotal + totalCharges;
       const amountToPay = Math.max(0, grandTotal - voucherDiscountAmount);
@@ -199,6 +225,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       console.log('  - voucherCount:', voucherCount);
       console.log('  - subtotal:', subtotal);
       console.log('  - voucherDiscountAmount:', voucherDiscountAmount);
+      console.log('  - charges (0 if voucher applied):', JSON.stringify(charges));
+      console.log('  - totalCharges:', totalCharges);
       console.log('  - grandTotal:', grandTotal);
       console.log('  - amountToPay:', amountToPay);
 
@@ -354,17 +382,35 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     }
     return sum + itemTotal;
   }, 0);
-  const charges = pricing?.charges;
-  const totalCharges = charges
-    ? charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount
-    : 45;
 
-  // Calculate voucher discount - use pricing if available, otherwise calculate locally
-  let voucherDiscount = pricing?.voucherCoverage?.value ?? 0;
-  if (voucherDiscount === 0 && voucherCount > 0) {
-    // Calculate voucher discount locally: 1 voucher = 1 meal (thali price)
+  // If voucher is applied, charges should be 0, otherwise use fallback or pricing charges
+  // When voucherCount is 0, always recalculate charges to ensure they're not stuck at 0 from previous state
+  const fallbackCharges = { deliveryFee: 30, serviceFee: 5, packagingFee: 10, handlingFee: 0, taxAmount: subtotal * 0.05 };
+
+  let charges;
+  if (voucherCount > 0) {
+    // Voucher applied: charges are zero
+    charges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
+  } else if (pricing?.charges) {
+    // Check if pricing charges are valid (not all zeros from previous state)
+    const hasValidCharges = pricing.charges.deliveryFee > 0 || pricing.charges.serviceFee > 0 ||
+                           pricing.charges.packagingFee > 0 || pricing.charges.taxAmount > 0;
+    charges = hasValidCharges ? pricing.charges : fallbackCharges;
+  } else {
+    // No pricing data, use fallback
+    charges = fallbackCharges;
+  }
+
+  const totalCharges = charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount;
+
+  // Calculate voucher discount - only when voucher is actually applied
+  // 1 voucher = 1 meal (covers the meal price)
+  // Note: Charges are also waived but shown separately as ₹0 in "Delivery & Charges" line
+  let voucherDiscount = 0;
+  if (voucherCount > 0) {
     const mainItem = cartItems.find(item => item.hasVoucher !== false);
     if (mainItem) {
+      // 1 voucher covers 1 meal price
       voucherDiscount = mainItem.price * Math.min(voucherCount, mainItem.quantity);
     }
   }
@@ -372,8 +418,18 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const couponDiscount = pricing?.discount?.value ?? 0;
   const totalDiscount = voucherDiscount + couponDiscount;
 
-  // Calculate amountToPay - use pricing if available, otherwise calculate locally with voucher
-  const amountToPay = pricing?.amountToPay ?? Math.max(0, subtotal + totalCharges - totalDiscount);
+  // Calculate amountToPay
+  // When voucherCount changes, we can't trust pricing.amountToPay until API recalculates
+  // So we calculate locally to ensure immediate UI update
+  let amountToPay;
+  if (voucherCount > 0) {
+    // Voucher applied: use pricing if available, otherwise calculate locally
+    amountToPay = pricing?.amountToPay ?? Math.max(0, subtotal + totalCharges - totalDiscount);
+  } else {
+    // No voucher: always calculate fresh to avoid stale pricing state
+    // amountToPay = subtotal + charges (no voucher discount)
+    amountToPay = subtotal + totalCharges;
+  }
 
   // Debug: Log pricing changes
   useEffect(() => {
@@ -384,10 +440,15 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     console.log('  - calculated voucherDiscount:', voucherDiscount);
     console.log('  - calculated amountToPay:', amountToPay);
     console.log('  - current voucherCount:', voucherCount);
-  }, [pricing, voucherDiscount, amountToPay, voucherCount]);
+    console.log('  - charges (0 if voucher):', JSON.stringify(charges));
+    console.log('  - totalCharges:', totalCharges);
+  }, [pricing, voucherDiscount, amountToPay, voucherCount, charges, totalCharges]);
 
   // Voucher UI state - include both AVAILABLE and RESTORED vouchers
   const hasVouchers = usableVouchers > 0;
+  // Calculate max vouchers that can be used based on thali count (main courses)
+  const thaliCount = cartItems.reduce((sum, item) => item.hasVoucher !== false ? sum + item.quantity : sum, 0);
+  const maxVouchersCanUse = Math.min(usableVouchers, thaliCount);
   // Show "Click to Redeem" button when:
   // 1. User has vouchers in their account (hasVouchers)
   // 2. No voucher is currently applied to this order (voucherCount === 0)
@@ -417,7 +478,10 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     console.log('  - voucherInfo?.cutoffPassed:', voucherInfo?.cutoffPassed);
     console.log('  - canUseVoucher:', canUseVoucher);
     console.log('  - showRedeemButton:', showRedeemButton);
-  }, [voucherSummary, hasVouchers, voucherCount, voucherInfo, canUseVoucher, showRedeemButton]);
+    console.log('  - thaliCount:', thaliCount);
+    console.log('  - usableVouchers:', usableVouchers);
+    console.log('  - maxVouchersCanUse:', maxVouchersCanUse);
+  }, [voucherSummary, hasVouchers, voucherCount, voucherInfo, canUseVoucher, showRedeemButton, thaliCount, usableVouchers, maxVouchersCanUse]);
 
   // Handler to apply voucher (click to redeem)
   const handleApplyVoucher = () => {
@@ -438,6 +502,39 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       setVoucherCount(1);
     }
     // Price will recalculate automatically due to existing useEffect dependency on voucherCount
+  };
+
+  // Handler to increment voucher count
+  const handleIncrementVoucher = () => {
+    console.log('[CartScreen] handleIncrementVoucher called');
+    console.log('  - current voucherCount:', voucherCount);
+    console.log('  - maxVouchersCanUse:', maxVouchersCanUse);
+    console.log('  - usableVouchers:', usableVouchers);
+    console.log('  - thaliCount:', thaliCount);
+
+    if (voucherCount < maxVouchersCanUse) {
+      const newCount = voucherCount + 1;
+      console.log('  - Setting voucherCount to:', newCount);
+      setVoucherCount(newCount);
+    } else {
+      console.log('  - Cannot increment: reached max vouchers');
+    }
+  };
+
+  // Handler to decrement voucher count
+  const handleDecrementVoucher = () => {
+    console.log('[CartScreen] handleDecrementVoucher called');
+    console.log('  - current voucherCount:', voucherCount);
+
+    if (voucherCount > 1) {
+      const newCount = voucherCount - 1;
+      console.log('  - Setting voucherCount to:', newCount);
+      setVoucherCount(newCount);
+    } else {
+      // If decrementing to 0, remove all vouchers
+      console.log('  - Removing all vouchers (setting to 0)');
+      setVoucherCount(0);
+    }
   };
 
   // Check if cart is empty
@@ -671,20 +768,42 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   <Text className="text-red-500 font-semibold text-xs">Cutoff Passed</Text>
                 </View>
               ) : voucherCount > 0 ? (
-                <TouchableOpacity
-                  className="bg-white rounded-full px-5 items-center justify-center flex-row"
-                  style={{ height: 46 }}
-                  onPress={() => setVoucherCount(0)}
-                >
-                  <Text className="text-orange-400 font-semibold text-sm">
-                    {voucherCount} Applied
-                  </Text>
-                  <Image
-                    source={require('../../assets/icons/tick3.png')}
-                    style={{ width: 14, height: 14, marginLeft: 6 }}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                <View className="bg-white rounded-full px-3 items-center justify-center flex-row" style={{ height: 46 }}>
+                  {/* Decrement Button */}
+                  <TouchableOpacity
+                    onPress={handleDecrementVoucher}
+                    className="w-8 h-8 rounded-full items-center justify-center"
+                    style={{ backgroundColor: 'rgba(255, 217, 197, 0.5)' }}
+                  >
+                    <Text className="text-orange-400 font-bold text-lg">−</Text>
+                  </TouchableOpacity>
+
+                  {/* Voucher Count Display */}
+                  <View className="mx-3 items-center">
+                    <Text className="text-orange-400 font-bold text-base">
+                      {voucherCount} Applied
+                    </Text>
+                  </View>
+
+                  {/* Increment Button */}
+                  <TouchableOpacity
+                    onPress={handleIncrementVoucher}
+                    className="w-8 h-8 rounded-full items-center justify-center"
+                    style={{
+                      backgroundColor: voucherCount >= maxVouchersCanUse ? 'rgba(232, 235, 234, 1)' : 'rgba(255, 217, 197, 1)'
+                    }}
+                    disabled={voucherCount >= maxVouchersCanUse}
+                  >
+                    <Text
+                      className="font-bold text-lg"
+                      style={{
+                        color: voucherCount >= maxVouchersCanUse ? '#9CA3AF' : '#F56B4C'
+                      }}
+                    >
+                      +
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : voucherInfo.canUse > 0 ? (
                 <TouchableOpacity
                   className="bg-white rounded-full px-5 items-center justify-center"
@@ -711,6 +830,11 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             {!voucherInfo.cutoffPassed && usableVouchers === 0 && (
               <Text className="text-gray-500 text-xs mt-2 text-center">
                 Purchase a meal plan to get vouchers and save on orders!
+              </Text>
+            )}
+            {!voucherInfo.cutoffPassed && voucherCount > 0 && (
+              <Text className="text-white text-xs mt-2 text-center">
+                Max {maxVouchersCanUse} vouchers can be used (based on {thaliCount} thali in cart)
               </Text>
             )}
           </View>

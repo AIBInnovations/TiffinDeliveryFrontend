@@ -400,7 +400,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
         <View className="items-end">
-          <Text className="text-xs text-gray-500 mb-1">Now</Text>
+          <Text className="text-xs text-gray-500 mb-1">
+            {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </Text>
           <Text className="text-sm font-semibold text-gray-900">{getStatusMessage(order.status)}</Text>
         </View>
       </View>
@@ -442,7 +444,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       activeOpacity={0.7}
       className="bg-white rounded-2xl p-4 mb-3"
       style={{
-        height: 160,
+        minHeight: 160,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
@@ -461,13 +463,22 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
         <View className="flex-1 ml-3">
           <View className="flex-row items-center justify-between mb-1">
-            <Text className="text-base font-bold text-gray-900">{getOrderTitle(order)}</Text>
+            <Text className="text-base font-bold text-gray-900" numberOfLines={1} style={{ flex: 1, marginRight: 8 }}>
+              {getOrderTitle(order)}
+            </Text>
             <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
           </View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - #{order.orderNumber}</Text>
-            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{formatDate(order.placedAt)}</Text>
-          </View>
+          <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }} numberOfLines={1}>
+            Order ID - #{order.orderNumber}
+          </Text>
+          <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)', marginTop: 2 }}>
+            {formatDate(order.placedAt)}
+          </Text>
+          {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
+            <Text className="text-xs" style={{ color: '#16A34A', marginTop: 4, fontWeight: '600' }}>
+              {order.voucherUsage.voucherCount} voucher{order.voucherUsage.voucherCount > 1 ? 's' : ''} used
+            </Text>
+          )}
         </View>
       </View>
 
@@ -560,8 +571,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Header */}
         <View className="px-5 py-4 flex-row items-center">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
+          <View
             className="w-10 h-10 rounded-full  items-center justify-center"
             style={{ marginLeft: 8, marginRight: 20 }}
           >
@@ -570,7 +580,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               style={{ width: 58, height: 58 }}
               resizeMode="contain"
             />
-          </TouchableOpacity>
+          </View>
 
           {/* Location */}
           <TouchableOpacity

@@ -118,13 +118,7 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text className="text-xl font-bold text-gray-900">Help & Support</Text>
 
-        <TouchableOpacity className="w-10 h-10 items-center justify-center">
-          <Image
-            source={require('../../assets/icons/edit3.png')}
-            style={{ width: 32, height: 32 }}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
+        <View className="w-10 h-10" />
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -140,7 +134,7 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
               resizeMode="contain"
             />
             <TextInput
-              placeholder="Search for an address"
+              placeholder="Search"
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}

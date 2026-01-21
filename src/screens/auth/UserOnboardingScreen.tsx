@@ -35,7 +35,7 @@ const SPICE_LEVELS = [
 ];
 
 const UserOnboardingScreen: React.FC = () => {
-  const { completeOnboarding, registerFcmToken, logout } = useUser();
+  const { completeOnboarding, registerFcmToken } = useUser();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
@@ -137,28 +137,6 @@ const UserOnboardingScreen: React.FC = () => {
     // User chose to skip - close modal and proceed
     // Navigation will happen automatically via AppNavigator
     setShowNotificationModal(false);
-  };
-
-  const handleSkip = () => {
-    Alert.alert(
-      'Skip Profile Setup',
-      'You will be logged out and can explore the app as a guest. You can complete your profile anytime by logging in again.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Skip & Explore',
-          onPress: async () => {
-            try {
-              // Log out the user - they can explore as guest from login screen
-              await logout();
-              // AppNavigator will automatically show the auth flow
-            } catch (error) {
-              console.error('Error logging out:', error);
-            }
-          },
-        },
-      ]
-    );
   };
 
   return (
@@ -413,7 +391,7 @@ const UserOnboardingScreen: React.FC = () => {
           <TouchableOpacity
             onPress={handleContinue}
             disabled={isLoading}
-            className="bg-orange-400 rounded-full py-4 items-center mb-4"
+            className="bg-orange-400 rounded-full py-4 items-center mb-8"
             style={{
               backgroundColor: isLoading ? '#CCCCCC' : '#F56B4C',
               shadowColor: '#F56B4C',
@@ -430,17 +408,6 @@ const UserOnboardingScreen: React.FC = () => {
                 Continue to App →
               </Text>
             )}
-          </TouchableOpacity>
-
-          {/* Skip Button */}
-          <TouchableOpacity
-            onPress={handleSkip}
-            disabled={isLoading}
-            className="py-3 items-center mb-8"
-          >
-            <Text className="text-gray-500 text-sm">
-              Skip for now
-            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

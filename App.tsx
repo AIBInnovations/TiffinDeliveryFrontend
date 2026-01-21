@@ -43,8 +43,13 @@ const AppContent = () => {
       }
     };
 
-    // Run location request asynchronously without blocking app startup
-    requestLocation();
+    // Delay permission request to ensure Android Activity is fully attached
+    // This prevents "Tried to use permissions API while not attached to an Activity" error
+    const timer = setTimeout(() => {
+      requestLocation();
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return <AppNavigator />;

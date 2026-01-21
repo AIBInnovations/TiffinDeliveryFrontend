@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -43,7 +42,6 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   const [lunchAutoOrder, setLunchAutoOrder] = React.useState(false);
   const [dinnerAutoOrder, setDinnerAutoOrder] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
-  const [searchQuery, setSearchQuery] = React.useState('');
 
   // Modal states
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = React.useState(false);
@@ -102,6 +100,16 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     setShowDeleteConfirmModal(true);
   };
 
+  const handlePause = () => {
+    // TODO: Implement pause functionality
+    console.log('Pause meal plan');
+  };
+
+  const handleSkipNextMeal = () => {
+    // TODO: Implement skip next meal functionality
+    console.log('Skip next meal');
+  };
+
   const confirmDeleteAccount = async () => {
     setShowDeleteConfirmModal(false);
 
@@ -156,13 +164,13 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
           <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
             {/* Logo */}
-            <TouchableOpacity className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
+            <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
               <Image
                 source={require('../../assets/icons/Tiffsy.png')}
                 style={{ width: 58, height: 35 }}
                 resizeMode="contain"
               />
-            </TouchableOpacity>
+            </View>
 
             {/* Title */}
             <Text className="text-white text-xl font-bold">My Profile</Text>
@@ -187,27 +195,6 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               />
               <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Search Bar */}
-          <View className="mx-5 bg-white rounded-full flex-row items-center px-5 py-1">
-            <Image
-              source={require('../../assets/icons/search2.png')}
-              style={{ width: 20, height: 20 }}
-              resizeMode="contain"
-            />
-            <TextInput
-              placeholder="Search menu options..."
-              placeholderTextColor="#9CA3AF"
-              className="flex-1 text-gray-700 text-sm ml-2"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text style={{ color: '#9CA3AF', fontSize: 18 }}>✕</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -358,6 +345,45 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
+            {/* Pause and Skip Meal Buttons */}
+            <View className="flex-row justify-between mt-4 mb-4">
+              {/* Pause Button */}
+              <TouchableOpacity
+                onPress={handlePause}
+                className="flex-1 mr-2 bg-white rounded-full py-2.5 items-center"
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: '#F56B4C',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+              >
+                <Text className="font-semibold text-sm" style={{ color: '#F56B4C' }}>
+                  Pause
+                </Text>
+              </TouchableOpacity>
+
+              {/* Skip Next Meal Button */}
+              <TouchableOpacity
+                onPress={handleSkipNextMeal}
+                className="flex-1 ml-2 bg-orange-400 rounded-full py-2.5 items-center"
+                style={{
+                  shadowColor: '#F56B4C',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">
+                  Skip Next Meal
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Auto Order Toggles */}
             <View className="flex-row items-center justify-between">
               <Text className="text-sm font-semibold text-gray-900">Auto Order:</Text>
@@ -440,14 +466,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           const filteredAccountItems = ACCOUNT_MENU_ITEMS.filter(item => {
             // Filter by auth requirement
             if (item.authRequired && isGuest) return false;
-            // Filter by search query
-            if (searchQuery.trim()) {
-              return item.label.toLowerCase().includes(searchQuery.toLowerCase());
-            }
             return true;
           });
-
-          if (filteredAccountItems.length === 0 && searchQuery.trim()) return null;
 
           return (
             <View className="px-5 mb-3">
@@ -482,14 +502,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           const filteredSupportItems = SUPPORT_MENU_ITEMS.filter(item => {
             // Filter by auth requirement
             if (item.authRequired && isGuest) return false;
-            // Filter by search query
-            if (searchQuery.trim()) {
-              return item.label.toLowerCase().includes(searchQuery.toLowerCase());
-            }
             return true;
           });
-
-          if (filteredSupportItems.length === 0 && searchQuery.trim()) return null;
 
           return (
             <View className="px-5 mb-6">
@@ -517,35 +531,6 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
           );
-        })()}
-
-        {/* No Results State */}
-        {searchQuery.trim() && (() => {
-          const hasAccountResults = ACCOUNT_MENU_ITEMS.some(item => {
-            if (item.authRequired && isGuest) return false;
-            return item.label.toLowerCase().includes(searchQuery.toLowerCase());
-          });
-          const hasSupportResults = SUPPORT_MENU_ITEMS.some(item => {
-            if (item.authRequired && isGuest) return false;
-            return item.label.toLowerCase().includes(searchQuery.toLowerCase());
-          });
-
-          if (!hasAccountResults && !hasSupportResults) {
-            return (
-              <View className="px-5 py-8 items-center">
-                <Image
-                  source={require('../../assets/icons/search2.png')}
-                  style={{ width: 48, height: 48, opacity: 0.3, marginBottom: 12 }}
-                  resizeMode="contain"
-                />
-                <Text className="text-gray-400 text-base">No results found for "{searchQuery}"</Text>
-                <TouchableOpacity onPress={() => setSearchQuery('')} className="mt-3">
-                  <Text className="text-orange-400 font-semibold">Clear Search</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
-          return null;
         })()}
 
         {/* Logout Button - Only for authenticated users */}

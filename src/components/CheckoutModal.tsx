@@ -59,13 +59,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   console.log('  - availableVouchers:', availableVouchers);
 
   // Calculate amounts based on selected option
+  // If voucher is used, charges should be 0
+  const effectiveTotalCharges = voucherCount > 0 ? 0 : totalCharges;
+  const effectiveGrandTotal = subtotal + effectiveTotalCharges;
   const voucherCoverage = voucherCount * voucherValue;
-  const amountToPay = Math.max(0, grandTotal - voucherCoverage);
+  const amountToPay = Math.max(0, effectiveGrandTotal - voucherCoverage);
 
   // Pre-calculate partial pay amount for display (before user selects the option)
   // This shows what the user would pay if they select Partial Pay (with 1 voucher)
   const partialPayVoucherCount = Math.min(availableVouchers, maxVouchersForOrder, 1);
-  const partialPayAmount = Math.max(0, grandTotal - (partialPayVoucherCount * voucherValue));
+  // When voucher is used, charges are 0
+  const partialPayEffectiveTotalCharges = partialPayVoucherCount > 0 ? 0 : totalCharges;
+  const partialPayGrandTotal = subtotal + partialPayEffectiveTotalCharges;
+  const partialPayAmount = Math.max(0, partialPayGrandTotal - (partialPayVoucherCount * voucherValue));
 
   // Check if voucher-only is possible (vouchers cover entire order)
   const canUseVoucherOnly = availableVouchers >= maxVouchersForOrder &&
@@ -209,12 +215,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </View>
               <View className="flex-row justify-between mb-2">
                 <Text className="text-gray-600">Delivery & Charges</Text>
-                <Text className="text-gray-900">₹{totalCharges.toFixed(2)}</Text>
+                <Text className={voucherCount > 0 ? "text-green-600 font-semibold" : "text-gray-900"}>
+                  {voucherCount > 0 ? 'FREE' : `₹${totalCharges.toFixed(2)}`}
+                </Text>
               </View>
+              {voucherCount > 0 && (
+                <Text className="text-green-600 text-xs mb-2">
+                  Charges waived with voucher use
+                </Text>
+              )}
               <View className="border-t border-gray-200 pt-2 mt-2">
                 <View className="flex-row justify-between">
                   <Text className="font-semibold text-gray-900">Grand Total</Text>
-                  <Text className="font-bold text-gray-900">₹{grandTotal.toFixed(2)}</Text>
+                  <Text className="font-bold text-gray-900">₹{effectiveGrandTotal.toFixed(2)}</Text>
                 </View>
               </View>
             </View>
@@ -255,7 +268,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               'PAY_FULL',
               'Pay Full Amount',
               'Pay the complete amount via UPI/Card',
-              grandTotal,
+              effectiveGrandTotal,
               false,
               undefined,
               require('../assets/icons/reciept.png'),
@@ -366,7 +379,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     : selectedOption === 'PARTIAL_PAY'
                     ? `Pay ₹${amountToPay.toFixed(0)} & Place Order`
                     : selectedOption
-                    ? `Pay ₹${grandTotal.toFixed(0)} & Place Order`
+                    ? `Pay ₹${effectiveGrandTotal.toFixed(0)} & Place Order`
                     : 'Select Payment Option'}
                 </Text>
               )}

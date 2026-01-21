@@ -20,15 +20,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const FCM_TOKEN_KEY = 'fcm_token';
 const FCM_PERMISSION_ASKED_KEY = 'fcm_permission_asked';
 
-// Dynamic import for messaging to handle cases where it's not installed
+// Conditional require for messaging to handle cases where it's not installed
 let messaging: any = null;
 
-const loadMessaging = async () => {
+const loadMessaging = () => {
   if (messaging) return messaging;
 
   try {
-    const firebaseMessaging = await import('@react-native-firebase/messaging');
-    messaging = firebaseMessaging.default;
+    // Use require instead of import() for React Native Metro compatibility
+    messaging = require('@react-native-firebase/messaging').default;
     return messaging;
   } catch (error) {
     console.warn('Firebase Messaging not installed. Run: npm install @react-native-firebase/messaging');
@@ -43,7 +43,7 @@ class NotificationService {
    * Check if Firebase Messaging is available
    */
   async isAvailable(): Promise<boolean> {
-    const msg = await loadMessaging();
+    const msg = loadMessaging();
     return msg !== null;
   }
 
@@ -52,7 +52,7 @@ class NotificationService {
    * Returns true if granted, false otherwise
    */
   async requestPermission(): Promise<boolean> {
-    const msg = await loadMessaging();
+    const msg = loadMessaging();
     if (!msg) {
       console.warn('Firebase Messaging not available');
       return false;
@@ -104,7 +104,7 @@ class NotificationService {
    * Check current permission status without requesting
    */
   async checkPermission(): Promise<boolean> {
-    const msg = await loadMessaging();
+    const msg = loadMessaging();
     if (!msg) return false;
 
     try {
@@ -132,7 +132,7 @@ class NotificationService {
    * Returns null if permission not granted or error occurs
    */
   async getToken(): Promise<string | null> {
-    const msg = await loadMessaging();
+    const msg = loadMessaging();
     if (!msg) return null;
 
     try {
@@ -169,7 +169,7 @@ class NotificationService {
    * Delete FCM token (useful for logout)
    */
   async deleteToken(): Promise<void> {
-    const msg = await loadMessaging();
+    const msg = loadMessaging();
 
     try {
       if (msg) {
@@ -186,7 +186,7 @@ class NotificationService {
    * Set up token refresh listener
    */
   async setupTokenRefreshListener(onTokenRefresh: (token: string) => void): Promise<void> {
-    const msg = await loadMessaging();
+    const msg = loadMessaging();
     if (!msg) return;
 
     try {

@@ -45,17 +45,17 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
         />
 
         <View className="flex-row items-center px-5 pt-4">
-          {/* Back Button */}
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
+          {/* Logo */}
+          <View
             className="w-10 h-10 items-center justify-center"
+            style={{ marginLeft: 8, marginRight: 20 }}
           >
             <Image
-              source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: 34, height: 34 }}
+              source={require('../../assets/icons/Tiffsy.png')}
+              style={{ width: 58, height: 58 }}
               resizeMode="contain"
             />
-          </TouchableOpacity>
+          </View>
 
           {/* Title */}
           <Text className="flex-1 text-white text-xl font-bold text-center mr-10">

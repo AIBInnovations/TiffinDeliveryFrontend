@@ -47,6 +47,7 @@ interface MenuData {
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const {
     replaceCart,
+    updateQuantity: updateCartItemQuantity,
     setKitchenId,
     setMenuType,
     setMealWindow,
@@ -547,10 +548,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const updateMealQuantity = (increment: boolean) => {
-    if (increment) {
-      setMealQuantity(prev => prev + 1);
-    } else {
-      setMealQuantity(prev => Math.max(1, prev - 1));
+    const newQuantity = increment ? mealQuantity + 1 : Math.max(1, mealQuantity - 1);
+
+    // Update local state
+    setMealQuantity(newQuantity);
+
+    // Update cart if item already added (modal is showing)
+    if (showCartModal) {
+      const mealItem = getCurrentMealItem();
+      const cartItemId = mealItem?._id || `meal-${selectedMeal}`;
+      updateCartItemQuantity(cartItemId, newQuantity);
     }
   };
 
@@ -614,14 +621,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           />
 
           <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
-            {/* Notification Bell */}
-            <TouchableOpacity className="w-12 h-12  items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
+            {/* Logo */}
+            <View className="w-12 h-12  items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
               <Image
                 source={require('../../assets/icons/Tiffsy.png')}
                 style={{ width: 58, height: 35 }}
                 resizeMode="contain"
               />
-            </TouchableOpacity>
+            </View>
 
             {/* Location */}
             <TouchableOpacity
@@ -1003,7 +1010,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         >
                           <Text className="text-orange-400 font-bold">−</Text>
                         </TouchableOpacity>
-                        <Text className="mx-3 text-base font-semibold">{item.count}x</Text>
+                        <Text className="mx-3 text-base font-semibold">{item.count}</Text>
                         <TouchableOpacity
                           onPress={() => updateQuantity(item.id, true)}
                           className="w-7 h-7 rounded-full border-2 border-orange-400 items-center justify-center"
