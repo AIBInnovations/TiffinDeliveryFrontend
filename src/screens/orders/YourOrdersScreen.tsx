@@ -482,9 +482,6 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Divider Line */}
-      <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 16, marginBottom: 6, marginHorizontal: -16 }} />
-
       {/* Re-order and Status */}
       <View className="flex-row items-center justify-between">
         <TouchableOpacity

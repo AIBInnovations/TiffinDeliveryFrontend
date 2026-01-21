@@ -960,12 +960,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {getMealDescription()}
             </Text>
             {getCurrentMealItem()?.includes && getCurrentMealItem()!.includes!.length > 0 && (
-              <View className="mt-3">
-                <Text className="text-sm font-semibold text-gray-700 mb-2">Includes:</Text>
-                <View className="flex-row flex-wrap">
+              <View className="mt-4 bg-orange-50 rounded-2xl p-4" style={{ borderWidth: 1, borderColor: 'rgba(251, 146, 60, 0.3)' }}>
+                <Text className="text-base font-bold text-gray-900 mb-3">What's Included</Text>
+                <View className="flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
                   {getCurrentMealItem()!.includes!.map((item, index) => (
-                    <View key={index} className="bg-orange-50 px-3 py-1 rounded-full mr-2 mb-2">
-                      <Text className="text-orange-600 text-sm">{item}</Text>
+                    <View key={index} className="flex-row items-start mb-3" style={{ width: '50%', paddingHorizontal: 6 }}>
+                      <View className="w-5 h-5 rounded-full bg-orange-400 items-center justify-center mr-2" style={{ marginTop: 2 }}>
+                        <Text className="text-white text-xs font-bold">✓</Text>
+                      </View>
+                      <Text className="text-gray-700 text-sm" style={{ flex: 1 }}>{item}</Text>
                     </View>
                   ))}
                 </View>
