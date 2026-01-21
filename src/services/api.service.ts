@@ -1333,6 +1333,155 @@ class ApiService {
       },
     });
   }
+
+  // ============================================
+  // PAYMENT ENDPOINTS
+  // ============================================
+
+  // Get Razorpay payment configuration
+  async getPaymentConfig(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      available: boolean;
+      key: string | null;
+      currency: string;
+      provider: string;
+    };
+  }> {
+    return this.api.get('/api/payment/config');
+  }
+
+  // Initiate payment for an order
+  async initiateOrderPayment(orderId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      razorpayOrderId: string;
+      amount: number;
+      currency: string;
+      key: string;
+      orderId: string;
+      orderNumber: string;
+      expiresAt: string;
+      prefill: {
+        name: string;
+        contact: string;
+        email?: string;
+      };
+    };
+  }> {
+    return this.api.post(`/api/payment/order/${orderId}/initiate`);
+  }
+
+  // Retry payment for a failed order
+  async retryOrderPayment(orderId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      razorpayOrderId: string;
+      amount: number;
+      currency: string;
+      key: string;
+      orderId: string;
+      expiresAt: string;
+      prefill?: {
+        name: string;
+        contact: string;
+        email?: string;
+      };
+    };
+  }> {
+    return this.api.post(`/api/payment/order/${orderId}/retry`);
+  }
+
+  // Initiate payment for subscription purchase
+  async initiateSubscriptionPayment(planId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      razorpayOrderId: string;
+      amount: number;
+      currency: string;
+      key: string;
+      planId: string;
+      planName: string;
+      expiresAt: string;
+      prefill: {
+        name: string;
+        contact: string;
+        email?: string;
+      };
+    };
+  }> {
+    return this.api.post('/api/payment/subscription/initiate', { planId });
+  }
+
+  // Verify payment after Razorpay checkout
+  async verifyPayment(data: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      success: boolean;
+      status: string;
+      purchaseType: 'ORDER' | 'SUBSCRIPTION';
+      referenceId: string;
+      paymentId: string;
+    };
+  }> {
+    return this.api.post('/api/payment/verify', data);
+  }
+
+  // Get payment status by Razorpay order ID
+  async getPaymentStatus(razorpayOrderId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      razorpayOrderId: string;
+      razorpayPaymentId: string | null;
+      status: string;
+      amount: number;
+      amountRupees: number;
+      paymentMethod: string | null;
+      paidAt: string | null;
+      failureReason: string | null;
+      purchaseType: 'ORDER' | 'SUBSCRIPTION';
+      referenceId: string;
+    };
+  }> {
+    return this.api.get(`/api/payment/status/${razorpayOrderId}`);
+  }
+
+  // Get user's payment history
+  async getPaymentHistory(params?: {
+    status?: string;
+    purchaseType?: 'ORDER' | 'SUBSCRIPTION';
+    limit?: number;
+    skip?: number;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      transactions: Array<{
+        _id: string;
+        razorpayOrderId: string;
+        razorpayPaymentId: string | null;
+        purchaseType: 'ORDER' | 'SUBSCRIPTION';
+        status: string;
+        amountRupees: number;
+        paymentMethod: string | null;
+        paidAt: string | null;
+        createdAt: string;
+      }>;
+      count: number;
+    };
+  }> {
+    return this.api.get('/api/payment/history', { params });
+  }
 }
 
 export default new ApiService();

@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useUser, DietaryPreferences } from '../../context/UserContext';
 import NotificationPermissionModal from '../../components/NotificationPermissionModal';
 import notificationService from '../../services/notification.service';
@@ -18,20 +19,20 @@ import notificationService from '../../services/notification.service';
 // Navigation is handled automatically by AppNavigator based on state changes
 
 const FOOD_TYPES = [
-  { id: 'VEG', label: 'Vegetarian', icon: '🥗' },
-  { id: 'NON-VEG', label: 'Non-Vegetarian', icon: '🍗' },
-  { id: 'VEGAN', label: 'Vegan', icon: '🌱' },
+  { id: 'VEG', label: 'Veg', icon: 'leaf' },
+  { id: 'NON-VEG', label: 'Non-Veg', icon: 'food-drumstick' },
+  { id: 'VEGAN', label: 'Vegan', icon: 'sprout' },
 ];
 
 const DABBA_TYPES = [
-  { id: 'DISPOSABLE', label: 'Disposable', icon: '📦' },
-  { id: 'STEEL DABBA', label: 'Steel Dabba', icon: '🥘' },
+  { id: 'DISPOSABLE', label: 'Disposable', icon: 'package-variant' },
+  { id: 'STEEL DABBA', label: 'Steel Dabba', icon: 'bowl-mix' },
 ];
 
 const SPICE_LEVELS = [
-  { id: 'LOW', label: 'Low', icon: '🌶️' },
-  { id: 'MEDIUM', label: 'Medium', icon: '🌶️🌶️' },
-  { id: 'HIGH', label: 'High', icon: '🌶️🌶️🌶️' },
+  { id: 'LOW', label: 'Low', icon: 'chili-mild', iconCount: 1 },
+  { id: 'MEDIUM', label: 'Medium', icon: 'chili-medium', iconCount: 2 },
+  { id: 'HIGH', label: 'High', icon: 'chili-hot', iconCount: 3 },
 ];
 
 const UserOnboardingScreen: React.FC = () => {
@@ -156,9 +157,17 @@ const UserOnboardingScreen: React.FC = () => {
           </View>
 
           <View className="items-center mt-4">
-            <Text className="text-white text-3xl font-bold text-center mb-2">
-              Welcome! 👋
-            </Text>
+            <View className="flex-row items-center mb-2">
+              <Text className="text-white text-3xl font-bold text-center">
+                Welcome!
+              </Text>
+              <MaterialCommunityIcons
+                name="hand-wave"
+                size={28}
+                color="#FFFFFF"
+                style={{ marginLeft: 8 }}
+              />
+            </View>
             <Text className="text-white text-base text-center opacity-90">
               Let's personalize your experience
             </Text>
@@ -239,7 +248,12 @@ const UserOnboardingScreen: React.FC = () => {
                       minWidth: 100,
                     }}
                   >
-                    <Text className="mr-1">{type.icon}</Text>
+                    <MaterialCommunityIcons
+                      name={type.icon}
+                      size={18}
+                      color={isSelected ? '#FFFFFF' : '#374151'}
+                      style={{ marginRight: 4 }}
+                    />
                     <Text
                       className="text-sm font-medium"
                       style={{ color: isSelected ? '#FFFFFF' : '#374151' }}
@@ -267,7 +281,12 @@ const UserOnboardingScreen: React.FC = () => {
                   borderColor: eggiterian ? '#F56B4C' : '#E5E7EB',
                 }}
               >
-                <Text className="mr-1">🥚</Text>
+                <MaterialCommunityIcons
+                  name="egg"
+                  size={18}
+                  color={eggiterian ? '#FFFFFF' : '#374151'}
+                  style={{ marginRight: 4 }}
+                />
                 <Text
                   className="text-sm font-medium"
                   style={{ color: eggiterian ? '#FFFFFF' : '#374151' }}
@@ -285,7 +304,12 @@ const UserOnboardingScreen: React.FC = () => {
                   borderColor: jainFriendly ? '#F56B4C' : '#E5E7EB',
                 }}
               >
-                <Text className="mr-1">🙏</Text>
+                <MaterialCommunityIcons
+                  name="hand-peace"
+                  size={18}
+                  color={jainFriendly ? '#FFFFFF' : '#374151'}
+                  style={{ marginRight: 4 }}
+                />
                 <Text
                   className="text-sm font-medium"
                   style={{ color: jainFriendly ? '#FFFFFF' : '#374151' }}
@@ -315,7 +339,12 @@ const UserOnboardingScreen: React.FC = () => {
                       borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
                     }}
                   >
-                    <Text className="mr-1">{type.icon}</Text>
+                    <MaterialCommunityIcons
+                      name={type.icon}
+                      size={18}
+                      color={isSelected ? '#FFFFFF' : '#374151'}
+                      style={{ marginRight: 4 }}
+                    />
                     <Text
                       className="text-sm font-medium"
                       style={{ color: isSelected ? '#FFFFFF' : '#374151' }}
@@ -347,7 +376,12 @@ const UserOnboardingScreen: React.FC = () => {
                       borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
                     }}
                   >
-                    <Text className="mr-1">{level.icon}</Text>
+                    <MaterialCommunityIcons
+                      name={level.icon}
+                      size={18}
+                      color={isSelected ? '#FFFFFF' : '#374151'}
+                      style={{ marginRight: 4 }}
+                    />
                     <Text
                       className="text-sm font-medium"
                       style={{ color: isSelected ? '#FFFFFF' : '#374151' }}
@@ -362,9 +396,17 @@ const UserOnboardingScreen: React.FC = () => {
 
           {/* Benefits Section */}
           <View className="bg-orange-50 rounded-2xl p-4 mb-6">
-            <Text className="text-orange-700 font-bold text-base mb-2">
-              Why we ask? 🤔
-            </Text>
+            <View className="flex-row items-center mb-2">
+              <Text className="text-orange-700 font-bold text-base">
+                Why we ask?
+              </Text>
+              <MaterialCommunityIcons
+                name="help-circle"
+                size={18}
+                color="#C2410C"
+                style={{ marginLeft: 4 }}
+              />
+            </View>
             <View className="space-y-2">
               <View className="flex-row items-start">
                 <Text className="text-orange-600 mr-2">•</Text>

@@ -11,12 +11,14 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useUser } from '../../context/UserContext';
+import { usePayment } from '../../context/PaymentContext';
 import { SubscriptionPlan, PurchaseSubscriptionResponse, CancelSubscriptionResponse } from '../../services/api.service';
 
 type Props = StackScreenProps<MainTabParamList, 'MealPlans'>;
@@ -34,10 +36,11 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
     error,
     fetchPlans,
     fetchSubscriptions,
-    purchasePlan,
+    fetchVouchers,
     cancelSubscription,
     clearError,
   } = useSubscription();
+  const { processSubscriptionPayment, isProcessing: isPaymentProcessing } = usePayment();
 
   // Modal states
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -51,7 +54,6 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showSubscriptionDetails, setShowSubscriptionDetails] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('meals');
 
   // Fetch plans on mount
   useEffect(() => {
@@ -75,7 +77,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
     setShowPurchaseModal(true);
   };
 
-  // Confirm purchase
+  // Confirm purchase with Razorpay payment
   const confirmPurchase = async () => {
     if (!selectedPlan) return;
 
@@ -89,25 +91,67 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
     console.log('═══════════════════════════════════════════════════════════');
 
     setIsProcessing(true);
+    setShowPurchaseModal(false); // Close modal before opening Razorpay
+
     try {
-      const result = await purchasePlan(selectedPlan._id);
+      // Process payment via Razorpay
+      const paymentResult = await processSubscriptionPayment(selectedPlan._id);
+
+      if (!paymentResult.success) {
+        // Payment failed or cancelled
+        if (paymentResult.error === 'Payment cancelled') {
+          console.log('[MealPlansScreen] Payment cancelled by user');
+          // Just close, user can try again
+          return;
+        }
+
+        // Payment failed
+        console.log('[MealPlansScreen] Payment failed:', paymentResult.error);
+        Alert.alert(
+          'Payment Failed',
+          paymentResult.error || 'Payment could not be processed. Please try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Payment successful - refresh data
+      console.log('[MealPlansScreen] Payment successful, refreshing data...');
+      await Promise.all([fetchSubscriptions(), fetchVouchers()]);
 
       console.log('═══════════════════════════════════════════════════════════');
       console.log('[MealPlansScreen] AFTER PURCHASE:');
-      console.log('  - Purchase result:', JSON.stringify(result.data));
-      console.log('  - vouchersIssued from API:', result.data.vouchersIssued);
+      console.log('  - Payment ID:', paymentResult.paymentId);
+      console.log('  - Subscription ID:', paymentResult.subscriptionId);
       console.log('  - NEW usableVouchers:', usableVouchers);
       console.log('  - NEW voucherSummary:', JSON.stringify(voucherSummary));
-      console.log('  - NEW active subscriptions:', subscriptions.filter(sub => sub.status === 'ACTIVE').length);
       console.log('  - EXPECTED total:', usableVouchers, '+', selectedPlan.totalVouchers, '=', usableVouchers + selectedPlan.totalVouchers);
       console.log('═══════════════════════════════════════════════════════════');
 
-      setPurchaseResult(result);
-      setShowPurchaseModal(false);
+      // Calculate estimated expiry date (plan duration from purchase date)
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + selectedPlan.durationDays);
+
+      // Set purchase result for success modal
+      setPurchaseResult({
+        success: true,
+        message: 'Subscription purchased successfully',
+        data: {
+          subscription: {
+            _id: paymentResult.subscriptionId || '',
+            planId: selectedPlan._id,
+            status: 'ACTIVE',
+            startDate: new Date().toISOString(),
+            endDate: expiryDate.toISOString(),
+          },
+          vouchersIssued: selectedPlan.totalVouchers,
+          voucherExpiryDate: expiryDate.toISOString(),
+        },
+      });
       setShowSuccessModal(true);
     } catch (err: any) {
       console.log('[MealPlansScreen] confirmPurchase - Purchase failed:', err.message || err);
-      // Error is already set in context
+      Alert.alert('Error', err.message || 'Failed to complete purchase');
     } finally {
       setIsProcessing(false);
     }
@@ -193,22 +237,18 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
           <View className="px-5 pt-3 pb-16">
             <View className="flex-row items-center justify-between mb-4">
               {/* Back Button */}
-              <TouchableOpacity onPress={() => navigation.goBack()}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+              >
                 <Image
-                  source={require('../../assets/images/myaccount/userpic.png')}
-                  style={{ width: 48, height: 48, borderRadius: 24 }}
-                  resizeMode="cover"
+                  source={require('../../assets/icons/arrow.png')}
+                  style={{ width: 32, height: 32 }}
+                  resizeMode="contain"
                 />
               </TouchableOpacity>
 
-              {/* Location */}
-              <TouchableOpacity className="flex-1 mx-4">
-                <Text className="text-xs text-white text-center opacity-80">Location</Text>
-                <View className="flex-row items-center justify-center">
-                  <Text className="text-sm text-white font-semibold">Vijay Nagar, Indore</Text>
-                  <Text className="text-white ml-1">▼</Text>
-                </View>
-              </TouchableOpacity>
+              <View className="flex-1" />
 
               {/* Voucher Button */}
               <TouchableOpacity
@@ -670,161 +710,9 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Bottom Spacing for nav bar */}
-        <View className="h-32" />
+        {/* Bottom Spacing */}
+        <View className="h-8" />
       </ScrollView>
-
-      {/* Bottom Navigation Bar */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 20,
-          right: 20,
-          backgroundColor: 'white',
-          borderRadius: 50,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingVertical: 6,
-          paddingLeft: 20,
-          paddingRight: 30,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 8,
-        }}
-      >
-        {/* Home Icon */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab('home');
-            navigation.navigate('Home');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'home' ? 16 : 8,
-            marginLeft: -8,
-            marginRight: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/house.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'home' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'home' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Home
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Orders Section */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab('orders');
-            navigation.navigate('YourOrders');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'orders' ? 16 : 8,
-            marginHorizontal: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/cart3.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'orders' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'orders' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Orders
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* On-Demand Icon */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab('meals');
-            navigation.navigate('OnDemand');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'meals' ? 16 : 8,
-            marginHorizontal: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/kitchen.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'meals' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'meals' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              On-Demand
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Profile Button */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab('profile');
-            navigation.navigate('Account');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'profile' ? 16 : 8,
-            marginHorizontal: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/profile2.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'profile' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'profile' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Profile
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
 
       {/* Purchase Confirmation Modal */}
       <Modal visible={showPurchaseModal} transparent animationType="fade">

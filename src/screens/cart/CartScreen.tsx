@@ -17,8 +17,8 @@ import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { usePayment } from '../../context/PaymentContext';
 import OrderSuccessModal from '../../components/OrderSuccessModal';
-import CheckoutModal, { PaymentOption } from '../../components/CheckoutModal';
 import apiService, {
   PricingBreakdown,
   VoucherEligibility,
@@ -53,6 +53,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
   const { addresses, getMainAddress } = useAddress();
   const { voucherSummary, usableVouchers, fetchVouchers } = useSubscription();
+  const { processOrderPayment, retryOrderPayment, isProcessing: isPaymentProcessing } = usePayment();
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -68,8 +69,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   // Order state
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
+  const [pendingPaymentOrderId, setPendingPaymentOrderId] = useState<string | null>(null);
 
   // Refresh voucher data when screen comes into focus
   useFocusEffect(
@@ -249,14 +250,15 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     calculatePricing();
   }, [calculatePricing]);
 
-  // Handle opening checkout modal
-  const handlePlaceOrder = () => {
+  // Handle placing order directly
+  const handlePlaceOrder = async () => {
     console.log('[CartScreen] handlePlaceOrder called');
     console.log('  - kitchenId:', kitchenId);
     console.log('  - menuType:', menuType);
     console.log('  - localSelectedAddressId:', localSelectedAddressId);
     console.log('  - cartItems.length:', cartItems.length);
     console.log('  - mealWindow:', mealWindow);
+    console.log('  - voucherCount:', voucherCount);
 
     if (!kitchenId || !menuType || !localSelectedAddressId || cartItems.length === 0) {
       Alert.alert('Error', 'Please ensure you have items in cart and a delivery address selected');
@@ -268,40 +270,19 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    // Show checkout modal instead of directly placing order
-    console.log('[CartScreen] Opening checkout modal');
-    setShowCheckoutModal(true);
-  };
-
-  // Handle checkout confirmation from modal
-  const handleCheckoutConfirm = async (
-    option: PaymentOption,
-    selectedVoucherCount: number,
-    paymentMethod: string
-  ) => {
-    console.log('[CartScreen] handleCheckoutConfirm called');
-    console.log('  - option:', option);
-    console.log('  - selectedVoucherCount:', selectedVoucherCount);
-    console.log('  - paymentMethod:', paymentMethod);
-
-    setShowCheckoutModal(false);
     setIsPlacingOrder(true);
 
-    // Update voucher count based on selection
-    if (selectedVoucherCount !== voucherCount) {
-      setVoucherCount(selectedVoucherCount);
-    }
-
     try {
+      // Step 1: Create order
       const response = await apiService.createOrder({
         kitchenId: kitchenId!,
         menuType: menuType!,
         mealWindow: menuType === 'MEAL_MENU' ? mealWindow! : undefined,
         deliveryAddressId: localSelectedAddressId,
         items: getOrderItems(),
-        voucherCount: selectedVoucherCount,
+        voucherCount,
         couponCode: null,
-        paymentMethod,
+        paymentMethod: voucherCount > 0 && pricing?.amountToPay === 0 ? 'VOUCHER_ONLY' : 'UPI',
       });
 
       console.log('[CartScreen] createOrder response:', JSON.stringify(response));
@@ -316,21 +297,71 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         console.log('[CartScreen] Order created successfully!');
         console.log('  - orderId:', orderData.order._id);
         console.log('  - orderNumber:', orderData.order.orderNumber);
+        console.log('  - amountToPay:', orderData.amountToPay);
+
+        const orderId = orderData.order._id;
+        const orderNumber = orderData.order.orderNumber;
+        const orderAmountToPay = orderData.amountToPay || 0;
 
         // Refresh voucher data immediately if vouchers were used
-        if (selectedVoucherCount > 0) {
-          console.log('[CartScreen] Refreshing voucher data after using', selectedVoucherCount, 'voucher(s)');
+        if (voucherCount > 0) {
+          console.log('[CartScreen] Refreshing voucher data after using', voucherCount, 'voucher(s)');
           fetchVouchers().catch(err => {
             console.error('[CartScreen] Error refreshing vouchers:', err);
           });
         }
 
-        setOrderResult({
-          orderId: orderData.order._id,
-          orderNumber: orderData.order.orderNumber,
-          amountToPay: orderData.amountToPay,
-        });
+        // Step 2: Check if payment is required
+        if (orderAmountToPay > 0) {
+          console.log('[CartScreen] Payment required, initiating Razorpay checkout...');
+
+          // Process payment via Razorpay
+          const paymentResult = await processOrderPayment(orderId);
+
+          if (!paymentResult.success) {
+            // Payment failed or cancelled
+            if (paymentResult.error === 'Payment cancelled') {
+              console.log('[CartScreen] Payment cancelled by user');
+              // Store order for retry
+              setPendingPaymentOrderId(orderId);
+              setOrderResult({ orderId, orderNumber, amountToPay: orderAmountToPay });
+              Alert.alert(
+                'Payment Cancelled',
+                'Your order has been created but payment is pending. You can retry payment from your orders.',
+                [
+                  { text: 'Go to Orders', onPress: () => navigation.navigate('YourOrders') },
+                  { text: 'OK', style: 'cancel' },
+                ]
+              );
+              return;
+            }
+
+            // Payment failed - offer retry
+            console.log('[CartScreen] Payment failed:', paymentResult.error);
+            setPendingPaymentOrderId(orderId);
+            Alert.alert(
+              'Payment Failed',
+              paymentResult.error || 'Payment could not be processed. Please try again.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Retry Payment',
+                  onPress: () => handleRetryPayment(orderId, orderNumber, orderAmountToPay),
+                },
+              ]
+            );
+            return;
+          }
+
+          console.log('[CartScreen] Payment successful!');
+        } else {
+          console.log('[CartScreen] No payment required (voucher-only or zero amount)');
+        }
+
+        // Step 3: Show success modal
+        setOrderResult({ orderId, orderNumber, amountToPay: orderAmountToPay });
         setShowSuccessModal(true);
+        setPendingPaymentOrderId(null);
       } else {
         console.log('[CartScreen] Order response not successful or no data');
         Alert.alert('Order Failed', 'Unexpected response from server');
@@ -340,6 +371,48 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       // Handle different error response formats
       const errorMessage = error.data || error.message || 'Failed to place order. Please try again.';
       Alert.alert('Order Failed', errorMessage);
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
+  // Handle retry payment for failed orders
+  const handleRetryPayment = async (orderId: string, orderNumber: string, amountToPay: number) => {
+    console.log('[CartScreen] Retrying payment for order:', orderId);
+    setIsPlacingOrder(true);
+
+    try {
+      const paymentResult = await retryOrderPayment(orderId);
+
+      if (paymentResult.success) {
+        console.log('[CartScreen] Retry payment successful!');
+        setOrderResult({ orderId, orderNumber, amountToPay });
+        setShowSuccessModal(true);
+        setPendingPaymentOrderId(null);
+      } else {
+        if (paymentResult.error === 'Payment cancelled') {
+          Alert.alert(
+            'Payment Cancelled',
+            'You can retry payment from your orders.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Payment Failed',
+            paymentResult.error || 'Payment could not be processed.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Retry Again',
+                onPress: () => handleRetryPayment(orderId, orderNumber, amountToPay),
+              },
+            ]
+          );
+        }
+      }
+    } catch (error: any) {
+      console.error('[CartScreen] Retry payment error:', error);
+      Alert.alert('Error', error.message || 'Failed to process payment');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -465,6 +538,17 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       console.log(`  - Item ${idx}: ${item.name}, addons:`, JSON.stringify(item.addons));
     });
   }, [cartItems]);
+
+  // Auto-adjust voucher count when thali count decreases
+  // This ensures voucherCount never exceeds the number of thalis in cart
+  useEffect(() => {
+    if (voucherCount > thaliCount) {
+      console.log('[CartScreen] Adjusting voucherCount to match thaliCount');
+      console.log('  - voucherCount was:', voucherCount);
+      console.log('  - thaliCount is:', thaliCount);
+      setVoucherCount(thaliCount);
+    }
+  }, [thaliCount, voucherCount, setVoucherCount]);
 
   // Debug logging for voucher UI state
   useEffect(() => {
@@ -781,7 +865,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   {/* Voucher Count Display */}
                   <View className="mx-3 items-center">
                     <Text className="text-orange-400 font-bold text-base">
-                      {voucherCount} Applied
+                      {voucherCount}
                     </Text>
                   </View>
 
@@ -991,77 +1075,45 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           </>
         )}
 
-        {/* Bottom Button - Click to Redeem OR Place Order */}
-        {showRedeemButton ? (
-          // Show "Click to Redeem" button when user has vouchers and hasn't applied them yet
-          <View
-            className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
-            style={{
-              height: 60,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 10,
-              elevation: 8,
-              opacity: isCalculating ? 0.7 : 1,
-            }}
-          >
-            <View>
-              <Text className="text-white text-lg font-bold">
-                You have {usableVouchers} vouchers
-              </Text>
-              <Text className="text-white text-xs" style={{ opacity: 0.8 }}>left</Text>
-            </View>
-            <TouchableOpacity
-              className="bg-white rounded-full px-6 flex-row items-center justify-center"
-              style={{ height: 48, minWidth: 130 }}
-              onPress={handleApplyVoucher}
-              disabled={isCalculating}
-            >
-              <Text className="text-orange-400 font-bold text-base">Click to Redeem</Text>
-            </TouchableOpacity>
+        {/* Bottom Button - Pay Now */}
+        <View
+          className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
+          style={{
+            height: 60,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            elevation: 8,
+            opacity: (isPlacingOrder || isCalculating || addresses.length === 0) ? 0.7 : 1,
+          }}
+        >
+          <View className="flex-row items-center">
+            <Text className="text-white text-xl font-bold mr-2">₹{amountToPay.toFixed(2)}</Text>
+            <Text className="text-white text-sm">Total</Text>
           </View>
-        ) : (
-          // Show normal "Place Order" button
-          <View
-            className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
-            style={{
-              height: 60,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 10,
-              elevation: 8,
-              opacity: (isPlacingOrder || isCalculating || addresses.length === 0) ? 0.7 : 1,
-            }}
+          <TouchableOpacity
+            className="bg-white rounded-full px-6 flex-row items-center"
+            style={{ height: 48, minWidth: 117 }}
+            onPress={handlePlaceOrder}
+            disabled={isPlacingOrder || isCalculating || addresses.length === 0}
           >
-            <View className="flex-row items-center">
-              <Text className="text-white text-xl font-bold mr-2">₹{amountToPay.toFixed(2)}</Text>
-              <Text className="text-white text-sm">Total</Text>
-            </View>
-            <TouchableOpacity
-              className="bg-white rounded-full px-6 flex-row items-center"
-              style={{ height: 48, minWidth: 117 }}
-              onPress={handlePlaceOrder}
-              disabled={isPlacingOrder || isCalculating || addresses.length === 0}
-            >
-              {isPlacingOrder ? (
-                <ActivityIndicator size="small" color="#F56B4C" />
-              ) : (
-                <>
-                  <Text className="text-orange-400 font-semibold text-base mr-2">
-                    {addresses.length === 0 ? 'Add Address' : 'Place Order'}
-                  </Text>
-                  <Image
-                    source={require('../../assets/icons/uparrow.png')}
-                    style={{ width: 13, height: 13 }}
-                    resizeMode="contain"
-                  />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+            {isPlacingOrder ? (
+              <ActivityIndicator size="small" color="#F56B4C" />
+            ) : (
+              <>
+                <Text className="text-orange-400 font-semibold text-base mr-2">
+                  {addresses.length === 0 ? 'Add Address' : 'Pay Now'}
+                </Text>
+                <Image
+                  source={require('../../assets/icons/uparrow.png')}
+                  style={{ width: 13, height: 13 }}
+                  resizeMode="contain"
+                />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Order Success Modal */}
@@ -1074,21 +1126,6 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         amountToPay={orderResult?.amountToPay}
       />
 
-      {/* Checkout Modal */}
-      <CheckoutModal
-        visible={showCheckoutModal}
-        onClose={() => setShowCheckoutModal(false)}
-        onConfirm={handleCheckoutConfirm}
-        isLoading={isPlacingOrder}
-        subtotal={subtotal}
-        totalCharges={totalCharges}
-        grandTotal={subtotal + totalCharges}
-        availableVouchers={usableVouchers}
-        maxVouchersForOrder={voucherInfo?.canUse ?? cartItems.reduce((sum, item) => item.hasVoucher !== false ? sum + item.quantity : sum, 0)}
-        voucherValue={cartItems.find(item => item.hasVoucher !== false)?.price ?? 0}
-        cutoffPassed={voucherInfo?.cutoffPassed ?? false}
-        cutoffMessage={voucherInfo?.cutoffInfo?.message}
-      />
     </SafeAreaView>
   );
 };

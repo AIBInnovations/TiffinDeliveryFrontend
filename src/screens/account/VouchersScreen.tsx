@@ -245,7 +245,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
           resizeMode="contain"
         />
 
-        <View className="flex-row items-center px-5 pt-4">
+        <View className="flex-row items-center justify-between px-5 pt-4">
           {/* Back Button */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -259,9 +259,30 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
 
           {/* Title */}
-          <Text className="flex-1 text-white text-xl font-bold text-center mr-10">
+          <Text className="text-white text-xl font-bold">
             My Vouchers
           </Text>
+
+          {/* Voucher Button */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MealPlans')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'white',
+              borderRadius: 20,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+              gap: 6,
+            }}
+          >
+            <Image
+              source={require('../../assets/icons/voucher5.png')}
+              style={{ width: 24, height: 24 }}
+              resizeMode="contain"
+            />
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 

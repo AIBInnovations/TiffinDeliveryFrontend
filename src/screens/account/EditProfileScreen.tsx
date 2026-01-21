@@ -23,8 +23,8 @@ type Props = StackScreenProps<MainTabParamList, 'EditProfile'>;
 
 // Dietary preference options
 const DIETARY_OPTIONS = [
-  { id: 'VEG', label: 'Vegetarian' },
-  { id: 'NON_VEG', label: 'Non-Vegetarian' },
+  { id: 'VEG', label: 'Veg' },
+  { id: 'NON_VEG', label: 'Non-Veg' },
   { id: 'VEGAN', label: 'Vegan' },
   { id: 'JAIN', label: 'Jain' },
   { id: 'EGGETARIAN', label: 'Eggetarian' },

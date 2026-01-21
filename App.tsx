@@ -11,6 +11,7 @@ import { CartProvider } from './src/context/CartContext';
 import { AddressProvider, useAddress } from './src/context/AddressContext';
 import { UserProvider } from './src/context/UserContext';
 import { SubscriptionProvider } from './src/context/SubscriptionContext';
+import { PaymentProvider } from './src/context/PaymentContext';
 
 const AppContent = () => {
   const { requestLocationPermission, getCurrentLocationWithAddress } = useAddress();
@@ -60,9 +61,11 @@ const App = () => {
     <UserProvider>
       <AddressProvider>
         <SubscriptionProvider>
-          <CartProvider>
-            <AppContent />
-          </CartProvider>
+          <PaymentProvider>
+            <CartProvider>
+              <AppContent />
+            </CartProvider>
+          </PaymentProvider>
         </SubscriptionProvider>
       </AddressProvider>
     </UserProvider>

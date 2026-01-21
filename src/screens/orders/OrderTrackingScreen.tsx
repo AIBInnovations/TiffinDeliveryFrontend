@@ -441,7 +441,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                     style={{
                       width: 40,
                       height: 40,
-                      opacity: currentStep >= 2 ? 1 : 0.4,
+                      opacity: currentStep >= 2 ? 1 : 0.7,
                     }}
                     resizeMode="contain"
                   />
@@ -473,7 +473,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                     style={{
                       width: 40,
                       height: 40,
-                      opacity: currentStep >= 3 ? 1 : 0.4,
+                      opacity: currentStep >= 3 ? 1 : 0.7,
                     }}
                     resizeMode="contain"
                   />

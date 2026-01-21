@@ -164,7 +164,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
           <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
             {/* Logo */}
-            <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
+            <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10 }}>
               <Image
                 source={require('../../assets/icons/Tiffsy.png')}
                 style={{ width: 58, height: 35 }}

@@ -153,7 +153,7 @@ class LocationService {
       // Google Maps Geocoding API - Most accurate for India
       // Get your free API key from: https://console.cloud.google.com/
       // Enable "Geocoding API" in your project
-      const GOOGLE_API_KEY = 'AIzaSyAKlXJ7qwE67VsYZ9x0Ry_qYWLRY0tiBgg'; // Replace with your actual key
+      const GOOGLE_API_KEY = 'AIzaSyCJLEZUNQP8gtDQh-oW3FxgsNCdJHEaYQc'; // Replace with your actual key
 
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}&language=en&result_type=street_address|sublocality|locality`

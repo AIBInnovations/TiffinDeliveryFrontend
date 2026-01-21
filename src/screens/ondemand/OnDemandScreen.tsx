@@ -10,11 +10,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
+import { useSubscription } from '../../context/SubscriptionContext';
 
 type Props = StackScreenProps<MainTabParamList, 'OnDemand'>;
 
 const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('meals');
+  const { usableVouchers } = useSubscription();
 
   console.log('[OnDemandScreen] Screen rendered');
 
@@ -44,23 +46,44 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
           resizeMode="contain"
         />
 
-        <View className="flex-row items-center px-5 pt-4">
+        <View className="flex-row items-center justify-between px-5 pt-4">
           {/* Logo */}
           <View
-            className="w-10 h-10 items-center justify-center"
-            style={{ marginLeft: 8, marginRight: 20 }}
+            className="w-12 h-12 items-center justify-center"
+            style={{ marginLeft: 10 }}
           >
             <Image
               source={require('../../assets/icons/Tiffsy.png')}
-              style={{ width: 58, height: 58 }}
+              style={{ width: 58, height: 35 }}
               resizeMode="contain"
             />
           </View>
 
           {/* Title */}
-          <Text className="flex-1 text-white text-xl font-bold text-center mr-10">
+          <Text className="text-white text-xl font-bold">
             On-Demand
           </Text>
+
+          {/* Voucher Button */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MealPlans')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'white',
+              borderRadius: 20,
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+              gap: 6,
+            }}
+          >
+            <Image
+              source={require('../../assets/icons/voucher5.png')}
+              style={{ width: 24, height: 24 }}
+              resizeMode="contain"
+            />
+            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
