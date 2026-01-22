@@ -22,6 +22,7 @@ import { MealWindowType, Subscription } from '../../services/api.service';
 import apiService from '../../services/api.service';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
+import NotificationBell from '../../components/NotificationBell';
 
 // ============================================
 // OFFLINE MODE FLAG - Set to false to enable backend
@@ -468,7 +469,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 70 }}>
         {/* Header */}
-        <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+        <View className="bg-orange-400 pb-4" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
           <Image
             source={require('../../assets/images/homepage/halfcircle.png')}
@@ -481,7 +482,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             resizeMode="contain"
           />
 
-          <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
+          <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
             {/* Logo */}
             <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10 }}>
               <Image
@@ -494,31 +495,37 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             {/* Title */}
             <Text className="text-white text-xl font-bold">My Profile</Text>
 
-            {/* Voucher Button */}
-            <TouchableOpacity
-              onPress={() => navigation.navigate('MealPlans')}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: 'white',
-                borderRadius: 20,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                gap: 6,
-              }}
-            >
-              <Image
-                source={require('../../assets/icons/voucher5.png')}
-                style={{ width: 24, height: 24 }}
-                resizeMode="contain"
-              />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
-            </TouchableOpacity>
+            {/* Right Section with Bell and Voucher */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {/* Notification Bell */}
+              <NotificationBell color="white" size={24} />
+
+              {/* Voucher Button */}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('MealPlans')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'white',
+                  borderRadius: 20,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  gap: 6,
+                }}
+              >
+                <Image
+                  source={require('../../assets/icons/voucher5.png')}
+                  style={{ width: 24, height: 24 }}
+                  resizeMode="contain"
+                />
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         {/* White Container with Profile and Voucher */}
-        <View className="bg-white px-5" style={{ marginTop: 20, paddingTop: 20, paddingBottom: 16 }}>
+        <View className="bg-white px-5" style={{ marginTop: 10, paddingTop: 10, paddingBottom: 16 }}>
           {isGuest ? (
             /* Guest User - Login Prompt */
             <View className="mb-6" style={{

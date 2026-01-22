@@ -21,6 +21,7 @@ class PaymentService {
 
   /**
    * Initialize payment service by fetching config from backend
+   * Returns false if backend is unreachable (non-critical error)
    */
   async initialize(): Promise<boolean> {
     try {
@@ -36,8 +37,14 @@ class PaymentService {
 
       console.warn('[PaymentService] Payment not available:', response.message);
       return false;
-    } catch (error) {
-      console.error('[PaymentService] Initialization failed:', error);
+    } catch (error: any) {
+      // Use console.warn instead of console.error for network failures
+      // This is a non-critical error - app can continue without payment functionality
+      if (error?.data?.error === 'NETWORK_ERROR') {
+        console.warn('[PaymentService] Backend unreachable - payment features will be unavailable');
+      } else {
+        console.warn('[PaymentService] Initialization failed (non-critical):', error?.message || error);
+      }
       return false;
     }
   }

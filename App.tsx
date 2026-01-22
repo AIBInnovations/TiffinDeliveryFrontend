@@ -5,17 +5,152 @@
  * @format
  */
 import './global.css';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, AppState } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
 import { AddressProvider, useAddress } from './src/context/AddressContext';
-import { UserProvider } from './src/context/UserContext';
+import { UserProvider, useUser } from './src/context/UserContext';
 import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import { PaymentProvider } from './src/context/PaymentContext';
+import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
+import NotificationPopup from './src/components/NotificationPopup';
+import notificationService from './src/services/notification.service';
+import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
 const AppContent = () => {
   const { requestLocationPermission, getCurrentLocationWithAddress } = useAddress();
+  const { isAuthenticated } = useUser();
+  const {
+    fetchLatestUnread,
+    fetchUnreadCount,
+    latestUnreadNotification,
+    showPopup,
+    dismissPopup,
+  } = useNotifications();
+  const navigationRef = useRef<any>(null);
+  const appState = useRef(AppState.currentState);
 
+  // Handle notification deep linking
+  const handleNotification = (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+    const navigationData = notificationService.handleNotificationData(remoteMessage.data);
+
+    if (navigationData && navigationRef.current) {
+      // Navigate to the appropriate screen
+      console.log('[App] Navigating to:', navigationData.screen);
+      navigationRef.current.navigate(navigationData.screen, navigationData.params);
+    }
+  };
+
+  // Display notification when app is in foreground
+  const displayForegroundNotification = (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+    const title = remoteMessage.notification?.title || 'New Notification';
+    const body = remoteMessage.notification?.body || '';
+
+    Alert.alert(
+      title,
+      body,
+      [
+        { text: 'Dismiss', style: 'cancel' },
+        {
+          text: 'View',
+          onPress: () => handleNotification(remoteMessage),
+        },
+      ]
+    );
+  };
+
+  // Handle notification popup view action
+  const handlePopupView = () => {
+    dismissPopup();
+    if (latestUnreadNotification) {
+      // Navigate to notifications screen
+      if (navigationRef.current) {
+        navigationRef.current.navigate('Notifications');
+      }
+    }
+  };
+
+  // Set up FCM notification handlers
+  useEffect(() => {
+    let foregroundUnsubscribe: (() => void) | null = null;
+    let notificationOpenedUnsubscribe: (() => void) | null = null;
+
+    const setupNotifications = async () => {
+      // Only set up notification handlers if user is authenticated
+      if (!isAuthenticated) {
+        console.log('[App] User not authenticated, skipping notification setup');
+        return;
+      }
+
+      try {
+        console.log('[App] Setting up FCM notification handlers...');
+
+        // Handle notifications when app is in foreground
+        foregroundUnsubscribe = await notificationService.setupForegroundHandler(
+          displayForegroundNotification
+        );
+
+        // Handle notification opened (app in background/quit)
+        notificationOpenedUnsubscribe = notificationService.setupNotificationOpenedHandler(
+          handleNotification
+        );
+
+        // Check if app was opened by a notification
+        const initialNotification = await notificationService.getInitialNotification();
+        if (initialNotification) {
+          console.log('[App] App opened by notification:', initialNotification);
+          handleNotification(initialNotification);
+        }
+
+        // Fetch latest unread notification on app open
+        fetchLatestUnread();
+
+        console.log('[App] FCM notification handlers set up successfully');
+      } catch (error) {
+        console.error('[App] Error setting up FCM notification handlers:', error);
+      }
+    };
+
+    setupNotifications();
+
+    // Cleanup
+    return () => {
+      if (foregroundUnsubscribe) {
+        foregroundUnsubscribe();
+      }
+      if (notificationOpenedUnsubscribe) {
+        notificationOpenedUnsubscribe();
+      }
+    };
+  }, [isAuthenticated]);
+
+  // Handle app state changes (foreground/background)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      // App has come to the foreground from background
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('[App] App has come to the foreground');
+        // Fetch latest unread notification
+        fetchLatestUnread();
+        // Refresh unread count
+        fetchUnreadCount();
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated, fetchLatestUnread, fetchUnreadCount]);
+
+  // Request location permission
   useEffect(() => {
     const requestLocation = async () => {
       try {
@@ -53,7 +188,17 @@ const AppContent = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  return <AppNavigator />;
+  return (
+    <>
+      <AppNavigator ref={navigationRef} />
+      <NotificationPopup
+        visible={showPopup}
+        notification={latestUnreadNotification}
+        onDismiss={dismissPopup}
+        onView={handlePopupView}
+      />
+    </>
+  );
 };
 
 const App = () => {
@@ -63,7 +208,9 @@ const App = () => {
         <SubscriptionProvider>
           <PaymentProvider>
             <CartProvider>
-              <AppContent />
+              <NotificationProvider>
+                <AppContent />
+              </NotificationProvider>
             </CartProvider>
           </PaymentProvider>
         </SubscriptionProvider>

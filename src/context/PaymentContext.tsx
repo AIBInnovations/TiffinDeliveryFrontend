@@ -203,9 +203,12 @@ export const PaymentProvider: React.FC<PaymentProviderProps> = ({ children }) =>
     setError(null);
   }, []);
 
-  // Initialize payment service on mount
+  // Initialize payment service on mount (silently fail if backend is unreachable)
   useEffect(() => {
-    initializePayment();
+    initializePayment().catch(err => {
+      console.warn('[PaymentContext] Payment initialization failed (non-critical):', err.message);
+      // Silently fail - payment will be unavailable but app continues to work
+    });
   }, [initializePayment]);
 
   const value: PaymentContextType = {

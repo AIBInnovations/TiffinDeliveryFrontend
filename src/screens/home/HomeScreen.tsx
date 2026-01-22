@@ -23,6 +23,7 @@ import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromRespon
 import MealWindowModal from '../../components/MealWindowModal';
 import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
 import { MealTimingDebug } from '../../components/MealTimingDebug';
+import NotificationBell from '../../components/NotificationBell';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -620,94 +621,111 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             resizeMode="contain"
           />
 
-          <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
-            {/* Logo */}
-            <View className="w-12 h-12  items-center justify-center" style={{ marginLeft: 10, marginTop: 10 }}>
-              <Image
-                source={require('../../assets/icons/Tiffsy.png')}
-                style={{ width: 58, height: 35 }}
-                resizeMode="contain"
-              />
-            </View>
-
-            {/* Location */}
-            <TouchableOpacity
-              className="flex-1 items-center"
-              onPress={() => navigation.navigate('Address')}
-            >
-              <Text className="text-white text-xs opacity-90">Location</Text>
-              <View className="flex-row items-center">
-                {isGettingLocation ? (
-                  <>
-                    <ActivityIndicator size="small" color="white" style={{ marginRight: 4 }} />
-                    <Text className="text-white text-sm font-semibold" numberOfLines={1}>
-                      Detecting...
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Image
-                      source={require('../../assets/icons/address3.png')}
-                      style={{ width: 14, height: 14, tintColor: 'white' }}
-                      resizeMode="contain"
-                    />
-                    <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
-                      {getDisplayLocation()}
-                    </Text>
-                    <Image
-                      source={require('../../assets/icons/down2.png')}
-                      style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
-                      resizeMode="contain"
-                    />
-                  </>
-                )}
+          <View className="px-5 pt-4 pb-6">
+            {/* Top Row: Logo, Location, Actions */}
+            <View className="flex-row items-center justify-between mb-4">
+              {/* Logo */}
+              <View style={{ width: 58 }}>
+                <Image
+                  source={require('../../assets/icons/Tiffsy.png')}
+                  style={{ width: 58, height: 35 }}
+                  resizeMode="contain"
+                />
               </View>
-            </TouchableOpacity>
 
-            {/* Voucher Button */}
-            <TouchableOpacity
-              onPress={() => navigation.navigate('MealPlans')}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: 'white',
-                borderRadius: 20,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                gap: 6,
-              }}
-            >
+              {/* Location */}
+              <TouchableOpacity
+                className="flex-1 items-center mx-3"
+                onPress={() => navigation.navigate('Address')}
+              >
+                <Text className="text-white text-xs opacity-90">Location</Text>
+                <View className="flex-row items-center mt-1">
+                  {isGettingLocation ? (
+                    <>
+                      <ActivityIndicator size="small" color="white" style={{ marginRight: 4 }} />
+                      <Text className="text-white text-sm font-semibold" numberOfLines={1}>
+                        Detecting...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Image
+                        source={require('../../assets/icons/address3.png')}
+                        style={{ width: 14, height: 14, tintColor: 'white' }}
+                        resizeMode="contain"
+                      />
+                      <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
+                        {getDisplayLocation()}
+                      </Text>
+                      <Image
+                        source={require('../../assets/icons/down2.png')}
+                        style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
+                        resizeMode="contain"
+                      />
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Right Actions: Notification Bell & Voucher */}
+              <View className="flex-row items-center" style={{ gap: 12 }}>
+                {/* Notification Bell */}
+                <NotificationBell color="white" size={22} />
+
+                {/* Voucher Button */}
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('MealPlans')}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: 'white',
+                    borderRadius: 16,
+                    paddingVertical: 5,
+                    paddingHorizontal: 8,
+                    gap: 4,
+                  }}
+                >
+                  <Image
+                    source={require('../../assets/icons/voucher5.png')}
+                    style={{ width: 18, height: 18 }}
+                    resizeMode="contain"
+                  />
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#F56B4C' }}>
+                    {usableVouchers}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+            {/* Search Bar */}
+            <View className="mx-5 bg-white rounded-full flex-row items-center px-4" style={{ height: 40 }}>
               <Image
-                source={require('../../assets/icons/voucher5.png')}
-                style={{ width: 24, height: 24 }}
+                source={require('../../assets/icons/search2.png')}
+                style={{ width: 16, height: 16 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>
-                {usableVouchers}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Bar */}
-          <View className="mx-5 bg-white rounded-full flex-row items-center px-5 py-1">
-            <Image
-              source={require('../../assets/icons/search2.png')}
-              style={{ width: 20, height: 20 }}
-              resizeMode="contain"
-            />
-            <TextInput
-              placeholder="Search for addons to your meal..."
-              placeholderTextColor="#9CA3AF"
-              className="flex-1 text-gray-700 text-sm ml-2"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text className="text-gray-400 text-lg">×</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+              <TextInput
+                placeholder="Search for addons to your meal..."
+                placeholderTextColor="#9CA3AF"
+                className="flex-1 text-gray-700 text-sm ml-2"
+                style={{
+                  paddingVertical: 0,
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  includeFontPadding: false,
+                  textAlignVertical: 'center',
+                  height: 40
+                }}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Text className="text-gray-400 text-lg">×</Text>
+                </TouchableOpacity>
+              )}
+            </View>
         </View>
 
         {/* White Container with Meal Options and Image */}

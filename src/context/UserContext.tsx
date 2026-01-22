@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { firebaseAuth } from '../config/firebase';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import apiService from '../services/api.service';
@@ -242,6 +243,13 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await confirmation.confirm(code);
     // After successful verification, sync with backend
     const { userProfile, isNewUser, isProfileComplete } = await syncUserInternal();
+
+    // Register FCM token after successful login
+    registerFcmToken().catch(error => {
+      console.error('Failed to register FCM token after login:', error);
+      // Don't throw - continue with login flow even if FCM fails
+    });
+
     // Return the onboarding status from the fresh data
     return {
       isOnboarded: userProfile?.isOnboarded ?? false,
@@ -371,26 +379,92 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      // Get FCM token
-      const fcmToken = await notificationService.getToken();
-      if (!fcmToken) {
-        console.log('No FCM token available (permission denied or error)');
+      // Request permission and get FCM token
+      const hasPermission = await notificationService.requestPermission();
+      if (!hasPermission) {
+        console.log('[FCM] Notification permission denied by user');
         return false;
       }
 
-      // Get device ID
-      const deviceId = await notificationService.getDeviceId();
+      const fcmToken = await notificationService.getToken();
+      if (!fcmToken) {
+        console.log('[FCM] No FCM token available');
+        return false;
+      }
 
-      // Register with backend
-      await apiService.registerFcmToken({
-        fcmToken,
+      // Get device ID and type
+      const deviceId = await notificationService.getDeviceId();
+      const deviceType = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
+
+      console.log('[FCM] Registering token with backend...', {
+        deviceType,
         deviceId,
+        tokenLength: fcmToken.length,
       });
 
-      console.log('FCM token registered successfully');
-      return true;
+      // Register with backend
+      try {
+        await apiService.registerFcmToken({
+          fcmToken,
+          deviceType,
+          deviceId,
+        });
+
+        console.log('[FCM] Token registered successfully with backend');
+
+        // Set up token refresh listener
+        await notificationService.setupTokenRefreshListener(async (newToken: string) => {
+          console.log('[FCM] Token refreshed, updating backend...');
+          try {
+            await apiService.registerFcmToken({
+              fcmToken: newToken,
+              deviceType,
+              deviceId,
+            });
+            console.log('[FCM] Refreshed token registered successfully');
+          } catch (error) {
+            console.error('[FCM] Error registering refreshed token:', error);
+          }
+        });
+
+        return true;
+      } catch (apiError: any) {
+        // Log detailed error but don't fail the login flow
+        console.warn('[FCM] Backend registration failed (non-blocking):', {
+          message: apiError?.message || 'Unknown error',
+          status: apiError?.status,
+          error: apiError,
+        });
+
+        // Check if it's a server error (500) - backend might not be ready yet
+        if (apiError?.status === 500 || apiError?.message === 'Server error') {
+          console.warn('[FCM] Backend FCM endpoint may not be fully configured yet');
+          console.warn('[FCM] Notifications will still work once backend is ready');
+        }
+
+        // Still set up token refresh listener for future attempts
+        try {
+          await notificationService.setupTokenRefreshListener(async (newToken: string) => {
+            console.log('[FCM] Token refreshed, attempting backend registration...');
+            try {
+              await apiService.registerFcmToken({
+                fcmToken: newToken,
+                deviceType,
+                deviceId,
+              });
+              console.log('[FCM] Refreshed token registered successfully');
+            } catch (error) {
+              console.error('[FCM] Error registering refreshed token:', error);
+            }
+          });
+        } catch (listenerError) {
+          console.error('[FCM] Error setting up token refresh listener:', listenerError);
+        }
+
+        return false;
+      }
     } catch (error: any) {
-      console.error('Error registering FCM token:', error);
+      console.error('[FCM] Unexpected error during FCM setup:', error);
       // Don't throw - FCM registration failure shouldn't block the flow
       return false;
     }
@@ -398,14 +472,50 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
+      // Remove FCM token before logging out (if not in offline mode)
+      if (!OFFLINE_MODE) {
+        try {
+          const fcmToken = await notificationService.getStoredToken();
+          if (fcmToken) {
+            console.log('[FCM] Removing token from backend...');
+            await apiService.removeFcmToken(fcmToken);
+            console.log('[FCM] Token removed successfully from backend');
+          }
+        } catch (error: any) {
+          console.warn('[FCM] Error removing token from backend (non-blocking):', {
+            message: error?.message || 'Unknown error',
+            status: error?.status,
+          });
+          // Continue with logout even if FCM removal fails
+        }
+      }
+
+      // Delete local FCM token
+      try {
+        await notificationService.deleteToken();
+        console.log('[FCM] Local token deleted');
+      } catch (error) {
+        console.warn('[FCM] Error deleting local token:', error);
+      }
+
+      // Clean up notification listeners
+      try {
+        notificationService.cleanup();
+        console.log('[FCM] Notification listeners cleaned up');
+      } catch (error) {
+        console.warn('[FCM] Error cleaning up notification listeners:', error);
+      }
+
+      // Sign out from Firebase
       await firebaseAuth.signOut();
       setUser(null);
       setFirebaseUser(null);
       setIsGuest(false);
       await AsyncStorage.removeItem('user_profile');
       await AsyncStorage.removeItem('is_guest');
+      console.log('[Auth] User logged out successfully');
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error('[Auth] Error during logout:', error);
       throw error;
     }
   };

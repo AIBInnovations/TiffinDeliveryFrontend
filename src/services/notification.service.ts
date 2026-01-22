@@ -15,6 +15,7 @@
 
 import { Platform, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
 // FCM Token storage key
 const FCM_TOKEN_KEY = 'fcm_token';
@@ -230,6 +231,139 @@ class NotificationService {
     }
 
     return deviceId;
+  }
+
+  /**
+   * Set up foreground notification handler
+   * This is called when a notification is received while the app is in the foreground
+   */
+  async setupForegroundHandler(
+    onNotification: (message: FirebaseMessagingTypes.RemoteMessage) => void
+  ): Promise<() => void> {
+    const msg = loadMessaging();
+    if (!msg) return () => {};
+
+    try {
+      return msg().onMessage(async (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+        console.log('Foreground notification received:', remoteMessage);
+        onNotification(remoteMessage);
+      });
+    } catch (error) {
+      console.error('Error setting up foreground handler:', error);
+      return () => {};
+    }
+  }
+
+  /**
+   * Set up background notification handler
+   * This is called when a notification is received while the app is in the background or quit state
+   */
+  setupBackgroundHandler(
+    handler: (message: FirebaseMessagingTypes.RemoteMessage) => Promise<void>
+  ): void {
+    const msg = loadMessaging();
+    if (!msg) return;
+
+    try {
+      msg().setBackgroundMessageHandler(handler);
+    } catch (error) {
+      console.error('Error setting up background handler:', error);
+    }
+  }
+
+  /**
+   * Get initial notification that opened the app
+   * Returns the notification data if app was opened by a notification, null otherwise
+   */
+  async getInitialNotification(): Promise<FirebaseMessagingTypes.RemoteMessage | null> {
+    const msg = loadMessaging();
+    if (!msg) return null;
+
+    try {
+      return await msg().getInitialNotification();
+    } catch (error) {
+      console.error('Error getting initial notification:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Set up notification opened handler
+   * This is called when a notification is tapped by the user
+   */
+  setupNotificationOpenedHandler(
+    onNotificationOpened: (message: FirebaseMessagingTypes.RemoteMessage) => void
+  ): () => void {
+    const msg = loadMessaging();
+    if (!msg) return () => {};
+
+    try {
+      return msg().onNotificationOpenedApp((remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
+        console.log('Notification opened app:', remoteMessage);
+        onNotificationOpened(remoteMessage);
+      });
+    } catch (error) {
+      console.error('Error setting up notification opened handler:', error);
+      return () => {};
+    }
+  }
+
+  /**
+   * Handle notification data and determine navigation
+   * Returns navigation params based on notification type
+   */
+  handleNotificationData(data: { [key: string]: string } | undefined): {
+    screen: string;
+    params?: any;
+  } | null {
+    if (!data) return null;
+
+    // Order notifications
+    if (data.orderId) {
+      return {
+        screen: 'OrderDetail',
+        params: {
+          orderId: data.orderId,
+          orderNumber: data.orderNumber,
+        },
+      };
+    }
+
+    // Voucher expiry notifications
+    if (data.voucherCount) {
+      return {
+        screen: 'Vouchers',
+        params: {
+          highlightExpiring: true,
+        },
+      };
+    }
+
+    // Menu update notifications
+    if (data.kitchenId && data.type === 'ANNOUNCEMENT') {
+      return {
+        screen: 'KitchenMenu',
+        params: {
+          kitchenId: data.kitchenId,
+        },
+      };
+    }
+
+    // Admin push or general notifications
+    return {
+      screen: 'Home',
+    };
+  }
+
+  /**
+   * Request notification permission and get token if granted
+   */
+  async initialize(): Promise<string | null> {
+    const hasPermission = await this.requestPermission();
+    if (hasPermission) {
+      return await this.getToken();
+    }
+    return null;
   }
 }
 

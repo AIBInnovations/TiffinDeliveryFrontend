@@ -16,6 +16,7 @@ import MealPlansScreen from '../screens/account/MealPlansScreen';
 import BulkOrdersScreen from '../screens/account/BulkOrdersScreen';
 import VouchersScreen from '../screens/account/VouchersScreen';
 import OnDemandScreen from '../screens/ondemand/OnDemandScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import { MainTabParamList } from '../types/navigation';
 
 const Stack = createStackNavigator<MainTabParamList>();
@@ -43,6 +44,7 @@ const MainNavigator = () => {
       <Stack.Screen name="BulkOrders" component={BulkOrdersScreen} />
       <Stack.Screen name="Vouchers" component={VouchersScreen} />
       <Stack.Screen name="OnDemand" component={OnDemandScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       {/* Other screens like Menu, Profile can be added here */}
     </Stack.Navigator>
   );

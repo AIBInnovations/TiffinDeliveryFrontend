@@ -30,7 +30,7 @@ const getStatusColor = (status: OrderStatus): string => {
     case 'ACCEPTED':
       return '#06B6D4'; // Cyan
     case 'PREPARING':
-      return '#EAB308'; // Yellow
+      return '#F97316'; // Orange
     case 'READY':
       return '#F97316'; // Orange
     case 'PICKED_UP':
@@ -409,28 +409,17 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         {kitchen && (
           <View className="bg-white px-5 py-4 mb-2">
             <Text className="text-lg font-bold text-gray-900 mb-3">Kitchen</Text>
-            <View className="flex-row items-center">
-              <Image
-                source={
-                  kitchen.logo
-                    ? { uri: kitchen.logo }
-                    : require('../../assets/images/homepage/lunchThali.png')
-                }
-                style={{ width: 50, height: 50, borderRadius: 25 }}
-                resizeMode="cover"
-              />
-              <View className="flex-1 ml-3">
-                <Text className="text-base font-semibold text-gray-900">
-                  {kitchen.name}
-                </Text>
-                {kitchen.phone && (
-                  <TouchableOpacity onPress={handleCallKitchen}>
-                    <Text className="text-sm" style={{ color: '#F56B4C' }}>
-                      Tap to call
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+            <View>
+              <Text className="text-base font-semibold text-gray-900">
+                {kitchen.name}
+              </Text>
+              {kitchen.phone && (
+                <TouchableOpacity onPress={handleCallKitchen}>
+                  <Text className="text-sm mt-1" style={{ color: '#F56B4C' }}>
+                    Tap to call
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}

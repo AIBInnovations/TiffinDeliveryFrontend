@@ -1064,9 +1064,15 @@ class ApiService {
   // Register FCM token for push notifications
   async registerFcmToken(data: {
     fcmToken: string;
+    deviceType: 'ANDROID' | 'IOS';
     deviceId: string;
   }): Promise<FcmTokenResponse> {
     return this.api.post('/api/auth/fcm-token', data);
+  }
+
+  // Remove FCM token on logout
+  async removeFcmToken(fcmToken: string): Promise<FcmTokenResponse> {
+    return this.api.delete('/api/auth/fcm-token', { data: { fcmToken } });
   }
 
   // ============================================
@@ -1663,6 +1669,107 @@ class ApiService {
     };
   }> {
     return this.api.get('/api/payment/history', { params });
+  }
+
+  // ===========================
+  // NOTIFICATION ENDPOINTS
+  // ===========================
+
+  // Get all notifications with pagination
+  async getNotifications(params?: {
+    page?: number;
+    limit?: number;
+    unreadOnly?: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      notifications: Array<{
+        _id: string;
+        userId: string;
+        type: string;
+        title: string;
+        body: string;
+        data?: any;
+        entityType?: string | null;
+        entityId?: string | null;
+        deliveryStatus: string;
+        isRead: boolean;
+        readAt: string | null;
+        sentAt: string;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      unreadCount: number;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    };
+  }> {
+    return this.api.get('/api/notifications', { params });
+  }
+
+  // Get latest unread notification for popup
+  async getLatestUnreadNotification(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      notification: {
+        _id: string;
+        userId: string;
+        type: string;
+        title: string;
+        body: string;
+        data?: any;
+        entityType?: string | null;
+        entityId?: string | null;
+        isRead: boolean;
+        createdAt: string;
+      } | null;
+    };
+  }> {
+    return this.api.get('/api/notifications/latest-unread');
+  }
+
+  // Get unread notification count for badge
+  async getUnreadNotificationCount(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      count: number;
+    };
+  }> {
+    return this.api.get('/api/notifications/unread-count');
+  }
+
+  // Mark notification as read
+  async markNotificationAsRead(notificationId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.api.patch(`/api/notifications/${notificationId}/read`);
+  }
+
+  // Mark all notifications as read
+  async markAllNotificationsAsRead(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      updatedCount: number;
+    };
+  }> {
+    return this.api.post('/api/notifications/mark-all-read');
+  }
+
+  // Delete notification
+  async deleteNotification(notificationId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.api.delete(`/api/notifications/${notificationId}`);
   }
 }
 

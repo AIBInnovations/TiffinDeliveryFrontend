@@ -19,6 +19,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { useAddress } from '../../context/AddressContext';
 import apiService, { Order, OrderStatus } from '../../services/api.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
+import NotificationBell from '../../components/NotificationBell';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
 
@@ -389,22 +390,14 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Status Section */}
+      {/* Status and Time */}
       <View className="flex-row items-center justify-between mb-4">
-        <View>
-          <Text className="text-xs text-gray-500 mb-1">Estimated Time</Text>
-          <Text className="text-sm font-semibold text-gray-900">
-            {order.estimatedDeliveryTime
-              ? new Date(order.estimatedDeliveryTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-              : '30-45 mins'}
-          </Text>
-        </View>
-        <View className="items-end">
-          <Text className="text-xs text-gray-500 mb-1">
-            {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-          <Text className="text-sm font-semibold text-gray-900">{getStatusMessage(order.status)}</Text>
-        </View>
+        <Text className="text-sm font-semibold" style={{ color: '#6B7280' }}>
+          {getStatusMessage(order.status)}
+        </Text>
+        <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
+          {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+        </Text>
       </View>
 
       {/* Action Buttons */}
@@ -601,6 +594,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               />
             </View>
           </TouchableOpacity>
+
+          {/* Notification Bell */}
+          <NotificationBell color="white" size={24} />
 
           {/* Voucher Button */}
           <TouchableOpacity

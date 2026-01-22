@@ -86,6 +86,11 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
         versionName "1.0.1"
+
+        // Only build for arm64-v8a to reduce memory usage
+        ndk {
+            abiFilters "arm64-v8a"
+        }
     }
     signingConfigs {
         debug {
@@ -137,6 +142,18 @@ android {
     }
 }
 
+// Configure NDK build to use less memory
+tasks.configureEach { task ->
+    if (task.name.contains("externalNativeBuild") || task.name.contains("buildCMake")) {
+        task.doFirst {
+            // Limit ninja parallel jobs to 1
+            if (task.hasProperty("arguments")) {
+                task.arguments.add("-j1")
+            }
+        }
+    }
+}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
@@ -153,4 +170,5 @@ dependencies {
     // Add the dependencies for Firebase products you want to use
     // When using the BoM, don't specify versions in Firebase dependencies
     implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-messaging'
 }
