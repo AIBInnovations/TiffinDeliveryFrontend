@@ -86,6 +86,20 @@ const AppContent = () => {
       try {
         console.log('[App] Setting up FCM notification handlers...');
 
+        // Request notification permission if not already granted
+        const hasPermission = await notificationService.checkPermission();
+        if (!hasPermission) {
+          console.log('[App] Requesting notification permission...');
+          const granted = await notificationService.requestPermission();
+          if (granted) {
+            console.log('[App] Notification permission granted');
+          } else {
+            console.log('[App] Notification permission denied');
+          }
+        } else {
+          console.log('[App] Notification permission already granted');
+        }
+
         // Handle notifications when app is in foreground
         foregroundUnsubscribe = await notificationService.setupForegroundHandler(
           displayForegroundNotification
