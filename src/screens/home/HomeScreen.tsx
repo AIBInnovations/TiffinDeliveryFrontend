@@ -416,8 +416,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // Check if we have a valid meal item ID from the API
     const mealItemId = mealItem?._id;
     if (!mealItemId || !isValidObjectId(mealItemId)) {
-      console.warn('[HomeScreen] Invalid or missing meal item ID:', mealItemId);
-      // Still allow cart to be created but warn about potential issues
+      console.error('[HomeScreen] Cannot add to cart: Invalid or missing meal item ID:', mealItemId);
+      console.error('[HomeScreen] Menu item data:', JSON.stringify(mealItem, null, 2));
+      return; // Don't add to cart with invalid ID
     }
 
     // Set cart context for order creation
@@ -441,7 +442,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     const cartItem = {
-      id: mealItemId || `meal-${selectedMeal}`, // Use actual _id from API
+      id: mealItemId, // Only use valid _id from API
       name: mealName,
       image: selectedMeal === 'lunch'
         ? require('../../assets/images/homepage/lunch2.png')

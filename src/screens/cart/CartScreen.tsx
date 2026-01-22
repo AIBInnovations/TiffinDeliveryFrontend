@@ -190,7 +190,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         setVoucherInfo(response.data.voucherEligibility);
       }
     } catch (error: any) {
-      console.error('Error calculating pricing:', error);
+      console.error('Error calculating pricing:', error.message || error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       setPricingError(error.message || 'Failed to calculate pricing');
       // Fallback to local calculation
       const subtotal = cartItems.reduce((sum, item) => {
