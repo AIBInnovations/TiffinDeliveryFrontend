@@ -16,6 +16,7 @@
 import { Platform, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+import { NotificationType, AutoOrderFailureCategory } from '../constants/notificationTypes';
 
 // FCM Token storage key
 const FCM_TOKEN_KEY = 'fcm_token';
@@ -318,40 +319,203 @@ class NotificationService {
   } | null {
     if (!data) return null;
 
-    // Order notifications
-    if (data.orderId) {
-      return {
-        screen: 'OrderDetail',
-        params: {
-          orderId: data.orderId,
-          orderNumber: data.orderNumber,
-        },
-      };
+    const type = data.type as NotificationType;
+
+    switch (type) {
+      // Auto-order success - navigate to order detail
+      case NotificationType.AUTO_ORDER_SUCCESS:
+        console.log('[NotificationService] Handling AUTO_ORDER_SUCCESS notification');
+        return {
+          screen: 'OrderDetail',
+          params: {
+            orderId: data.orderId,
+            orderNumber: data.orderNumber,
+            fromNotification: true,
+          },
+        };
+
+      // Auto-order failed - show failure modal with category-specific action
+      case NotificationType.AUTO_ORDER_FAILED:
+        console.log('[NotificationService] Handling AUTO_ORDER_FAILED notification');
+        return {
+          screen: 'AutoOrderFailure',
+          params: {
+            failureCategory: data.failureCategory as AutoOrderFailureCategory,
+            mealWindow: data.mealWindow,
+            message: data.message,
+            fromNotification: true,
+          },
+        };
+
+      // Specific order status notifications - navigate to order tracking/detail
+      case NotificationType.ORDER_ACCEPTED:
+      case NotificationType.ORDER_PREPARING:
+      case NotificationType.ORDER_READY:
+      case NotificationType.ORDER_PICKED_UP:
+      case NotificationType.ORDER_OUT_FOR_DELIVERY:
+        console.log(`[NotificationService] Handling ${type} notification`);
+        if (data.orderId) {
+          return {
+            screen: 'OrderTracking',
+            params: {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+            },
+          };
+        }
+        break;
+
+      case NotificationType.ORDER_DELIVERED:
+        console.log('[NotificationService] Handling ORDER_DELIVERED notification');
+        if (data.orderId) {
+          return {
+            screen: 'OrderDetail',
+            params: {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+              showRating: true,
+            },
+          };
+        }
+        break;
+
+      case NotificationType.ORDER_REJECTED:
+      case NotificationType.ORDER_CANCELLED:
+        console.log(`[NotificationService] Handling ${type} notification`);
+        if (data.orderId) {
+          return {
+            screen: 'OrderDetail',
+            params: {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+            },
+          };
+        }
+        break;
+
+      // Legacy order status change (backward compatibility)
+      case NotificationType.ORDER_STATUS_CHANGE:
+        console.log('[NotificationService] Handling ORDER_STATUS_CHANGE notification');
+        if (data.orderId) {
+          return {
+            screen: 'OrderDetail',
+            params: {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+            },
+          };
+        }
+        break;
+
+      // Subscription notifications
+      case NotificationType.VOUCHER_EXPIRY_REMINDER:
+        console.log('[NotificationService] Handling VOUCHER_EXPIRY_REMINDER notification');
+        if (data.voucherCount) {
+          return {
+            screen: 'Vouchers',
+            params: {
+              highlightExpiring: true,
+            },
+          };
+        }
+        break;
+
+      case NotificationType.SUBSCRIPTION_CREATED:
+        console.log('[NotificationService] Handling SUBSCRIPTION_CREATED notification');
+        return {
+          screen: 'Vouchers',
+          params: {
+            highlightNew: true,
+          },
+        };
+
+      // General notifications
+      case NotificationType.MENU_UPDATE:
+        console.log('[NotificationService] Handling MENU_UPDATE notification');
+        if (data.kitchenId) {
+          return {
+            screen: 'KitchenMenu',
+            params: {
+              kitchenId: data.kitchenId,
+            },
+          };
+        }
+        // Fallback to home if no kitchen ID
+        return {
+          screen: 'Home',
+        };
+
+      case NotificationType.PROMOTIONAL:
+        console.log('[NotificationService] Handling PROMOTIONAL notification');
+        // If specific screen is provided in data
+        if (data.targetScreen) {
+          return {
+            screen: data.targetScreen,
+            params: data.targetParams ? JSON.parse(data.targetParams) : undefined,
+          };
+        }
+        // Default to meal plans for promotions
+        return {
+          screen: 'MealPlans',
+        };
+
+      case NotificationType.ADMIN_PUSH:
+        console.log('[NotificationService] Handling ADMIN_PUSH notification');
+        // Admin notifications can specify a target screen
+        if (data.targetScreen) {
+          return {
+            screen: data.targetScreen,
+            params: data.targetParams ? JSON.parse(data.targetParams) : undefined,
+          };
+        }
+        return {
+          screen: 'Home',
+        };
+
+      default:
+        // Legacy fallback for notifications without explicit type
+        console.log('[NotificationService] Handling notification with unknown or legacy type');
+
+        // Try order ID
+        if (data.orderId) {
+          return {
+            screen: 'OrderDetail',
+            params: {
+              orderId: data.orderId,
+              orderNumber: data.orderNumber,
+            },
+          };
+        }
+
+        // Try voucher count
+        if (data.voucherCount) {
+          return {
+            screen: 'Vouchers',
+            params: {
+              highlightExpiring: true,
+            },
+          };
+        }
+
+        // Try kitchen ID
+        if (data.kitchenId) {
+          return {
+            screen: 'KitchenMenu',
+            params: {
+              kitchenId: data.kitchenId,
+            },
+          };
+        }
+
+        // Default to notifications screen
+        return {
+          screen: 'Notifications',
+        };
     }
 
-    // Voucher expiry notifications
-    if (data.voucherCount) {
-      return {
-        screen: 'Vouchers',
-        params: {
-          highlightExpiring: true,
-        },
-      };
-    }
-
-    // Menu update notifications
-    if (data.kitchenId && data.type === 'ANNOUNCEMENT') {
-      return {
-        screen: 'KitchenMenu',
-        params: {
-          kitchenId: data.kitchenId,
-        },
-      };
-    }
-
-    // Admin push or general notifications
+    // Fallback to notifications screen
     return {
-      screen: 'Home',
+      screen: 'Notifications',
     };
   }
 

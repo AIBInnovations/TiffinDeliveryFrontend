@@ -6,7 +6,7 @@
  */
 import './global.css';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, AppState } from 'react-native';
+import { AppState } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
 import { AddressProvider, useAddress } from './src/context/AddressContext';
@@ -16,6 +16,7 @@ import { PaymentProvider } from './src/context/PaymentContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
 import NotificationPopup from './src/components/NotificationPopup';
 import notificationService from './src/services/notification.service';
+import notificationChannelService from './src/services/notificationChannel.service';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
 const AppContent = () => {
@@ -44,20 +45,14 @@ const AppContent = () => {
 
   // Display notification when app is in foreground
   const displayForegroundNotification = (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
-    const title = remoteMessage.notification?.title || 'New Notification';
-    const body = remoteMessage.notification?.body || '';
+    console.log('[App] Foreground notification received:', remoteMessage.notification?.title);
 
-    Alert.alert(
-      title,
-      body,
-      [
-        { text: 'Dismiss', style: 'cancel' },
-        {
-          text: 'View',
-          onPress: () => handleNotification(remoteMessage),
-        },
-      ]
-    );
+    // Fetch latest unread to update NotificationContext
+    // This will trigger the NotificationPopup to display
+    fetchLatestUnread();
+
+    // Note: The intrusive Alert.alert has been replaced with NotificationPopup
+    // which is a non-blocking banner displayed via NotificationContext
   };
 
   // Handle notification popup view action
@@ -85,6 +80,9 @@ const AppContent = () => {
 
       try {
         console.log('[App] Setting up FCM notification handlers...');
+
+        // Create notification channels (Android 8+ only)
+        await notificationChannelService.createChannels();
 
         // Request notification permission if not already granted
         const hasPermission = await notificationService.checkPermission();

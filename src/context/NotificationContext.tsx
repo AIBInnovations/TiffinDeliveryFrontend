@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import apiService from '../services/api.service';
+import notificationStorageService from '../services/notificationStorage.service';
 import { useUser } from './UserContext';
 
 export interface NotificationData {
@@ -69,21 +70,49 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       });
 
       if (response.success && response.data) {
-        const newNotifications = response.data.notifications;
+        let newNotifications = response.data.notifications;
 
+        // If first page, merge with cached notifications
         if (page === 1) {
+          console.log('[NotificationContext] Merging backend notifications with cache');
+          newNotifications = await notificationStorageService.mergeWithBackend(
+            newNotifications
+          );
+
+          // Update sync timestamp
+          await notificationStorageService.updateSyncTimestamp();
+
           setNotifications(newNotifications);
         } else {
+          // For pagination, just append without merge
           setNotifications(prev => [...prev, ...newNotifications]);
         }
 
         setUnreadCount(response.data.unreadCount);
+
+        // Sync unread count to storage
+        await notificationStorageService.setUnreadCount(response.data.unreadCount);
+
         setCurrentPage(response.data.pagination.page);
         setTotalPages(response.data.pagination.pages);
         setHasMore(response.data.pagination.page < response.data.pagination.pages);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('[NotificationContext] Error fetching notifications:', error);
+
+      // On error, fallback to cached notifications (offline support)
+      if (page === 1) {
+        console.log('[NotificationContext] Backend fetch failed, using cached notifications');
+        const cached = await notificationStorageService.getStoredNotifications();
+        if (cached.length > 0) {
+          setNotifications(cached as NotificationData[]);
+          console.log(`[NotificationContext] Loaded ${cached.length} cached notifications (offline mode)`);
+        }
+
+        // Get cached unread count
+        const cachedCount = await notificationStorageService.getUnreadCount();
+        setUnreadCount(cachedCount);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -101,10 +130,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setLatestUnreadNotification(response.data.notification);
         setShowPopup(true);
 
-        // Auto-dismiss after 5 seconds
+        // Auto-dismiss after 10 seconds (increased from 5s for better UX)
         setTimeout(() => {
           setShowPopup(false);
-        }, 5000);
+        }, 10000);
       }
     } catch (error) {
       console.error('Error fetching latest unread notification:', error);

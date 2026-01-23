@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { NotificationData } from '../context/NotificationContext';
+import { NotificationType, AutoOrderFailureCategory } from '../constants/notificationTypes';
 
 interface NotificationDetailModalProps {
   visible: boolean;
@@ -42,14 +43,46 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
   // Get icon based on notification type
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'MENU_UPDATE':
-        return { emoji: '👨‍🍳', color: '#3B82F6' };
-      case 'ORDER_STATUS_CHANGE':
-        return { emoji: '📦', color: '#10B981' };
-      case 'VOUCHER_EXPIRY_REMINDER':
+      // Order status notifications
+      case NotificationType.ORDER_ACCEPTED:
+        return { emoji: '✅', color: '#10B981' };
+      case NotificationType.ORDER_PREPARING:
+        return { emoji: '👨‍🍳', color: '#F59E0B' };
+      case NotificationType.ORDER_READY:
+        return { emoji: '🍱', color: '#10B981' };
+      case NotificationType.ORDER_PICKED_UP:
+      case NotificationType.ORDER_OUT_FOR_DELIVERY:
+        return { emoji: '🚗', color: '#3B82F6' };
+      case NotificationType.ORDER_DELIVERED:
+        return { emoji: '✅', color: '#10B981' };
+      case NotificationType.ORDER_CANCELLED:
+      case NotificationType.ORDER_REJECTED:
+        return { emoji: '❌', color: '#EF4444' };
+
+      // Auto-order notifications
+      case NotificationType.AUTO_ORDER_SUCCESS:
+        return { emoji: '✅', color: '#10B981' };
+      case NotificationType.AUTO_ORDER_FAILED:
+        return { emoji: '⚠️', color: '#EF4444' };
+
+      // Subscription notifications
+      case NotificationType.VOUCHER_EXPIRY_REMINDER:
         return { emoji: '🎟️', color: '#F59E0B' };
-      case 'ADMIN_PUSH':
+      case NotificationType.SUBSCRIPTION_CREATED:
+        return { emoji: '🎉', color: '#8B5CF6' };
+
+      // General notifications
+      case NotificationType.MENU_UPDATE:
+        return { emoji: '👨‍🍳', color: '#3B82F6' };
+      case NotificationType.PROMOTIONAL:
+        return { emoji: '🎁', color: '#F59E0B' };
+      case NotificationType.ADMIN_PUSH:
         return { emoji: '🔔', color: '#8B5CF6' };
+
+      // Legacy
+      case NotificationType.ORDER_STATUS_CHANGE:
+        return { emoji: '📦', color: '#10B981' };
+
       default:
         return { emoji: '📬', color: '#6B7280' };
     }
@@ -58,7 +91,89 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
   // Get action button config based on notification type
   const getActionButton = () => {
     switch (notification.type) {
-      case 'ORDER_STATUS_CHANGE':
+      // Order status notifications - Track or view order
+      case NotificationType.ORDER_ACCEPTED:
+      case NotificationType.ORDER_PREPARING:
+      case NotificationType.ORDER_READY:
+      case NotificationType.ORDER_PICKED_UP:
+      case NotificationType.ORDER_OUT_FOR_DELIVERY:
+        return {
+          label: 'Track Order',
+          action: () => {
+            onClose();
+            if (notification.entityId || notification.data?.orderId) {
+              navigation.navigate('OrderTracking', {
+                orderId: notification.entityId || notification.data?.orderId,
+              });
+            }
+          },
+        };
+
+      case NotificationType.ORDER_DELIVERED:
+        return {
+          label: 'Rate Order',
+          action: () => {
+            onClose();
+            if (notification.entityId || notification.data?.orderId) {
+              navigation.navigate('OrderDetail', {
+                orderId: notification.entityId || notification.data?.orderId,
+                showRating: true,
+              });
+            }
+          },
+        };
+
+      case NotificationType.ORDER_CANCELLED:
+      case NotificationType.ORDER_REJECTED:
+        return {
+          label: 'View Details',
+          action: () => {
+            onClose();
+            if (notification.entityId || notification.data?.orderId) {
+              navigation.navigate('OrderDetail', {
+                orderId: notification.entityId || notification.data?.orderId,
+              });
+            }
+          },
+        };
+
+      // Auto-order notifications
+      case NotificationType.AUTO_ORDER_SUCCESS:
+        return {
+          label: 'View Order',
+          action: () => {
+            onClose();
+            if (notification.data?.orderId) {
+              navigation.navigate('OrderDetail', {
+                orderId: notification.data.orderId,
+                orderNumber: notification.data.orderNumber,
+              });
+            }
+          },
+        };
+
+      case NotificationType.AUTO_ORDER_FAILED:
+        return {
+          label: 'Take Action',
+          action: () => {
+            onClose();
+            // Navigate based on failure category
+            const category = notification.data?.failureCategory as AutoOrderFailureCategory;
+            if (category === AutoOrderFailureCategory.NO_VOUCHERS) {
+              navigation.navigate('MealPlans');
+            } else if (
+              category === AutoOrderFailureCategory.NO_ADDRESS ||
+              category === AutoOrderFailureCategory.NO_ZONE
+            ) {
+              navigation.navigate('Address');
+            } else {
+              navigation.navigate('Home');
+            }
+          },
+        };
+
+      // Legacy
+      case NotificationType.ORDER_STATUS_CHANGE:
         return {
           label: 'View Order',
           action: () => {
@@ -69,7 +184,7 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
           },
         };
 
-      case 'MENU_UPDATE':
+      case NotificationType.MENU_UPDATE:
         return {
           label: 'Check Menu',
           action: () => {
@@ -83,7 +198,8 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
           },
         };
 
-      case 'VOUCHER_EXPIRY_REMINDER':
+      // Subscription notifications
+      case NotificationType.VOUCHER_EXPIRY_REMINDER:
         return {
           label: 'Use Vouchers',
           action: () => {
@@ -92,7 +208,31 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
           },
         };
 
-      case 'ADMIN_PUSH':
+      case NotificationType.SUBSCRIPTION_CREATED:
+        return {
+          label: 'View Vouchers',
+          action: () => {
+            onClose();
+            navigation.navigate('Vouchers');
+          },
+        };
+
+      // General notifications
+      case NotificationType.PROMOTIONAL:
+        return {
+          label: 'View Offer',
+          action: () => {
+            onClose();
+            // Check for custom target screen in notification data
+            if (notification.data?.targetScreen) {
+              navigation.navigate(notification.data.targetScreen as any);
+            } else {
+              navigation.navigate('MealPlans');
+            }
+          },
+        };
+
+      case NotificationType.ADMIN_PUSH:
         // Handle custom screen navigation from data.screen
         if (notification.data?.screen) {
           const screenMap: Record<string, string> = {

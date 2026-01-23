@@ -405,6 +405,29 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
         </View>
 
+        {/* Auto-Order Info Section */}
+        {order.isAutoOrder && (
+          <View className="px-5 py-4 mb-2" style={{ backgroundColor: '#F3E8FF' }}>
+            <View className="flex-row items-center mb-2">
+              <View
+                className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                style={{ backgroundColor: '#8B5CF6' }}
+              >
+                <Text className="text-lg">⚡</Text>
+              </View>
+              <Text className="text-lg font-bold" style={{ color: '#6B21A8' }}>
+                Auto-Order Info
+              </Text>
+            </View>
+            <Text className="text-sm" style={{ color: '#6B21A8', marginBottom: 4 }}>
+              This meal was automatically ordered based on your subscription.
+            </Text>
+            <Text className="text-xs" style={{ color: '#7C3AED', fontWeight: '500' }}>
+              Auto-orders are placed to ensure you never miss a meal during your subscription period.
+            </Text>
+          </View>
+        )}
+
         {/* Kitchen Info */}
         {kitchen && (
           <View className="bg-white px-5 py-4 mb-2">

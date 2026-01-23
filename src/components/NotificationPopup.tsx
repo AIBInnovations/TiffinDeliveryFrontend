@@ -8,6 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import { NotificationData } from '../context/NotificationContext';
+import { NotificationType } from '../constants/notificationTypes';
 
 interface NotificationPopupProps {
   visible: boolean;
@@ -22,12 +23,12 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
   onDismiss,
   onView,
 }) => {
-  // Auto-dismiss after 5 seconds
+  // Auto-dismiss after 10 seconds (increased from 5s for better UX)
   useEffect(() => {
     if (visible) {
       const timer = setTimeout(() => {
         onDismiss();
-      }, 5000);
+      }, 10000);
 
       return () => clearTimeout(timer);
     }
@@ -54,14 +55,42 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
   // Get icon based on notification type
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'MENU_UPDATE':
+      // Order notifications
+      case NotificationType.ORDER_ACCEPTED:
+        return '✅';
+      case NotificationType.ORDER_PREPARING:
         return '👨‍🍳';
-      case 'ORDER_STATUS_CHANGE':
+      case NotificationType.ORDER_READY:
+        return '🍱';
+      case NotificationType.ORDER_PICKED_UP:
+      case NotificationType.ORDER_OUT_FOR_DELIVERY:
+        return '🚗';
+      case NotificationType.ORDER_DELIVERED:
+        return '✅';
+      case NotificationType.ORDER_CANCELLED:
+      case NotificationType.ORDER_REJECTED:
+        return '❌';
+      case NotificationType.AUTO_ORDER_SUCCESS:
+        return '✅';
+      case NotificationType.AUTO_ORDER_FAILED:
+        return '⚠️';
+      case NotificationType.ORDER_STATUS_CHANGE:
         return '📦';
-      case 'VOUCHER_EXPIRY_REMINDER':
+
+      // Subscription notifications
+      case NotificationType.VOUCHER_EXPIRY_REMINDER:
         return '🎟️';
-      case 'ADMIN_PUSH':
+      case NotificationType.SUBSCRIPTION_CREATED:
+        return '🎉';
+
+      // General notifications
+      case NotificationType.MENU_UPDATE:
+        return '👨‍🍳';
+      case NotificationType.PROMOTIONAL:
+        return '🎁';
+      case NotificationType.ADMIN_PUSH:
         return '🔔';
+
       default:
         return '📬';
     }

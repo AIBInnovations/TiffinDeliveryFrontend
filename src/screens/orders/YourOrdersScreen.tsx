@@ -109,6 +109,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
+  const [showAutoOrdersOnly, setShowAutoOrdersOnly] = useState(false);
 
   // Current orders state
   const [currentOrders, setCurrentOrders] = useState<Order[]>([]);
@@ -387,6 +388,18 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - #{order.orderNumber}</Text>
             <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{getQuantityString(order)}</Text>
           </View>
+          {order.isAutoOrder && (
+            <View className="mt-2">
+              <View
+                className="px-2 py-1 rounded-full"
+                style={{ backgroundColor: '#F3E8FF', alignSelf: 'flex-start' }}
+              >
+                <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>
+                  Auto-Order
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -472,6 +485,18 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               {order.voucherUsage.voucherCount} voucher{order.voucherUsage.voucherCount > 1 ? 's' : ''} used
             </Text>
           )}
+          {order.isAutoOrder && (
+            <View className="mt-2">
+              <View
+                className="px-2 py-1 rounded-full"
+                style={{ backgroundColor: '#F3E8FF', alignSelf: 'flex-start' }}
+              >
+                <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>
+                  Auto-Order
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -540,6 +565,15 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       <Text className="text-base text-gray-500">{message}</Text>
     </View>
   );
+
+  // Filter orders by auto-order status
+  const filteredCurrentOrders = showAutoOrdersOnly
+    ? currentOrders.filter(order => order.isAutoOrder)
+    : currentOrders;
+
+  const filteredHistoryOrders = showAutoOrdersOnly
+    ? historyOrders.filter(order => order.isAutoOrder)
+    : historyOrders;
 
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
@@ -670,6 +704,25 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Auto-Order Filter Toggle */}
+        <View className="px-5 pb-4">
+          <TouchableOpacity
+            onPress={() => setShowAutoOrdersOnly(!showAutoOrdersOnly)}
+            className="flex-row items-center justify-center py-2 px-4 rounded-full"
+            style={{
+              backgroundColor: showAutoOrdersOnly ? 'white' : 'rgba(255, 255, 255, 0.3)',
+              alignSelf: 'flex-end',
+            }}
+          >
+            <Text
+              className="text-xs font-semibold"
+              style={{ color: showAutoOrdersOnly ? '#8B5CF6' : 'white' }}
+            >
+              {showAutoOrdersOnly ? '✓ Auto-Orders Only' : 'Show Auto-Orders'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         </View>
       </View>
 
@@ -693,10 +746,10 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               renderLoading()
             ) : currentError ? (
               renderError(currentError, fetchCurrentOrders)
-            ) : currentOrders.length === 0 ? (
-              renderEmpty('No current orders')
+            ) : filteredCurrentOrders.length === 0 ? (
+              renderEmpty(showAutoOrdersOnly ? 'No auto-orders found' : 'No current orders')
             ) : (
-              currentOrders.map(renderCurrentOrderCard)
+              filteredCurrentOrders.map(renderCurrentOrderCard)
             )}
           </>
         ) : (
@@ -706,11 +759,11 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               renderLoading()
             ) : historyError ? (
               renderError(historyError, () => fetchHistoryOrders(1, false))
-            ) : historyOrders.length === 0 ? (
-              renderEmpty('No order history')
+            ) : filteredHistoryOrders.length === 0 ? (
+              renderEmpty(showAutoOrdersOnly ? 'No auto-orders found' : 'No order history')
             ) : (
               <>
-                {historyOrders.map(renderHistoryOrderCard)}
+                {filteredHistoryOrders.map(renderHistoryOrderCard)}
 
                 {/* Load More Button */}
                 {historyHasMore && (

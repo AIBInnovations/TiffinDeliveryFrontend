@@ -23,6 +23,7 @@ import apiService from '../../services/api.service';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
 import NotificationBell from '../../components/NotificationBell';
+import { formatNextAutoOrderTime } from '../../utils/autoOrderUtils';
 
 // ============================================
 // OFFLINE MODE FLAG - Set to false to enable backend
@@ -37,6 +38,7 @@ const ACCOUNT_MENU_ITEMS = [
   { id: 'addresses', label: 'Saved Addresses', icon: require('../../assets/icons/address2.png'), route: 'Address' as const, authRequired: true },
   { id: 'mealplans', label: 'Meal Plans', icon: require('../../assets/icons/mealplan.png'), route: 'MealPlans' as const, authRequired: false },
   { id: 'vouchers', label: 'My Vouchers', icon: require('../../assets/icons/meal.png'), route: 'Vouchers' as const, authRequired: true },
+  { id: 'autoordersettings', label: 'Auto-Order Settings', icon: require('../../assets/icons/meal.png'), route: 'AutoOrderSettings' as const, authRequired: true },
   { id: 'bulkorders', label: 'Bulk Orders', icon: require('../../assets/icons/bulkorders.png'), route: 'BulkOrders' as const, authRequired: false },
 ];
 
@@ -661,6 +663,47 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               );
             })()}
 
+            {/* Pause Status Indicator */}
+            {activeSubFull?.isPaused && (
+              <View className="mt-3 rounded-xl p-3 border" style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }}>
+                <View className="flex-row items-center mb-1">
+                  <Text className="text-base font-bold mr-2" style={{ color: '#D97706' }}>⏸️</Text>
+                  <Text className="text-sm font-bold" style={{ color: '#D97706' }}>
+                    Auto-Ordering Paused
+                  </Text>
+                </View>
+                {activeSubFull.pausedUntil && (
+                  <Text className="text-xs" style={{ color: '#92400E' }}>
+                    Resumes on {new Date(activeSubFull.pausedUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {/* Next Auto-Order Card */}
+            {activeSubFull?.autoOrderingEnabled && !activeSubFull.isPaused && (
+              <View className="mt-3 rounded-xl p-3" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)' }}>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center">
+                    <Text className="text-base mr-2">⏰</Text>
+                    <View>
+                      <Text className="text-xs text-gray-600">Next Auto-Order</Text>
+                      <Text className="text-sm font-bold" style={{ color: '#8B5CF6' }}>
+                        {formatNextAutoOrderTime(activeSubFull)}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
+                    className="px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'white' }}
+                  >
+                    <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>Settings</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {/* View All Vouchers Link */}
             <TouchableOpacity
               onPress={() => navigation.navigate('Vouchers')}
@@ -813,7 +856,14 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity
                     key={item.id}
                     className="flex-row items-center justify-between pl-3 pr-5 py-3"
-                    onPress={() => navigation.navigate(item.route)}
+                    onPress={() => {
+                      // Special handling for Auto-Order Settings - pass subscription ID
+                      if (item.route === 'AutoOrderSettings' && activeSubFull) {
+                        navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id });
+                      } else {
+                        navigation.navigate(item.route as any);
+                      }
+                    }}
                   >
                     <View className="flex-row items-center">
                       <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
