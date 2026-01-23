@@ -1,5 +1,5 @@
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
+import Geolocation from 'react-native-geolocation-service';
 
 export interface LocationCoordinates {
   latitude: number;

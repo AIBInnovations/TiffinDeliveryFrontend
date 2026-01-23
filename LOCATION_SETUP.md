@@ -196,9 +196,11 @@ locationService.showLocationPermissionDeniedAlert();
 
 ```json
 {
-  "@react-native-community/geolocation": "^3.x.x"
+  "react-native-geolocation-service": "^5.3.1"
 }
 ```
+
+**Note:** This package provides better support for React Native's new architecture and has more reliable location handling compared to `@react-native-community/geolocation`.
 
 ## Next Steps
 
