@@ -110,9 +110,8 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const { getMainAddress } = useAddress();
   const { showAlert } = useAlert();
 
-  const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
+  const [activeTab, setActiveTab] = useState<'Current' | 'History' | 'Auto'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
-  const [showAutoOrdersOnly, setShowAutoOrdersOnly] = useState(false);
 
   // Current orders state
   const [currentOrders, setCurrentOrders] = useState<Order[]>([]);
@@ -584,15 +583,6 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  // Filter orders by auto-order status
-  const filteredCurrentOrders = showAutoOrdersOnly
-    ? currentOrders.filter(order => order.isAutoOrder)
-    : currentOrders;
-
-  const filteredHistoryOrders = showAutoOrdersOnly
-    ? historyOrders.filter(order => order.isAutoOrder)
-    : historyOrders;
-
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
@@ -677,70 +667,75 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         {/* Tabs */}
         <View className="px-5 pt-4 pb-6">
           <View className="flex-row bg-gray-100 rounded-full p-1">
-          <TouchableOpacity
-            onPress={() => setActiveTab('Current')}
-            className={`py-3 rounded-full ${
-              activeTab === 'Current' ? 'bg-white' : 'bg-transparent'
-            }`}
-            style={{
-              width: 150,
-              shadowColor: activeTab === 'Current' ? '#000' : 'transparent',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: activeTab === 'Current' ? 0.1 : 0,
-              shadowRadius: 2,
-              elevation: activeTab === 'Current' ? 2 : 0,
-            }}
-          >
-            <Text
-              className={`text-center font-semibold ${
-                activeTab === 'Current' ? 'text-gray-900' : 'text-gray-500'
+            <TouchableOpacity
+              onPress={() => setActiveTab('Current')}
+              className={`flex-1 py-3 rounded-full ${
+                activeTab === 'Current' ? 'bg-white' : 'bg-transparent'
               }`}
+              style={{
+                shadowColor: activeTab === 'Current' ? '#000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === 'Current' ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === 'Current' ? 2 : 0,
+              }}
             >
-              Current {currentOrders.length > 0 && `(${currentOrders.length})`}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                className={`text-center font-semibold ${
+                  activeTab === 'Current' ? 'text-gray-900' : 'text-gray-500'
+                }`}
+                style={{ fontSize: 13 }}
+              >
+                Current {currentOrders.filter(o => !o.isAutoOrder).length > 0 && `(${currentOrders.filter(o => !o.isAutoOrder).length})`}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => setActiveTab('History')}
-            className={`flex-1 py-3 rounded-full ${
-              activeTab === 'History' ? 'bg-white' : 'bg-transparent'
-            }`}
-            style={{
-              shadowColor: activeTab === 'History' ? '#000' : 'transparent',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: activeTab === 'History' ? 0.1 : 0,
-              shadowRadius: 2,
-              elevation: activeTab === 'History' ? 2 : 0,
-            }}
-          >
-            <Text
-              className={`text-center font-semibold ${
-                activeTab === 'History' ? 'text-gray-900' : 'text-gray-500'
+            <TouchableOpacity
+              onPress={() => setActiveTab('History')}
+              className={`flex-1 py-3 rounded-full ${
+                activeTab === 'History' ? 'bg-white' : 'bg-transparent'
               }`}
+              style={{
+                shadowColor: activeTab === 'History' ? '#000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === 'History' ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === 'History' ? 2 : 0,
+              }}
             >
-              History
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                className={`text-center font-semibold ${
+                  activeTab === 'History' ? 'text-gray-900' : 'text-gray-500'
+                }`}
+                style={{ fontSize: 13 }}
+              >
+                History
+              </Text>
+            </TouchableOpacity>
 
-        {/* Auto-Order Filter Toggle */}
-        <View className="px-5 pb-4">
-          <TouchableOpacity
-            onPress={() => setShowAutoOrdersOnly(!showAutoOrdersOnly)}
-            className="flex-row items-center justify-center py-2 px-4 rounded-full"
-            style={{
-              backgroundColor: showAutoOrdersOnly ? 'white' : 'rgba(255, 255, 255, 0.3)',
-              alignSelf: 'flex-end',
-            }}
-          >
-            <Text
-              className="text-xs font-semibold"
-              style={{ color: showAutoOrdersOnly ? '#8B5CF6' : 'white' }}
+            <TouchableOpacity
+              onPress={() => setActiveTab('Auto')}
+              className={`flex-1 py-3 rounded-full ${
+                activeTab === 'Auto' ? 'bg-white' : 'bg-transparent'
+              }`}
+              style={{
+                shadowColor: activeTab === 'Auto' ? '#000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === 'Auto' ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === 'Auto' ? 2 : 0,
+              }}
             >
-              {showAutoOrdersOnly ? '✓ Auto-Orders Only' : 'Show Auto-Orders'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                className={`text-center font-semibold ${
+                  activeTab === 'Auto' ? 'text-gray-900' : 'text-gray-500'
+                }`}
+                style={{ fontSize: 13 }}
+              >
+                Auto
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -758,30 +753,30 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         }
       >
         {activeTab === 'Current' ? (
-          // Current Orders Layout
+          // Current Orders Layout (non-auto orders)
           <>
             {currentLoading ? (
               renderLoading()
             ) : currentError ? (
               renderError(currentError, fetchCurrentOrders)
-            ) : filteredCurrentOrders.length === 0 ? (
-              renderEmpty(showAutoOrdersOnly ? 'No auto-orders found' : 'No current orders')
+            ) : currentOrders.filter(o => !o.isAutoOrder).length === 0 ? (
+              renderEmpty('No current orders')
             ) : (
-              filteredCurrentOrders.map(renderCurrentOrderCard)
+              currentOrders.filter(o => !o.isAutoOrder).map(renderCurrentOrderCard)
             )}
           </>
-        ) : (
-          // History Orders Layout
+        ) : activeTab === 'History' ? (
+          // History Orders Layout (non-auto orders)
           <>
             {historyLoading && historyOrders.length === 0 ? (
               renderLoading()
             ) : historyError ? (
               renderError(historyError, () => fetchHistoryOrders(1, false))
-            ) : filteredHistoryOrders.length === 0 ? (
-              renderEmpty(showAutoOrdersOnly ? 'No auto-orders found' : 'No order history')
+            ) : historyOrders.filter(o => !o.isAutoOrder).length === 0 ? (
+              renderEmpty('No order history')
             ) : (
               <>
-                {filteredHistoryOrders.map(renderHistoryOrderCard)}
+                {historyOrders.filter(o => !o.isAutoOrder).map(renderHistoryOrderCard)}
 
                 {/* Load More Button */}
                 {historyHasMore && (
@@ -806,6 +801,20 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                     )}
                   </TouchableOpacity>
                 )}
+              </>
+            )}
+          </>
+        ) : (
+          // Auto Orders Layout (both current and history auto orders)
+          <>
+            {currentLoading || historyLoading ? (
+              renderLoading()
+            ) : [...currentOrders, ...historyOrders].filter(o => o.isAutoOrder).length === 0 ? (
+              renderEmpty('No auto-orders found')
+            ) : (
+              <>
+                {currentOrders.filter(o => o.isAutoOrder).map(renderCurrentOrderCard)}
+                {historyOrders.filter(o => o.isAutoOrder).map(renderHistoryOrderCard)}
               </>
             )}
           </>
