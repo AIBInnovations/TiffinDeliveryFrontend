@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Image, Text } from 'react-native';
 import OnboardingNavigator from './OnboardingNavigator';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -21,6 +21,31 @@ const AppNavigator = () => {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' }}>
         <ActivityIndicator size="large" color="#F56B4C" />
+      </View>
+    );
+  }
+
+  // Firebase authenticated but user profile not yet synced from backend
+  // Show branded loading screen (matching SplashScreen style) to prevent flash
+  if (firebaseUser && !user && !isGuest) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F56B4C', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 32 }}>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={{ width: 40, height: 40 }}
+            resizeMode="contain"
+          />
+          <Text style={{ color: 'white', fontSize: 32, marginLeft: 8, fontWeight: '600' }}>LOGO</Text>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 15, marginBottom: 32 }}>
+          <Text style={{ color: 'white', fontSize: 20 }}>Order</Text>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
+          <Text style={{ color: 'white', fontSize: 20 }}>Eat</Text>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />
+          <Text style={{ color: 'white', fontSize: 20 }}>Enjoy</Text>
+        </View>
+        <ActivityIndicator size="large" color="white" />
       </View>
     );
   }

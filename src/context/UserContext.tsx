@@ -67,6 +67,37 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isGuest, setIsGuest] = useState(false);
   const [needsAddressSetup, setNeedsAddressSetup] = useState(false);
 
+  // Check if user needs to set up address
+  const checkAddressSetup = async (userProfile?: UserProfile | null) => {
+    // Skip in offline mode
+    if (OFFLINE_MODE) {
+      return;
+    }
+
+    // Use provided user or fallback to state user
+    const currentUser = userProfile || user;
+
+    try {
+      // Only check for onboarded users
+      if (currentUser?.isOnboarded) {
+        const response = await apiService.getAddresses();
+        const addresses = response.data?.addresses || [];
+
+        // If user has no addresses, they need to set up address
+        if (addresses.length === 0) {
+          console.log('[UserContext] User has no addresses, setting needsAddressSetup = true');
+          setNeedsAddressSetup(true);
+        } else {
+          console.log('[UserContext] User has addresses:', addresses.length);
+          setNeedsAddressSetup(false);
+        }
+      }
+    } catch (error) {
+      console.error('[UserContext] Error checking addresses:', error);
+      // Don't set needsAddressSetup on error - let user proceed
+    }
+  };
+
   // Listen to Firebase auth state changes
   useEffect(() => {
     const initializeAuth = async () => {
@@ -90,7 +121,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // Always verify with backend (use cached data as fallback)
           try {
-            await syncUserInternal();
+            const { userProfile } = await syncUserInternal();
+            // Check if user needs to set up address (pass the synced user profile)
+            await checkAddressSetup(userProfile);
           } catch (error) {
             console.error('Error checking profile status:', error);
             // Fallback to cached data if backend fails
@@ -98,6 +131,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (storedUser) {
               const parsedUser = JSON.parse(storedUser);
               setUser(parsedUser);
+              // Also check address setup for cached user
+              await checkAddressSetup(parsedUser);
             }
           }
         } else {
@@ -223,6 +258,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(profileData);
         await AsyncStorage.setItem('user_profile', JSON.stringify(profileData));
         console.log('[UserContext] Profile refreshed successfully');
+        // Check if user needs to set up address
+        await checkAddressSetup(profileData);
       }
     } catch (error: any) {
       console.error('[UserContext] Error refreshing profile:', error.message || error);
@@ -243,6 +280,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await confirmation.confirm(code);
     // After successful verification, sync with backend
     const { userProfile, isNewUser, isProfileComplete } = await syncUserInternal();
+
+    // Check if user needs to set up address
+    await checkAddressSetup(userProfile);
 
     // Register FCM token after successful login
     registerFcmToken().catch(error => {

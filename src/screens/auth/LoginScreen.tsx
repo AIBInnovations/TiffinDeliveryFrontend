@@ -18,10 +18,9 @@ type Props = AuthScreenProps<'Login'>;
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [remember, setRemember] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
 
-  const { loginWithPhone, enterGuestMode } = useUser();
+  const { loginWithPhone } = useUser();
   const { showAlert } = useAlert();
 
   const handleGetOtp = async () => {
@@ -50,11 +49,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleExplore = async () => {
-    // Enter guest mode - AppNavigator will automatically show MainNavigator
-    await enterGuestMode();
   };
 
   return (
@@ -121,59 +115,26 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               paddingBottom: 50,
             }}
           >
-            {/* Login / Register Switch */}
-            <View
+            {/* Welcome heading */}
+            <Text
               style={{
-                backgroundColor: '#F3F4F6',
-                borderRadius: 100,
-                flexDirection: 'row',
-                padding: 4,
-                marginBottom: 20,
+                color: '#111827',
+                fontSize: 24,
+                fontWeight: '700',
+                marginBottom: 8,
               }}
             >
-              <TouchableOpacity
-                onPress={() => setSelectedTab('login')}
-                style={{
-                  flex: 1,
-                  backgroundColor: selectedTab === 'login' ? 'white' : 'transparent',
-                  borderRadius: 100,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: selectedTab === 'login' ? '#111827' : '#9CA3AF',
-                    fontSize: 16,
-                    fontWeight: selectedTab === 'login' ? '600' : '500',
-                  }}
-                >
-                  Login
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setSelectedTab('register')}
-                style={{
-                  flex: 1,
-                  backgroundColor: selectedTab === 'register' ? 'white' : 'transparent',
-                  borderRadius: 100,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: selectedTab === 'register' ? '#111827' : '#9CA3AF',
-                    fontSize: 16,
-                    fontWeight: selectedTab === 'register' ? '600' : '500',
-                  }}
-                >
-                  Register
-                </Text>
-              </TouchableOpacity>
-            </View>
+              Welcome to Tiffsy
+            </Text>
+            <Text
+              style={{
+                color: '#6B7280',
+                fontSize: 14,
+                marginBottom: 24,
+              }}
+            >
+              Enter your phone number to continue
+            </Text>
 
             {/* Your Number label */}
             <Text
@@ -317,64 +278,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   Get OTP
                 </Text>
               )}
-            </TouchableOpacity>
-
-            {/* Divider with "or" */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginVertical: 16,
-              }}
-            >
-              <View
-                style={{
-                  flex: 1,
-                  height: 1,
-                  backgroundColor: '#D1D5DB',
-                }}
-              />
-              <Text
-                style={{
-                  marginHorizontal: 10,
-                  color: '#9CA3AF',
-                  fontSize: 14,
-                }}
-              >
-                or
-              </Text>
-              <View
-                style={{
-                  flex: 1,
-                  height: 1,
-                  backgroundColor: '#D1D5DB',
-                }}
-              />
-            </View>
-
-            {/* Explore button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleExplore}
-              style={{
-                borderRadius: 100,
-                paddingVertical: 15,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: '#F56B4C',
-                marginBottom: 20,
-              }}
-            >
-              <Text
-                style={{
-                  color: '#F56B4C',
-                  fontSize: 16,
-                  fontWeight: '600',
-                }}
-              >
-                Explore
-              </Text>
             </TouchableOpacity>
 
             {/* Footer text */}
