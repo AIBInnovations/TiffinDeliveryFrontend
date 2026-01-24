@@ -6,7 +6,7 @@
  */
 import './global.css';
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
 import { AddressProvider, useAddress } from './src/context/AddressContext';
@@ -17,6 +17,7 @@ import { NotificationProvider, useNotifications } from './src/context/Notificati
 import NotificationPopup from './src/components/NotificationPopup';
 import notificationService from './src/services/notification.service';
 import notificationChannelService from './src/services/notificationChannel.service';
+import apiService from './src/services/api.service';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 
 const AppContent = () => {
@@ -93,9 +94,46 @@ const AppContent = () => {
             console.log('[App] Notification permission granted');
           } else {
             console.log('[App] Notification permission denied');
+            return; // Exit if permission denied
           }
         } else {
           console.log('[App] Notification permission already granted');
+        }
+
+        // Get FCM token and register with backend
+        const fcmToken = await notificationService.getToken();
+        if (fcmToken) {
+          try {
+            const deviceId = await notificationService.getDeviceId();
+            const deviceType = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
+
+            console.log('[App] Registering FCM token with backend...');
+            await apiService.registerFcmToken({
+              fcmToken,
+              deviceType,
+              deviceId,
+            });
+            console.log('[App] FCM token registered successfully');
+
+            // Set up token refresh listener
+            await notificationService.setupTokenRefreshListener(async (newToken) => {
+              console.log('[App] FCM token refreshed, updating backend...');
+              try {
+                await apiService.registerFcmToken({
+                  fcmToken: newToken,
+                  deviceType,
+                  deviceId,
+                });
+                console.log('[App] Refreshed FCM token registered successfully');
+              } catch (error) {
+                console.error('[App] Error registering refreshed FCM token:', error);
+              }
+            });
+          } catch (error) {
+            console.error('[App] Error registering FCM token:', error);
+          }
+        } else {
+          console.warn('[App] Failed to get FCM token');
         }
 
         // Handle notifications when app is in foreground
