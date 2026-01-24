@@ -7,11 +7,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useUser, DietaryPreferences } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 import NotificationPermissionModal from '../../components/NotificationPermissionModal';
 import notificationService from '../../services/notification.service';
 
@@ -37,6 +37,7 @@ const SPICE_LEVELS = [
 
 const UserOnboardingScreen: React.FC = () => {
   const { completeOnboarding, registerFcmToken } = useUser();
+  const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
@@ -103,9 +104,11 @@ const UserOnboardingScreen: React.FC = () => {
       setShowNotificationModal(true);
     } catch (error: any) {
       console.error('Error completing onboarding:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'Failed to save profile. Please try again.'
+        error.message || 'Failed to save profile. Please try again.',
+        undefined,
+        'error'
       );
       setIsLoading(false);
     }

@@ -8,7 +8,6 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -18,6 +17,7 @@ import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { usePayment } from '../../context/PaymentContext';
+import { useAlert } from '../../context/AlertContext';
 import OrderSuccessModal from '../../components/OrderSuccessModal';
 import apiService, {
   PricingBreakdown,
@@ -54,6 +54,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const { addresses, getMainAddress } = useAddress();
   const { voucherSummary, usableVouchers, fetchVouchers } = useSubscription();
   const { processOrderPayment, retryOrderPayment, isProcessing: isPaymentProcessing } = usePayment();
+  const { showAlert } = useAlert();
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -193,54 +194,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       console.error('Error calculating pricing:', error.message || error);
       console.error('Error details:', JSON.stringify(error, null, 2));
       setPricingError(error.message || 'Failed to calculate pricing');
-      // Fallback to local calculation
-      const subtotal = cartItems.reduce((sum, item) => {
-        let itemTotal = item.price * item.quantity;
-        if (item.addons) {
-          item.addons.forEach(addon => {
-            itemTotal += addon.unitPrice * addon.quantity * item.quantity;
-          });
-        }
-        return sum + itemTotal;
-      }, 0);
-
-      // Calculate voucher discount - thali price is covered by voucher
-      let voucherDiscountAmount = 0;
-      if (voucherCount > 0) {
-        // Find the main item (thali) price to cover with voucher
-        const mainItem = cartItems.find(item => item.hasVoucher !== false);
-        if (mainItem) {
-          // Voucher covers the thali price (not addons)
-          voucherDiscountAmount = mainItem.price * Math.min(voucherCount, mainItem.quantity);
-        }
-      }
-
-      // If voucher is applied, set charges to 0, otherwise use normal charges
-      const charges = voucherCount > 0
-        ? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 }
-        : { deliveryFee: 30, serviceFee: 5, packagingFee: 10, handlingFee: 0, taxAmount: subtotal * 0.05 };
-      const totalCharges = charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount;
-      const grandTotal = subtotal + totalCharges;
-      const amountToPay = Math.max(0, grandTotal - voucherDiscountAmount);
-
-      console.log('[CartScreen] Fallback pricing calculation:');
-      console.log('  - voucherCount:', voucherCount);
-      console.log('  - subtotal:', subtotal);
-      console.log('  - voucherDiscountAmount:', voucherDiscountAmount);
-      console.log('  - charges (0 if voucher applied):', JSON.stringify(charges));
-      console.log('  - totalCharges:', totalCharges);
-      console.log('  - grandTotal:', grandTotal);
-      console.log('  - amountToPay:', amountToPay);
-
-      setPricing({
-        items: [],
-        subtotal,
-        charges,
-        discount: null,
-        voucherCoverage: voucherDiscountAmount > 0 ? { type: 'VOUCHER', value: voucherDiscountAmount, description: `${voucherCount} voucher applied` } : null,
-        grandTotal,
-        amountToPay,
-      });
+      setPricing(null);
     } finally {
       setIsCalculating(false);
     }
@@ -262,12 +216,12 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     console.log('  - voucherCount:', voucherCount);
 
     if (!kitchenId || !menuType || !localSelectedAddressId || cartItems.length === 0) {
-      Alert.alert('Error', 'Please ensure you have items in cart and a delivery address selected');
+      showAlert('Error', 'Please ensure you have items in cart and a delivery address selected', undefined, 'error');
       return;
     }
 
     if (menuType === 'MEAL_MENU' && !mealWindow) {
-      Alert.alert('Error', 'Please select a meal type');
+      showAlert('Error', 'Please select a meal type', undefined, 'error');
       return;
     }
 
@@ -326,13 +280,14 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
               // Store order for retry
               setPendingPaymentOrderId(orderId);
               setOrderResult({ orderId, orderNumber, amountToPay: orderAmountToPay });
-              Alert.alert(
+              showAlert(
                 'Payment Cancelled',
                 'Your order has been created but payment is pending. You can retry payment from your orders.',
                 [
                   { text: 'Go to Orders', onPress: () => navigation.navigate('YourOrders') },
                   { text: 'OK', style: 'cancel' },
-                ]
+                ],
+                'warning'
               );
               return;
             }
@@ -340,7 +295,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             // Payment failed - offer retry
             console.log('[CartScreen] Payment failed:', paymentResult.error);
             setPendingPaymentOrderId(orderId);
-            Alert.alert(
+            showAlert(
               'Payment Failed',
               paymentResult.error || 'Payment could not be processed. Please try again.',
               [
@@ -349,7 +304,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   text: 'Retry Payment',
                   onPress: () => handleRetryPayment(orderId, orderNumber, orderAmountToPay),
                 },
-              ]
+              ],
+              'error'
             );
             return;
           }
@@ -365,13 +321,13 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         setPendingPaymentOrderId(null);
       } else {
         console.log('[CartScreen] Order response not successful or no data');
-        Alert.alert('Order Failed', 'Unexpected response from server');
+        showAlert('Order Failed', 'Unexpected response from server', undefined, 'error');
       }
     } catch (error: any) {
       console.error('Error placing order:', error);
       // Handle different error response formats
       const errorMessage = error.data || error.message || 'Failed to place order. Please try again.';
-      Alert.alert('Order Failed', errorMessage);
+      showAlert('Order Failed', errorMessage, undefined, 'error');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -392,13 +348,14 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         setPendingPaymentOrderId(null);
       } else {
         if (paymentResult.error === 'Payment cancelled') {
-          Alert.alert(
+          showAlert(
             'Payment Cancelled',
             'You can retry payment from your orders.',
-            [{ text: 'OK' }]
+            [{ text: 'OK' }],
+            'warning'
           );
         } else {
-          Alert.alert(
+          showAlert(
             'Payment Failed',
             paymentResult.error || 'Payment could not be processed.',
             [
@@ -407,13 +364,14 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                 text: 'Retry Again',
                 onPress: () => handleRetryPayment(orderId, orderNumber, amountToPay),
               },
-            ]
+            ],
+            'error'
           );
         }
       }
     } catch (error: any) {
       console.error('[CartScreen] Retry payment error:', error);
-      Alert.alert('Error', error.message || 'Failed to process payment');
+      showAlert('Error', error.message || 'Failed to process payment', undefined, 'error');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -457,22 +415,16 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     return sum + itemTotal;
   }, 0);
 
-  // If voucher is applied, charges should be 0, otherwise use fallback or pricing charges
-  // When voucherCount is 0, always recalculate charges to ensure they're not stuck at 0 from previous state
-  const fallbackCharges = { deliveryFee: 30, serviceFee: 5, packagingFee: 10, handlingFee: 0, taxAmount: subtotal * 0.05 };
-
+  // If voucher is applied, charges should be 0, otherwise use pricing charges
   let charges;
   if (voucherCount > 0) {
     // Voucher applied: charges are zero
     charges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
   } else if (pricing?.charges) {
-    // Check if pricing charges are valid (not all zeros from previous state)
-    const hasValidCharges = pricing.charges.deliveryFee > 0 || pricing.charges.serviceFee > 0 ||
-                           pricing.charges.packagingFee > 0 || pricing.charges.taxAmount > 0;
-    charges = hasValidCharges ? pricing.charges : fallbackCharges;
+    charges = pricing.charges;
   } else {
-    // No pricing data, use fallback
-    charges = fallbackCharges;
+    // No pricing data available
+    charges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
   }
 
   const totalCharges = charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount;
@@ -1036,6 +988,17 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             <ActivityIndicator size="small" color="#F56B4C" />
             <Text className="text-gray-500 text-sm mt-2">Calculating...</Text>
           </View>
+        ) : pricingError ? (
+          <View className="items-center py-6 px-4">
+            <Text className="text-red-500 text-lg font-semibold mb-2">Pricing Error</Text>
+            <Text className="text-gray-600 text-center mb-4">{pricingError}</Text>
+            <TouchableOpacity
+              onPress={calculatePricing}
+              className="bg-orange-400 px-6 py-3 rounded-full"
+            >
+              <Text className="text-white font-semibold">Retry</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
             {/* Subtotal */}
@@ -1086,7 +1049,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             shadowOpacity: 0.15,
             shadowRadius: 10,
             elevation: 8,
-            opacity: (isPlacingOrder || isCalculating || addresses.length === 0) ? 0.7 : 1,
+            opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || pricingError) ? 0.7 : 1,
           }}
         >
           <View className="flex-row items-center">
@@ -1097,7 +1060,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             className="bg-white rounded-full px-6 flex-row items-center"
             style={{ height: 48, minWidth: 117 }}
             onPress={handlePlaceOrder}
-            disabled={isPlacingOrder || isCalculating || addresses.length === 0}
+            disabled={isPlacingOrder || isCalculating || addresses.length === 0 || !!pricingError}
           >
             {isPlacingOrder ? (
               <ActivityIndicator size="small" color="#F56B4C" />

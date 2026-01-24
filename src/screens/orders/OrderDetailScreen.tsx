@@ -9,16 +9,17 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
+import { useAlert } from '../../context/AlertContext';
 import apiService, { Order, OrderStatus, KitchenSummary } from '../../services/api.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
 import RateOrderModal from '../../components/RateOrderModal';
+import { getMealCutoffTime } from '../../utils/timeUtils';
 
 type Props = StackScreenProps<MainTabParamList, 'OrderDetail'>;
 
@@ -110,11 +111,13 @@ const formatDateTime = (dateString: string): string => {
 
 const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { orderId } = route.params;
+  const { showAlert } = useAlert();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Modal states
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -156,6 +159,20 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       if (orderData && orderData._id) {
         console.log('[OrderDetailScreen] Order fetched successfully:', orderData.orderNumber);
         setOrder(orderData);
+
+        // Fetch kitchen operating hours
+        const kitchenId = typeof orderData.kitchenId === 'string' ? orderData.kitchenId : orderData.kitchenId?._id;
+        if (kitchenId) {
+          try {
+            const kitchenResponse = await apiService.getKitchenMenu(kitchenId, orderData.menuType);
+            const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
+            if (kitchenData?.operatingHours) {
+              setKitchenOperatingHours(kitchenData.operatingHours);
+            }
+          } catch (err) {
+            console.log('[OrderDetailScreen] Failed to fetch kitchen operating hours:', err);
+          }
+        }
       } else {
         // Extract error message from various possible formats
         let errorMsg = 'Failed to load order details';
@@ -214,20 +231,20 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           (typeof response.data === 'string' ? response.data : null) ||
           `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
 
-        Alert.alert('Order Cancelled', successMessage, [
+        showAlert('Order Cancelled', successMessage, [
           { text: 'OK', onPress: () => fetchOrder() },
-        ]);
+        ], 'success');
       } else {
         // Error message is in response.data when message is false
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[OrderDetailScreen] Cancel failed:', errorMessage);
-        Alert.alert('Cannot Cancel Order', errorMessage);
+        showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderDetailScreen] Cancel error:', err.message || err);
-      Alert.alert('Error', err.message || 'Failed to cancel order');
+      showAlert('Error', err.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
     }
@@ -247,19 +264,19 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       if (isSuccess) {
         console.log('[OrderDetailScreen] Order rated successfully');
         setShowRateModal(false);
-        Alert.alert('Thank You!', 'Your feedback helps us improve.', [
+        showAlert('Thank You!', 'Your feedback helps us improve.', [
           { text: 'OK', onPress: () => fetchOrder() },
-        ]);
+        ], 'success');
       } else {
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to submit rating');
         console.log('[OrderDetailScreen] Rating failed:', errorMessage);
-        Alert.alert('Error', errorMessage);
+        showAlert('Error', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderDetailScreen] Rating error:', err.message || err);
-      Alert.alert('Error', err.message || 'Failed to submit rating');
+      showAlert('Error', err.message || 'Failed to submit rating', undefined, 'error');
     } finally {
       setIsRating(false);
     }
@@ -276,7 +293,7 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     if (kitchen?.phone) {
       Linking.openURL(`tel:${kitchen.phone}`);
     } else {
-      Alert.alert('Not Available', 'Kitchen contact is not available');
+      showAlert('Not Available', 'Kitchen contact is not available', undefined, 'warning');
     }
   };
 
@@ -639,7 +656,7 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Reorder - for delivered orders */}
           {order.status === 'DELIVERED' && (
             <TouchableOpacity
-              onPress={() => Alert.alert('Coming Soon', 'Reorder functionality will be available soon!')}
+              onPress={() => showAlert('Coming Soon', 'Reorder functionality will be available soon!', undefined, 'default')}
               className="rounded-full py-4 items-center flex-row justify-center"
               style={{ backgroundColor: '#FFF5F2' }}
             >
@@ -666,6 +683,7 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         voucherCount={order.voucherUsage?.voucherCount ?? 0}
         amountPaid={order.amountPaid}
         mealWindow={order.mealWindow}
+        cutoffTime={order.mealWindow ? getMealCutoffTime(kitchenOperatingHours, order.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
 
       {/* Rate Order Modal */}

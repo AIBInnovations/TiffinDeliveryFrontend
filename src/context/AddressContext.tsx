@@ -1,8 +1,9 @@
 // src/context/AddressContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService, { AddressData, ServerAddress } from '../services/api.service';
 import locationService, { LocationResult } from '../services/location.service';
+import { useUser } from './UserContext';
 
 export interface Address {
   id: string;
@@ -85,6 +86,7 @@ const serverToLocalAddress = (serverAddr: ServerAddress): Address => ({
 });
 
 export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isGuest } = useUser();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [isCheckingServiceability, setIsCheckingServiceability] = useState(false);
@@ -108,7 +110,7 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   // Fetch addresses from server
-  const fetchAddresses = async () => {
+  const fetchAddresses = useCallback(async () => {
     setIsLoadingAddresses(true);
     try {
       const response = await apiService.getAddresses();
@@ -129,7 +131,20 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
     } finally {
       setIsLoadingAddresses(false);
     }
-  };
+  }, [selectedAddressId]);
+
+  // Fetch addresses from server when user authenticates
+  useEffect(() => {
+    if (isAuthenticated && !isGuest) {
+      console.log('[AddressContext] User authenticated, fetching addresses from server');
+      fetchAddresses();
+    } else if (!isAuthenticated || isGuest) {
+      console.log('[AddressContext] User not authenticated or is guest, clearing addresses');
+      // Clear addresses when user logs out or is in guest mode
+      setAddresses([]);
+      setSelectedAddressId(null);
+    }
+  }, [isAuthenticated, isGuest, fetchAddresses]);
 
   const addAddress = (newAddress: Omit<Address, 'id'>) => {
     const address: Address = {

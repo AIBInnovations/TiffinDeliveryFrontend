@@ -84,6 +84,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   // State for default kitchen (fetched when needed)
   const [defaultKitchenId, setDefaultKitchenId] = useState<string | null>(null);
+  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Get the active subscription object (not just summary)
   const getActiveSubscriptionFull = (): Subscription | null => {
@@ -154,6 +155,27 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
       }
     }
   }, [activeSubFull]);
+
+  // Fetch kitchen operating hours when kitchen ID is available
+  useEffect(() => {
+    const fetchKitchenOperatingHours = async () => {
+      if (defaultKitchenId) {
+        try {
+          console.log('[AccountScreen] Fetching operating hours for kitchen:', defaultKitchenId);
+          const kitchenResponse = await apiService.getKitchenMenu(defaultKitchenId, 'MEAL_MENU');
+          const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
+          if (kitchenData?.operatingHours) {
+            console.log('[AccountScreen] Operating hours fetched:', kitchenData.operatingHours);
+            setKitchenOperatingHours(kitchenData.operatingHours);
+          }
+        } catch (err) {
+          console.log('[AccountScreen] Failed to fetch kitchen operating hours:', err);
+        }
+      }
+    };
+
+    fetchKitchenOperatingHours();
+  }, [defaultKitchenId]);
 
   // Get nearest expiry date from usable vouchers (AVAILABLE or RESTORED)
   const getNearestVoucherExpiry = () => {
@@ -689,7 +711,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     <View>
                       <Text className="text-xs text-gray-600">Next Auto-Order</Text>
                       <Text className="text-sm font-bold" style={{ color: '#8B5CF6' }}>
-                        {formatNextAutoOrderTime(activeSubFull)}
+                        {formatNextAutoOrderTime(activeSubFull, kitchenOperatingHours || undefined)}
                       </Text>
                     </View>
                   </View>

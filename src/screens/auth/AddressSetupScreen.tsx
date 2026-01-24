@@ -7,12 +7,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAddress } from '../../context/AddressContext';
 import { useUser } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 
 type Step = 'pincode' | 'form' | 'not_serviceable';
 
@@ -21,6 +21,7 @@ const ADDRESS_LABELS = ['Home', 'Office', 'Other'];
 const AddressSetupScreen: React.FC = () => {
   const { checkServiceability, createAddressOnServer, isCheckingServiceability } = useAddress();
   const { setNeedsAddressSetup, user } = useUser();
+  const { showAlert } = useAlert();
 
   const [step, setStep] = useState<Step>('pincode');
   const [pincode, setPincode] = useState('');
@@ -44,7 +45,7 @@ const AddressSetupScreen: React.FC = () => {
 
   const handleCheckServiceability = async () => {
     if (pincode.length !== 6) {
-      Alert.alert('Invalid Pincode', 'Please enter a valid 6-digit pincode');
+      showAlert('Invalid Pincode', 'Please enter a valid 6-digit pincode', undefined, 'error');
       return;
     }
 
@@ -108,9 +109,11 @@ const AddressSetupScreen: React.FC = () => {
       // Navigation will be handled automatically by AppNavigator
     } catch (error: any) {
       console.error('Error creating address:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'Failed to save address. Please try again.'
+        error.message || 'Failed to save address. Please try again.',
+        undefined,
+        'error'
       );
     } finally {
       setIsSubmitting(false);

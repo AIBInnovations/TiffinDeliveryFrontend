@@ -7,12 +7,12 @@ import {
   StatusBar,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 
 type Props = AuthScreenProps<'OTPVerification'>;
 
@@ -25,6 +25,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loadingMessage, setLoadingMessage] = useState('Verifying...');
 
   const { verifyOTP, loginWithPhone } = useUser();
+  const { showAlert } = useAlert();
 
   // Refs for input fields
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -70,7 +71,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleVerifyOTP = async (otpCode?: string) => {
     const code = otpCode || otp.join('');
     if (code.length !== 6) {
-      Alert.alert('Error', 'Please enter complete 6-digit OTP');
+      showAlert('Error', 'Please enter complete 6-digit OTP', undefined, 'error');
       return;
     }
 
@@ -97,9 +98,11 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       // Keep loading true to prevent UI flash during transition
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'Invalid OTP. Please try again.'
+        error.message || 'Invalid OTP. Please try again.',
+        undefined,
+        'error'
       );
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -119,10 +122,10 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
-      Alert.alert('Success', 'OTP resent successfully');
+      showAlert('Success', 'OTP resent successfully', undefined, 'success');
     } catch (error: any) {
       console.error('Error resending OTP:', error);
-      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+      showAlert('Error', 'Failed to resend OTP. Please try again.', undefined, 'error');
     }
   };
 

@@ -9,7 +9,6 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -17,9 +16,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useAddress } from '../../context/AddressContext';
+import { useAlert } from '../../context/AlertContext';
 import apiService, { Order, OrderStatus } from '../../services/api.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
 import NotificationBell from '../../components/NotificationBell';
+import { getMealCutoffTime } from '../../utils/timeUtils';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
 
@@ -88,8 +89,9 @@ const getOrderTitle = (order: Order): string => {
   if (order.items.length === 1) {
     return order.items[0].name;
   }
-  if (order.menuType === 'MEAL_MENU') {
-    return order.mealWindow === 'DINNER' ? 'Dinner Thali' : 'Lunch Thali';
+  if (order.menuType === 'MEAL_MENU' && order.items.length > 0) {
+    // Use the actual meal name from the order instead of fallback
+    return order.items[0].name;
   }
   return `${order.items.length} items`;
 };
@@ -106,6 +108,7 @@ const getQuantityString = (order: Order): string => {
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const { usableVouchers } = useSubscription();
   const { getMainAddress } = useAddress();
+  const { showAlert } = useAlert();
 
   const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
@@ -129,6 +132,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedOrderForCancel, setSelectedOrderForCancel] = useState<Order | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Get display location
   const getDisplayLocation = () => {
@@ -291,10 +295,24 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   // Open cancel modal
-  const handleOpenCancelModal = (order: Order) => {
+  const handleOpenCancelModal = async (order: Order) => {
     console.log('[YourOrdersScreen] Opening cancel modal for order:', order.orderNumber);
     setSelectedOrderForCancel(order);
     setShowCancelModal(true);
+
+    // Fetch kitchen operating hours
+    const kitchenId = typeof order.kitchenId === 'string' ? order.kitchenId : order.kitchenId?._id;
+    if (kitchenId) {
+      try {
+        const kitchenResponse = await apiService.getKitchenMenu(kitchenId, order.menuType);
+        const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
+        if (kitchenData?.operatingHours) {
+          setKitchenOperatingHours(kitchenData.operatingHours);
+        }
+      } catch (err) {
+        console.log('[YourOrdersScreen] Failed to fetch kitchen operating hours:', err);
+      }
+    }
   };
 
   // Cancel order handler
@@ -321,20 +339,20 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           (typeof response.data === 'string' ? response.data : null) ||
           `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
 
-        Alert.alert('Order Cancelled', message, [
+        showAlert('Order Cancelled', message, [
           { text: 'OK', onPress: () => fetchAllOrders() },
-        ]);
+        ], 'success');
       } else {
         // Error message is in response.data when message is false
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[YourOrdersScreen] Cancel failed:', errorMessage);
-        Alert.alert('Cannot Cancel Order', errorMessage);
+        showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (error: any) {
       console.error('[YourOrdersScreen] Cancel error:', error.message || error);
-      Alert.alert('Error', error.message || 'Failed to cancel order');
+      showAlert('Error', error.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
     }
@@ -353,7 +371,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleReorder = (orderId: string) => {
     console.log('[YourOrdersScreen] Reorder:', orderId);
-    Alert.alert('Coming Soon', 'Reorder functionality will be available soon!');
+    showAlert('Coming Soon', 'Reorder functionality will be available soon!', undefined, 'default');
   };
 
   // Render current order card
@@ -955,6 +973,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         onClose={() => {
           setShowCancelModal(false);
           setSelectedOrderForCancel(null);
+          setKitchenOperatingHours(null);
         }}
         onConfirm={handleCancelOrder}
         orderNumber={selectedOrderForCancel?.orderNumber}
@@ -962,6 +981,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         voucherCount={selectedOrderForCancel?.voucherUsage?.voucherCount ?? 0}
         amountPaid={selectedOrderForCancel?.amountPaid ?? 0}
         mealWindow={selectedOrderForCancel?.mealWindow}
+        cutoffTime={selectedOrderForCancel?.mealWindow ? getMealCutoffTime(kitchenOperatingHours, selectedOrderForCancel.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
     </SafeAreaView>
   );

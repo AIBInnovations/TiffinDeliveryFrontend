@@ -6,12 +6,12 @@ import {
   StatusBar,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 
 type Props = AuthScreenProps<'Login'>;
 
@@ -22,10 +22,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const { loginWithPhone, enterGuestMode } = useUser();
+  const { showAlert } = useAlert();
 
   const handleGetOtp = async () => {
     if (phone.length !== 10) {
-      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
+      showAlert('Error', 'Please enter a valid 10-digit phone number', undefined, 'error');
       return;
     }
 
@@ -40,9 +41,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       });
     } catch (error: any) {
       console.error('Error sending OTP:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'Failed to send OTP. Please try again.'
+        error.message || 'Failed to send OTP. Please try again.',
+        undefined,
+        'error'
       );
     } finally {
       setLoading(false);

@@ -20,23 +20,34 @@ interface AutoOrderSubscription {
   }>;
 }
 
+interface TimeWindow {
+  startTime: string; // Format: "HH:mm"
+  endTime: string;
+}
+
+interface OperatingHours {
+  lunch?: TimeWindow;
+  dinner?: TimeWindow;
+  onDemand?: TimeWindow & { isAlwaysOpen: boolean };
+}
+
 /**
- * Calculate the next auto-order time based on subscription settings
+ * Calculate the next auto-order time based on subscription settings and operating hours
  *
  * @param subscription The subscription with auto-order settings
+ * @param operatingHours Kitchen operating hours
  * @returns Date object for next auto-order, or null if not scheduled
  *
- * Note: This uses approximate times for UI display purposes.
- * Actual auto-order placement times are determined by kitchen-specific operating hours:
- * - Default LUNCH window: 11:00 - 14:00 IST
- * - Default DINNER window: 19:00 - 22:00 IST
- * - Each kitchen may have custom operating hours
- *
- * For display purposes, we estimate auto-orders are placed ~1 hour before window start:
- * - LUNCH: ~10:00 AM IST
- * - DINNER: ~6:00 PM (18:00) IST
+ * Note: Auto-orders are placed approximately 1 hour before the meal window starts.
+ * Actual auto-order placement times are determined by kitchen-specific operating hours.
+ * If operating hours are not provided, falls back to default times:
+ * - LUNCH: 10:00 AM (1 hour before default 11:00 AM window)
+ * - DINNER: 6:00 PM (1 hour before default 19:00 PM window)
  */
-export const getNextAutoOrderTime = (subscription: AutoOrderSubscription): Date | null => {
+export const getNextAutoOrderTime = (
+  subscription: AutoOrderSubscription,
+  operatingHours?: OperatingHours
+): Date | null => {
   // Return null if auto-ordering is disabled or paused
   if (!subscription.autoOrderingEnabled || subscription.isPaused) {
     return null;
@@ -51,46 +62,71 @@ export const getNextAutoOrderTime = (subscription: AutoOrderSubscription): Date 
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
 
-  // Lunch cutoff: 10:00 AM (approximately 1 hour before 11:00 AM window)
-  const lunchCutoffHour = 10;
-  const lunchCutoffMinute = 0;
+  // Helper to calculate auto-order time (1 hour before window start)
+  const calculateAutoOrderTime = (startTime: string): { hour: number; minute: number } => {
+    const [hoursStr, minutesStr] = startTime.split(':');
+    let hours = parseInt(hoursStr, 10);
+    let minutes = parseInt(minutesStr, 10);
 
-  // Dinner cutoff: 6:00 PM / 18:00 (approximately 1 hour before 19:00 PM window)
-  const dinnerCutoffHour = 18;
-  const dinnerCutoffMinute = 0;
+    // Subtract 1 hour
+    hours -= 1;
+    if (hours < 0) {
+      hours = 23; // Wrap to previous day
+    }
+
+    return { hour: hours, minute: minutes };
+  };
+
+  // Get lunch auto-order time
+  let lunchAutoOrderHour = 10;
+  let lunchAutoOrderMinute = 0;
+  if (operatingHours?.lunch?.startTime) {
+    const autoOrder = calculateAutoOrderTime(operatingHours.lunch.startTime);
+    lunchAutoOrderHour = autoOrder.hour;
+    lunchAutoOrderMinute = autoOrder.minute;
+  }
+
+  // Get dinner auto-order time
+  let dinnerAutoOrderHour = 18;
+  let dinnerAutoOrderMinute = 0;
+  if (operatingHours?.dinner?.startTime) {
+    const autoOrder = calculateAutoOrderTime(operatingHours.dinner.startTime);
+    dinnerAutoOrderHour = autoOrder.hour;
+    dinnerAutoOrderMinute = autoOrder.minute;
+  }
 
   let nextOrderTime: Date | null = null;
 
   // Determine next auto-order based on meal type and current time
   if (subscription.defaultMealType === 'LUNCH' || subscription.defaultMealType === 'BOTH') {
-    // If before lunch cutoff today, next order is lunch today
-    if (currentHour < lunchCutoffHour || (currentHour === lunchCutoffHour && currentMinute < lunchCutoffMinute)) {
+    // If before lunch auto-order time today, next order is lunch today
+    if (currentHour < lunchAutoOrderHour || (currentHour === lunchAutoOrderHour && currentMinute < lunchAutoOrderMinute)) {
       nextOrderTime = new Date(now);
-      nextOrderTime.setHours(lunchCutoffHour, lunchCutoffMinute, 0, 0);
+      nextOrderTime.setHours(lunchAutoOrderHour, lunchAutoOrderMinute, 0, 0);
       return nextOrderTime;
     }
   }
 
   if (subscription.defaultMealType === 'DINNER' || subscription.defaultMealType === 'BOTH') {
-    // If before dinner cutoff today, next order is dinner today
-    if (currentHour < dinnerCutoffHour || (currentHour === dinnerCutoffHour && currentMinute < dinnerCutoffMinute)) {
+    // If before dinner auto-order time today, next order is dinner today
+    if (currentHour < dinnerAutoOrderHour || (currentHour === dinnerAutoOrderHour && currentMinute < dinnerAutoOrderMinute)) {
       nextOrderTime = new Date(now);
-      nextOrderTime.setHours(dinnerCutoffHour, dinnerCutoffMinute, 0, 0);
+      nextOrderTime.setHours(dinnerAutoOrderHour, dinnerAutoOrderMinute, 0, 0);
       return nextOrderTime;
     }
   }
 
-  // If past all today's cutoffs, next order is tomorrow
+  // If past all today's auto-order times, next order is tomorrow
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   if (subscription.defaultMealType === 'LUNCH' || subscription.defaultMealType === 'BOTH') {
     // Next order is lunch tomorrow
-    tomorrow.setHours(lunchCutoffHour, lunchCutoffMinute, 0, 0);
+    tomorrow.setHours(lunchAutoOrderHour, lunchAutoOrderMinute, 0, 0);
     return tomorrow;
   } else if (subscription.defaultMealType === 'DINNER') {
     // Next order is dinner tomorrow
-    tomorrow.setHours(dinnerCutoffHour, dinnerCutoffMinute, 0, 0);
+    tomorrow.setHours(dinnerAutoOrderHour, dinnerAutoOrderMinute, 0, 0);
     return tomorrow;
   }
 
@@ -101,10 +137,14 @@ export const getNextAutoOrderTime = (subscription: AutoOrderSubscription): Date 
  * Format next auto-order time for user-friendly display
  *
  * @param subscription The subscription with auto-order settings
+ * @param operatingHours Kitchen operating hours
  * @returns Formatted string like "Today at 10:00 AM" or "Tomorrow at 7:00 PM"
  */
-export const formatNextAutoOrderTime = (subscription: AutoOrderSubscription): string => {
-  const nextTime = getNextAutoOrderTime(subscription);
+export const formatNextAutoOrderTime = (
+  subscription: AutoOrderSubscription,
+  operatingHours?: OperatingHours
+): string => {
+  const nextTime = getNextAutoOrderTime(subscription, operatingHours);
 
   if (!nextTime) {
     return 'Not scheduled';

@@ -14,6 +14,7 @@ import { UserProvider, useUser } from './src/context/UserContext';
 import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import { PaymentProvider } from './src/context/PaymentContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
+import { AlertProvider } from './src/context/AlertContext';
 import NotificationPopup from './src/components/NotificationPopup';
 import notificationService from './src/services/notification.service';
 import notificationChannelService from './src/services/notificationChannel.service';
@@ -259,7 +260,9 @@ const App = () => {
           <PaymentProvider>
             <CartProvider>
               <NotificationProvider>
-                <AppContent />
+                <AlertProvider>
+                  <AppContent />
+                </AlertProvider>
               </NotificationProvider>
             </CartProvider>
           </PaymentProvider>
