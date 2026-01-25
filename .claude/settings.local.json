@@ -20,7 +20,13 @@
       "Bash(git commit:*)",
       "Bash(react-native run-android)",
       "Bash(npm run android:*)",
-      "Bash(./gradlew bundleRelease:*)"
+      "Bash(./gradlew bundleRelease:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx react-native bundle:*)",
+      "Bash(npx react-native run-android)",
+      "Bash(gradlew.bat assembleRelease:*)",
+      "Bash(./gradlew.bat assembleRelease)"
     ]
   }
 }
