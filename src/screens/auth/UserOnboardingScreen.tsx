@@ -7,11 +7,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useUser, DietaryPreferences } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 import NotificationPermissionModal from '../../components/NotificationPermissionModal';
 import notificationService from '../../services/notification.service';
 
@@ -36,7 +36,8 @@ const SPICE_LEVELS = [
 ];
 
 const UserOnboardingScreen: React.FC = () => {
-  const { completeOnboarding, registerFcmToken } = useUser();
+  const { completeOnboarding, registerFcmToken, logout } = useUser();
+  const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
@@ -103,9 +104,11 @@ const UserOnboardingScreen: React.FC = () => {
       setShowNotificationModal(true);
     } catch (error: any) {
       console.error('Error completing onboarding:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'Failed to save profile. Please try again.'
+        error.message || 'Failed to save profile. Please try again.',
+        undefined,
+        'error'
       );
       setIsLoading(false);
     }
@@ -140,6 +143,16 @@ const UserOnboardingScreen: React.FC = () => {
     setShowNotificationModal(false);
   };
 
+  const handleBackPress = async () => {
+    try {
+      // Log out the user - this will automatically redirect to login screen
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+      showAlert('Error', 'Failed to log out. Please try again.', undefined, 'error');
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -148,6 +161,22 @@ const UserOnboardingScreen: React.FC = () => {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View className="bg-orange-400 pb-8 pt-12 px-5 relative" style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={handleBackPress}
+            className="absolute top-12 left-5 z-10"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
           {/* Decorative elements */}
           <View className="absolute top-0 right-0">
             <View className="w-20 h-20 bg-orange-300 rounded-full opacity-50" style={{ top: 20, right: -10 }} />

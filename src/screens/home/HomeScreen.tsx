@@ -81,58 +81,36 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Addons must come from the API with valid MongoDB ObjectIds
   // If no addons are returned from API, we show an empty list
 
-  // Get meal window info dynamically from kitchen's operating hours
+  // Get meal window info - HARDCODED based on time
   const mealWindowInfo = useMemo(() => {
-    console.log('[HomeScreen] Calculating meal window info - Kitchen:', currentKitchen?.name);
-    console.log('[HomeScreen] Operating hours available:', !!currentKitchen?.operatingHours);
-    console.log('[HomeScreen] Operating hours:', JSON.stringify(currentKitchen?.operatingHours, null, 2));
+    const now = new Date();
+    const currentHour = now.getHours();
 
-    if (!currentKitchen?.operatingHours) {
-      console.log('[HomeScreen] Using fallback logic (no operating hours)');
-      // Fallback to default behavior if no operating hours available
-      const now = new Date();
-      const currentHour = now.getHours();
+    console.log('[HomeScreen] Calculating meal window info (HARDCODED)');
+    console.log('[HomeScreen] Current time:', now.toLocaleString());
+    console.log('[HomeScreen] Current hour:', currentHour);
 
-      if (currentHour < 11) {
-        return {
-          activeMeal: 'lunch' as MealType,
-          isWindowOpen: true,
-          nextMealWindow: 'lunch' as MealType,
-          nextMealWindowTime: '6:00 AM',
-        };
-      }
-
-      if (currentHour >= 11 && currentHour < 21) {
-        return {
-          activeMeal: 'dinner' as MealType,
-          isWindowOpen: true,
-          nextMealWindow: 'dinner' as MealType,
-          nextMealWindowTime: '11:00 AM',
-        };
-      }
-
+    // HARDCODED LOGIC:
+    // 6 AM (6:00) to 6 PM (18:00) = Lunch
+    // 6 PM (18:00) to 6 AM (6:00) = Dinner
+    if (currentHour >= 6 && currentHour < 18) {
+      console.log('[HomeScreen] Time is between 6 AM and 6 PM -> Lunch');
       return {
         activeMeal: 'lunch' as MealType,
-        isWindowOpen: false,
+        isWindowOpen: true,
         nextMealWindow: 'lunch' as MealType,
-        nextMealWindowTime: '6:00 AM tomorrow',
+        nextMealWindowTime: '6:00 AM',
+      };
+    } else {
+      console.log('[HomeScreen] Time is between 6 PM and 6 AM -> Dinner');
+      return {
+        activeMeal: 'dinner' as MealType,
+        isWindowOpen: true,
+        nextMealWindow: 'dinner' as MealType,
+        nextMealWindowTime: '6:00 PM',
       };
     }
-
-    // Use dynamic operating hours from kitchen
-    const now = new Date();
-    console.log('[HomeScreen] Using dynamic operating hours');
-    console.log('[HomeScreen] Current time:', now.toLocaleString());
-    console.log('[HomeScreen] Current hour:', now.getHours(), 'Current minute:', now.getMinutes());
-    console.log('[HomeScreen] Lunch hours:', currentKitchen.operatingHours.lunch);
-    console.log('[HomeScreen] Dinner hours:', currentKitchen.operatingHours.dinner);
-
-    const windowInfo = getWindowInfo(currentKitchen.operatingHours);
-    console.log('[HomeScreen] Calculated window info:', windowInfo);
-    console.log('[HomeScreen] Active meal selected:', windowInfo.activeMeal);
-    console.log('[HomeScreen] Is window open:', windowInfo.isWindowOpen);
-    return windowInfo;
-  }, [currentKitchen]);
+  }, []);
 
   // Reset activeTab to 'home' when screen comes into focus
   useFocusEffect(
@@ -398,7 +376,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Get meal price
   const getMealPrice = (): number => {
     const mealItem = getCurrentMealItem();
-    return mealItem?.discountedPrice || mealItem?.price || 119;
+    return mealItem?.discountedPrice || mealItem?.price || 0;
   };
 
   // Helper to check if ID is a valid MongoDB ObjectId (24-character hex string)
@@ -409,9 +387,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Helper to update cart with current meal and addons
   const updateCartWithAddons = (updatedAddOns: AddOn[]) => {
     const mealItem = getCurrentMealItem();
-    const mealPrice = getMealPrice();
-    const mealName = mealItem?.name || `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`;
-    const mealWindowValue = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
 
     // Check if we have a valid meal item ID from the API
     const mealItemId = mealItem?._id;
@@ -420,6 +395,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       console.error('[HomeScreen] Menu item data:', JSON.stringify(mealItem, null, 2));
       return; // Don't add to cart with invalid ID
     }
+
+    const mealPrice = getMealPrice();
+    const mealName = mealItem.name;
+    const mealWindowValue = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
 
     // Set cart context for order creation
     setMenuType('MEAL_MENU');
@@ -500,8 +479,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleAddToCart = () => {
     const mealItem = getCurrentMealItem();
+
+    // Don't allow adding to cart if no valid menu item
+    if (!mealItem?._id || !isValidObjectId(mealItem._id)) {
+      console.error('[HomeScreen] Cannot add to cart: No valid menu item available');
+      return;
+    }
+
     const mealPrice = getMealPrice();
-    const mealName = mealItem?.name || `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Thali`;
+    const mealName = mealItem.name;
     const mealWindow = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
 
     // Set cart context for order creation
@@ -524,7 +510,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     console.log('[HomeScreen] Selected addons:', JSON.stringify(selectedAddons));
 
     const cartItem = {
-      id: mealItem?._id || `meal-${selectedMeal}`,
+      id: mealItem._id,
       name: mealName,
       image: selectedMeal === 'lunch'
         ? require('../../assets/images/homepage/lunch2.png')
@@ -532,7 +518,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       subtitle: '1 Thali',
       price: mealPrice,
       quantity: mealQuantity,
-      hasVoucher: mealItem?.canUseVoucher ?? true,
+      hasVoucher: mealItem.canUseVoucher ?? true,
       addons: selectedAddons.length > 0 ? selectedAddons : undefined,
     };
 
@@ -558,8 +544,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // Update cart if item already added (modal is showing)
     if (showCartModal) {
       const mealItem = getCurrentMealItem();
-      const cartItemId = mealItem?._id || `meal-${selectedMeal}`;
-      updateCartItemQuantity(cartItemId, newQuantity);
+      if (mealItem?._id && isValidObjectId(mealItem._id)) {
+        updateCartItemQuantity(mealItem._id, newQuantity);
+      }
     }
   };
 
@@ -581,13 +568,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Get meal name
   const getMealName = (): string => {
     const mealItem = getCurrentMealItem();
-    return mealItem?.name || 'Special Thali';
+    return mealItem?.name || '';
   };
 
   // Get meal description
   const getMealDescription = (): string => {
     const mealItem = getCurrentMealItem();
-    return mealItem?.description || 'Lorem ipsum dolor sit amet consectetur. Adipiscing ultricies dui morbi varius ac id. Lorem ipsum dolor sit amet consectetur.';
+    return mealItem?.description || '';
   };
 
   return (
@@ -877,8 +864,27 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
 
+          {/* No Meal Available Error */}
+          {!isLoadingMenu && !menuError && !requiresAddress && !getCurrentMealItem() && (
+            <View className="items-center justify-center py-8 px-4">
+              <Text className="text-6xl mb-4">🍽️</Text>
+              <Text className="text-xl font-bold text-gray-900 mb-2">
+                {selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Not Available
+              </Text>
+              <Text className="text-gray-600 text-center mb-4">
+                The {selectedMeal} menu is currently not available. Please try the other meal option.
+              </Text>
+              <TouchableOpacity
+                onPress={fetchMenu}
+                className="bg-orange-400 px-6 py-3 rounded-full"
+              >
+                <Text className="text-white font-semibold">Refresh</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Special Thali and Add to Cart */}
-          {!isLoadingMenu && !menuError && !requiresAddress && (
+          {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && (
           <>
           <View className="flex-row items-center justify-between mb-6">
             <View className="flex-1">

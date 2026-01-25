@@ -9,16 +9,17 @@ import {
   StatusBar,
   TextInput,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
+import { useAlert } from '../../context/AlertContext';
 import apiService, { OrderTrackingData, Order, OrderStatus } from '../../services/api.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
 import RateOrderModal from '../../components/RateOrderModal';
+import { getMealCutoffTime } from '../../utils/timeUtils';
 
 type Props = StackScreenProps<MainTabParamList, 'OrderTracking'>;
 
@@ -92,6 +93,7 @@ const generateOTP = (orderNumber: string): string[] => {
 
 const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const { orderId } = route.params;
+  const { showAlert } = useAlert();
 
   const [tracking, setTracking] = useState<OrderTrackingData | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
@@ -102,6 +104,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRateModal, setShowRateModal] = useState(false);
   const [isRating, setIsRating] = useState(false);
+  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -144,10 +147,23 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
         setTracking(trackingData);
 
         // Use order from tracking response if available, otherwise use fetched order
-        if (trackingData.order) {
-          setOrder(trackingData.order);
-        } else if (orderData) {
-          setOrder(orderData);
+        const finalOrder = trackingData.order || orderData;
+        if (finalOrder) {
+          setOrder(finalOrder);
+
+          // Fetch kitchen operating hours
+          const kitchenId = typeof finalOrder.kitchenId === 'string' ? finalOrder.kitchenId : finalOrder.kitchenId?._id;
+          if (kitchenId) {
+            try {
+              const kitchenResponse = await apiService.getKitchenMenu(kitchenId, finalOrder.menuType);
+              const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
+              if (kitchenData?.operatingHours) {
+                setKitchenOperatingHours(kitchenData.operatingHours);
+              }
+            } catch (err) {
+              console.log('[OrderTracking] Failed to fetch kitchen operating hours:', err);
+            }
+          }
         }
       } else {
         console.log('[OrderTracking] Failed to load tracking - No valid data found');
@@ -194,7 +210,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
     if (tracking?.driver?.phone) {
       Linking.openURL(`tel:${tracking.driver.phone}`);
     } else {
-      Alert.alert('Not Available', 'Driver contact is not available yet');
+      showAlert('Not Available', 'Driver contact is not available yet', undefined, 'warning');
     }
   };
 
@@ -203,7 +219,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
     if (tracking?.driver?.phone) {
       Linking.openURL(`sms:${tracking.driver.phone}`);
     } else {
-      Alert.alert('Not Available', 'Driver contact is not available yet');
+      showAlert('Not Available', 'Driver contact is not available yet', undefined, 'warning');
     }
   };
 
@@ -234,20 +250,20 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
           (typeof response.data === 'string' ? response.data : null) ||
           `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
 
-        Alert.alert('Order Cancelled', successMessage, [
+        showAlert('Order Cancelled', successMessage, [
           { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+        ], 'success');
       } else {
         // Error message is in response.data when message is false
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[OrderTracking] Cancel failed:', errorMessage);
-        Alert.alert('Cannot Cancel Order', errorMessage);
+        showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderTracking] Error cancelling order:', err.message);
-      Alert.alert('Error', err.message || 'Failed to cancel order');
+      showAlert('Error', err.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
     }
@@ -281,17 +297,17 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
             canRate: false,
           });
         }
-        Alert.alert('Thank you!', 'Your rating has been submitted successfully');
+        showAlert('Thank you!', 'Your rating has been submitted successfully', undefined, 'success');
       } else {
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to submit rating');
         console.log('[OrderTracking] Rating failed:', errorMessage);
-        Alert.alert('Error', errorMessage);
+        showAlert('Error', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderTracking] Error rating order:', err.message);
-      Alert.alert('Error', err.message || 'Failed to submit rating');
+      showAlert('Error', err.message || 'Failed to submit rating', undefined, 'error');
     } finally {
       setIsRating(false);
     }
@@ -299,7 +315,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleViewReceipt = () => {
     // TODO: Implement receipt view/download
-    Alert.alert('Coming Soon', 'Receipt download will be available soon!');
+    showAlert('Coming Soon', 'Receipt download will be available soon!', undefined, 'default');
   };
 
   // Get OTP for delivery
@@ -793,6 +809,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
         voucherCount={order?.voucherUsage?.voucherCount ?? 0}
         amountPaid={order?.amountPaid ?? 0}
         mealWindow={order?.mealWindow}
+        cutoffTime={order?.mealWindow ? getMealCutoffTime(kitchenOperatingHours, order.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
 
       {/* Rate Order Modal */}

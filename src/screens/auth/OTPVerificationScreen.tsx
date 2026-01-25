@@ -7,12 +7,12 @@ import {
   StatusBar,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 
 type Props = AuthScreenProps<'OTPVerification'>;
 
@@ -25,6 +25,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loadingMessage, setLoadingMessage] = useState('Verifying...');
 
   const { verifyOTP, loginWithPhone } = useUser();
+  const { showAlert } = useAlert();
 
   // Refs for input fields
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -70,7 +71,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleVerifyOTP = async (otpCode?: string) => {
     const code = otpCode || otp.join('');
     if (code.length !== 6) {
-      Alert.alert('Error', 'Please enter complete 6-digit OTP');
+      showAlert('Error', 'Please enter complete 6-digit OTP', undefined, 'error');
       return;
     }
 
@@ -80,16 +81,20 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       const { isOnboarded } = await verifyOTP(confirmation, code);
 
+      // Show checking profile message
+      setLoadingMessage('Checking your profile...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Show different message based on profile status
       if (isOnboarded) {
         setLoadingMessage('Welcome back!');
+        // For returning users, wait longer to ensure smooth transition to home
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         setLoadingMessage('Setting up your account...');
+        // For new users, shorter delay
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-
-      // Wait a bit for state to propagate to ensure smooth transition
-      // This prevents the brief flash of UserOnboardingScreen for returning users
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Navigation is handled automatically by AppNavigator based on state changes
       // - If user is onboarded: AppNavigator shows MainNavigator
@@ -97,9 +102,11 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       // Keep loading true to prevent UI flash during transition
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'Invalid OTP. Please try again.'
+        error.message || 'Invalid OTP. Please try again.',
+        undefined,
+        'error'
       );
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -119,10 +126,10 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
-      Alert.alert('Success', 'OTP resent successfully');
+      showAlert('Success', 'OTP resent successfully', undefined, 'success');
     } catch (error: any) {
       console.error('Error resending OTP:', error);
-      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+      showAlert('Error', 'Failed to resend OTP. Please try again.', undefined, 'error');
     }
   };
 
@@ -193,57 +200,6 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               paddingBottom: 15,
             }}
           >
-            {/* Login / Register Switch */}
-            <View
-              style={{
-                backgroundColor: '#F3F4F6',
-                borderRadius: 100,
-                flexDirection: 'row',
-                padding: 4,
-                marginBottom: 20,
-              }}
-            >
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: 'white',
-                  borderRadius: 100,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#111827',
-                    fontSize: 16,
-                    fontWeight: '600',
-                  }}
-                >
-                  Login
-                </Text>
-              </View>
-              <View
-                style={{
-                  flex: 1,
-                  borderRadius: 100,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#9CA3AF',
-                    fontSize: 16,
-                    fontWeight: '500',
-                  }}
-                >
-                  Register
-                </Text>
-              </View>
-            </View>
-
             {/* Verify OTP title */}
             <Text
               style={{

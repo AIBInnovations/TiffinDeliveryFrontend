@@ -11,13 +11,13 @@ import {
   Platform,
   Image,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useAddress, Address } from '../../context/AddressContext';
+import { useAlert } from '../../context/AlertContext';
 
 type Props = StackScreenProps<MainTabParamList, 'Address'>;
 
@@ -67,6 +67,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
     currentLocation,
     isGettingLocation,
   } = useAddress();
+  const { showAlert } = useAlert();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -132,54 +133,54 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
     // Validation - check all required fields
     if (!formData.addressLine1 || !formData.locality || !formData.city ||
         !formData.state || !formData.pincode || !formData.contactName || !formData.contactPhone) {
-      Alert.alert('Error', 'Please fill all required fields');
+      showAlert('Error', 'Please fill all required fields', undefined, 'error');
       return;
     }
 
     // addressLine1 must be at least 5 characters
     if (formData.addressLine1.trim().length < 5) {
-      Alert.alert('Error', 'Address line 1 must be at least 5 characters long');
+      showAlert('Error', 'Address line 1 must be at least 5 characters long', undefined, 'error');
       return;
     }
 
     // locality must be at least 2 characters
     if (formData.locality.trim().length < 2) {
-      Alert.alert('Error', 'Locality must be at least 2 characters long');
+      showAlert('Error', 'Locality must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // city must be at least 2 characters
     if (formData.city.trim().length < 2) {
-      Alert.alert('Error', 'City must be at least 2 characters long');
+      showAlert('Error', 'City must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // state must be at least 2 characters
     if (formData.state.trim().length < 2) {
-      Alert.alert('Error', 'State must be at least 2 characters long');
+      showAlert('Error', 'State must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // contactName must be at least 2 characters
     if (formData.contactName.trim().length < 2) {
-      Alert.alert('Error', 'Contact name must be at least 2 characters long');
+      showAlert('Error', 'Contact name must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // contactPhone must be 10 digits starting with 6-9
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(formData.contactPhone)) {
-      Alert.alert('Error', 'Phone number must be 10 digits starting with 6, 7, 8, or 9');
+      showAlert('Error', 'Phone number must be 10 digits starting with 6, 7, 8, or 9', undefined, 'error');
       return;
     }
 
     if (formData.pincode.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit pincode');
+      showAlert('Error', 'Please enter a valid 6-digit pincode', undefined, 'error');
       return;
     }
 
     if (pincodeServiceable === false) {
-      Alert.alert('Error', 'This pincode is not serviceable. Please enter a different pincode.');
+      showAlert('Error', 'This pincode is not serviceable. Please enter a different pincode.', undefined, 'error');
       return;
     }
 
@@ -200,9 +201,9 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
       });
       setShowAddModal(false);
       resetForm();
-      Alert.alert('Success', 'Address added successfully');
+      showAlert('Success', 'Address added successfully', undefined, 'success');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add address');
+      showAlert('Error', error.message || 'Failed to add address', undefined, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -232,49 +233,49 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
     // Validation - check all required fields
     if (!formData.addressLine1 || !formData.locality || !formData.city ||
         !formData.state || !formData.pincode || !formData.contactName || !formData.contactPhone) {
-      Alert.alert('Error', 'Please fill all required fields');
+      showAlert('Error', 'Please fill all required fields', undefined, 'error');
       return;
     }
 
     // addressLine1 must be at least 5 characters
     if (formData.addressLine1.trim().length < 5) {
-      Alert.alert('Error', 'Address line 1 must be at least 5 characters long');
+      showAlert('Error', 'Address line 1 must be at least 5 characters long', undefined, 'error');
       return;
     }
 
     // locality must be at least 2 characters
     if (formData.locality.trim().length < 2) {
-      Alert.alert('Error', 'Locality must be at least 2 characters long');
+      showAlert('Error', 'Locality must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // city must be at least 2 characters
     if (formData.city.trim().length < 2) {
-      Alert.alert('Error', 'City must be at least 2 characters long');
+      showAlert('Error', 'City must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // state must be at least 2 characters
     if (formData.state.trim().length < 2) {
-      Alert.alert('Error', 'State must be at least 2 characters long');
+      showAlert('Error', 'State must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // contactName must be at least 2 characters
     if (formData.contactName.trim().length < 2) {
-      Alert.alert('Error', 'Contact name must be at least 2 characters long');
+      showAlert('Error', 'Contact name must be at least 2 characters long', undefined, 'error');
       return;
     }
 
     // contactPhone must be 10 digits starting with 6-9
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(formData.contactPhone)) {
-      Alert.alert('Error', 'Phone number must be 10 digits starting with 6, 7, 8, or 9');
+      showAlert('Error', 'Phone number must be 10 digits starting with 6, 7, 8, or 9', undefined, 'error');
       return;
     }
 
     if (formData.pincode.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit pincode');
+      showAlert('Error', 'Please enter a valid 6-digit pincode', undefined, 'error');
       return;
     }
 
@@ -295,16 +296,16 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
       setShowEditModal(false);
       setEditingAddress(null);
       resetForm();
-      Alert.alert('Success', 'Address updated successfully');
+      showAlert('Success', 'Address updated successfully', undefined, 'success');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update address');
+      showAlert('Error', error.message || 'Failed to update address', undefined, 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteAddress = (address: Address) => {
-    Alert.alert(
+    showAlert(
       'Delete Address',
       `Are you sure you want to delete "${address.label}" address?`,
       [
@@ -315,13 +316,14 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
           onPress: async () => {
             try {
               await deleteAddressOnServer(address.id);
-              Alert.alert('Success', 'Address deleted successfully');
+              showAlert('Success', 'Address deleted successfully', undefined, 'success');
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete address');
+              showAlert('Error', error.message || 'Failed to delete address', undefined, 'error');
             }
           },
         },
-      ]
+      ],
+      'warning'
     );
   };
 
@@ -336,10 +338,10 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
       console.log('[AddressScreen] Calling setDefaultAddressOnServer...');
       await setDefaultAddressOnServer(address.id);
       console.log('[AddressScreen] setDefaultAddressOnServer completed successfully');
-      Alert.alert('Success', 'Default address updated. Go back to Home to see updated menu.');
+      showAlert('Success', 'Default address updated. Go back to Home to see updated menu.', undefined, 'success');
     } catch (error: any) {
       console.error('[AddressScreen] Error in handleSetDefault:', error);
-      Alert.alert('Error', error.message || 'Failed to set default address');
+      showAlert('Error', error.message || 'Failed to set default address', undefined, 'error');
     }
   };
 
@@ -639,10 +641,11 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
                 console.log('[AddressScreen] Location fetched:', location);
 
                 if (!location.pincode) {
-                  Alert.alert(
+                  showAlert(
                     'Location Error',
                     'Unable to get pincode from your location. Please enter your address manually.',
-                    [{ text: 'OK' }]
+                    [{ text: 'OK' }],
+                    'error'
                   );
                   return;
                 }
@@ -664,14 +667,15 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
                 // Open add address modal with pre-filled data
                 setShowAddModal(true);
 
-                Alert.alert(
+                showAlert(
                   'Location Detected',
                   `We've auto-filled your address details. Please review and add any missing information.`,
-                  [{ text: 'OK' }]
+                  [{ text: 'OK' }],
+                  'success'
                 );
               } catch (error: any) {
                 console.error('[AddressScreen] Location error:', error);
-                Alert.alert(
+                showAlert(
                   'Location Error',
                   error.message || 'Unable to get your current location. Please ensure location services are enabled and try again.',
                   [
@@ -683,7 +687,8 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
                         setShowAddModal(true);
                       },
                     },
-                  ]
+                  ],
+                  'error'
                 );
               }
             }}

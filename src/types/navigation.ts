@@ -50,6 +50,9 @@ export type MainTabParamList = {
   BulkOrders: undefined;
   Vouchers: undefined;  // View all vouchers with status filters
   OnDemand: undefined;  // On-Demand screen (Coming Soon)
+  AutoOrderSettings: { subscriptionId: string };  // Auto-order settings management
+  SkipMealCalendar: { subscriptionId: string };  // Skip meal calendar interface
+  AutoOrderFailure: { failureCategory: string; mealWindow: string; message?: string };  // Auto-order failure handling
 };
 
 // Root navigation props

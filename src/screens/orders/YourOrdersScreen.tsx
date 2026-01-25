@@ -9,7 +9,6 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -17,9 +16,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useAddress } from '../../context/AddressContext';
+import { useAlert } from '../../context/AlertContext';
 import apiService, { Order, OrderStatus } from '../../services/api.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
 import NotificationBell from '../../components/NotificationBell';
+import { getMealCutoffTime } from '../../utils/timeUtils';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
 
@@ -88,8 +89,9 @@ const getOrderTitle = (order: Order): string => {
   if (order.items.length === 1) {
     return order.items[0].name;
   }
-  if (order.menuType === 'MEAL_MENU') {
-    return order.mealWindow === 'DINNER' ? 'Dinner Thali' : 'Lunch Thali';
+  if (order.menuType === 'MEAL_MENU' && order.items.length > 0) {
+    // Use the actual meal name from the order instead of fallback
+    return order.items[0].name;
   }
   return `${order.items.length} items`;
 };
@@ -106,8 +108,9 @@ const getQuantityString = (order: Order): string => {
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const { usableVouchers } = useSubscription();
   const { getMainAddress } = useAddress();
+  const { showAlert } = useAlert();
 
-  const [activeTab, setActiveTab] = useState<'Current' | 'History'>('Current');
+  const [activeTab, setActiveTab] = useState<'Current' | 'History' | 'Auto'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
 
   // Current orders state
@@ -128,6 +131,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedOrderForCancel, setSelectedOrderForCancel] = useState<Order | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Get display location
   const getDisplayLocation = () => {
@@ -290,10 +294,24 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   // Open cancel modal
-  const handleOpenCancelModal = (order: Order) => {
+  const handleOpenCancelModal = async (order: Order) => {
     console.log('[YourOrdersScreen] Opening cancel modal for order:', order.orderNumber);
     setSelectedOrderForCancel(order);
     setShowCancelModal(true);
+
+    // Fetch kitchen operating hours
+    const kitchenId = typeof order.kitchenId === 'string' ? order.kitchenId : order.kitchenId?._id;
+    if (kitchenId) {
+      try {
+        const kitchenResponse = await apiService.getKitchenMenu(kitchenId, order.menuType);
+        const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
+        if (kitchenData?.operatingHours) {
+          setKitchenOperatingHours(kitchenData.operatingHours);
+        }
+      } catch (err) {
+        console.log('[YourOrdersScreen] Failed to fetch kitchen operating hours:', err);
+      }
+    }
   };
 
   // Cancel order handler
@@ -320,20 +338,20 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           (typeof response.data === 'string' ? response.data : null) ||
           `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
 
-        Alert.alert('Order Cancelled', message, [
+        showAlert('Order Cancelled', message, [
           { text: 'OK', onPress: () => fetchAllOrders() },
-        ]);
+        ], 'success');
       } else {
         // Error message is in response.data when message is false
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[YourOrdersScreen] Cancel failed:', errorMessage);
-        Alert.alert('Cannot Cancel Order', errorMessage);
+        showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (error: any) {
       console.error('[YourOrdersScreen] Cancel error:', error.message || error);
-      Alert.alert('Error', error.message || 'Failed to cancel order');
+      showAlert('Error', error.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
     }
@@ -352,7 +370,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleReorder = (orderId: string) => {
     console.log('[YourOrdersScreen] Reorder:', orderId);
-    Alert.alert('Coming Soon', 'Reorder functionality will be available soon!');
+    showAlert('Coming Soon', 'Reorder functionality will be available soon!', undefined, 'default');
   };
 
   // Render current order card
@@ -387,6 +405,18 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - #{order.orderNumber}</Text>
             <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{getQuantityString(order)}</Text>
           </View>
+          {order.isAutoOrder && (
+            <View className="mt-2">
+              <View
+                className="px-2 py-1 rounded-full"
+                style={{ backgroundColor: '#F3E8FF', alignSelf: 'flex-start' }}
+              >
+                <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>
+                  Auto-Order
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -471,6 +501,18 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-xs" style={{ color: '#16A34A', marginTop: 4, fontWeight: '600' }}>
               {order.voucherUsage.voucherCount} voucher{order.voucherUsage.voucherCount > 1 ? 's' : ''} used
             </Text>
+          )}
+          {order.isAutoOrder && (
+            <View className="mt-2">
+              <View
+                className="px-2 py-1 rounded-full"
+                style={{ backgroundColor: '#F3E8FF', alignSelf: 'flex-start' }}
+              >
+                <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>
+                  Auto-Order
+                </Text>
+              </View>
+            </View>
           )}
         </View>
       </View>
@@ -625,51 +667,75 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         {/* Tabs */}
         <View className="px-5 pt-4 pb-6">
           <View className="flex-row bg-gray-100 rounded-full p-1">
-          <TouchableOpacity
-            onPress={() => setActiveTab('Current')}
-            className={`py-3 rounded-full ${
-              activeTab === 'Current' ? 'bg-white' : 'bg-transparent'
-            }`}
-            style={{
-              width: 150,
-              shadowColor: activeTab === 'Current' ? '#000' : 'transparent',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: activeTab === 'Current' ? 0.1 : 0,
-              shadowRadius: 2,
-              elevation: activeTab === 'Current' ? 2 : 0,
-            }}
-          >
-            <Text
-              className={`text-center font-semibold ${
-                activeTab === 'Current' ? 'text-gray-900' : 'text-gray-500'
+            <TouchableOpacity
+              onPress={() => setActiveTab('Current')}
+              className={`flex-1 py-3 rounded-full ${
+                activeTab === 'Current' ? 'bg-white' : 'bg-transparent'
               }`}
+              style={{
+                shadowColor: activeTab === 'Current' ? '#000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === 'Current' ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === 'Current' ? 2 : 0,
+              }}
             >
-              Current {currentOrders.length > 0 && `(${currentOrders.length})`}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                className={`text-center font-semibold ${
+                  activeTab === 'Current' ? 'text-gray-900' : 'text-gray-500'
+                }`}
+                style={{ fontSize: 13 }}
+              >
+                Current {currentOrders.filter(o => !o.isAutoOrder).length > 0 && `(${currentOrders.filter(o => !o.isAutoOrder).length})`}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => setActiveTab('History')}
-            className={`flex-1 py-3 rounded-full ${
-              activeTab === 'History' ? 'bg-white' : 'bg-transparent'
-            }`}
-            style={{
-              shadowColor: activeTab === 'History' ? '#000' : 'transparent',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: activeTab === 'History' ? 0.1 : 0,
-              shadowRadius: 2,
-              elevation: activeTab === 'History' ? 2 : 0,
-            }}
-          >
-            <Text
-              className={`text-center font-semibold ${
-                activeTab === 'History' ? 'text-gray-900' : 'text-gray-500'
+            <TouchableOpacity
+              onPress={() => setActiveTab('History')}
+              className={`flex-1 py-3 rounded-full ${
+                activeTab === 'History' ? 'bg-white' : 'bg-transparent'
               }`}
+              style={{
+                shadowColor: activeTab === 'History' ? '#000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === 'History' ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === 'History' ? 2 : 0,
+              }}
             >
-              History
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                className={`text-center font-semibold ${
+                  activeTab === 'History' ? 'text-gray-900' : 'text-gray-500'
+                }`}
+                style={{ fontSize: 13 }}
+              >
+                History
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setActiveTab('Auto')}
+              className={`flex-1 py-3 rounded-full ${
+                activeTab === 'Auto' ? 'bg-white' : 'bg-transparent'
+              }`}
+              style={{
+                shadowColor: activeTab === 'Auto' ? '#000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === 'Auto' ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === 'Auto' ? 2 : 0,
+              }}
+            >
+              <Text
+                className={`text-center font-semibold ${
+                  activeTab === 'Auto' ? 'text-gray-900' : 'text-gray-500'
+                }`}
+                style={{ fontSize: 13 }}
+              >
+                Auto
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -687,30 +753,30 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         }
       >
         {activeTab === 'Current' ? (
-          // Current Orders Layout
+          // Current Orders Layout (non-auto orders)
           <>
             {currentLoading ? (
               renderLoading()
             ) : currentError ? (
               renderError(currentError, fetchCurrentOrders)
-            ) : currentOrders.length === 0 ? (
+            ) : currentOrders.filter(o => !o.isAutoOrder).length === 0 ? (
               renderEmpty('No current orders')
             ) : (
-              currentOrders.map(renderCurrentOrderCard)
+              currentOrders.filter(o => !o.isAutoOrder).map(renderCurrentOrderCard)
             )}
           </>
-        ) : (
-          // History Orders Layout
+        ) : activeTab === 'History' ? (
+          // History Orders Layout (non-auto orders)
           <>
             {historyLoading && historyOrders.length === 0 ? (
               renderLoading()
             ) : historyError ? (
               renderError(historyError, () => fetchHistoryOrders(1, false))
-            ) : historyOrders.length === 0 ? (
+            ) : historyOrders.filter(o => !o.isAutoOrder).length === 0 ? (
               renderEmpty('No order history')
             ) : (
               <>
-                {historyOrders.map(renderHistoryOrderCard)}
+                {historyOrders.filter(o => !o.isAutoOrder).map(renderHistoryOrderCard)}
 
                 {/* Load More Button */}
                 {historyHasMore && (
@@ -735,6 +801,20 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                     )}
                   </TouchableOpacity>
                 )}
+              </>
+            )}
+          </>
+        ) : (
+          // Auto Orders Layout (both current and history auto orders)
+          <>
+            {currentLoading || historyLoading ? (
+              renderLoading()
+            ) : [...currentOrders, ...historyOrders].filter(o => o.isAutoOrder).length === 0 ? (
+              renderEmpty('No auto-orders found')
+            ) : (
+              <>
+                {currentOrders.filter(o => o.isAutoOrder).map(renderCurrentOrderCard)}
+                {historyOrders.filter(o => o.isAutoOrder).map(renderHistoryOrderCard)}
               </>
             )}
           </>
@@ -902,6 +982,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         onClose={() => {
           setShowCancelModal(false);
           setSelectedOrderForCancel(null);
+          setKitchenOperatingHours(null);
         }}
         onConfirm={handleCancelOrder}
         orderNumber={selectedOrderForCancel?.orderNumber}
@@ -909,6 +990,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         voucherCount={selectedOrderForCancel?.voucherUsage?.voucherCount ?? 0}
         amountPaid={selectedOrderForCancel?.amountPaid ?? 0}
         mealWindow={selectedOrderForCancel?.mealWindow}
+        cutoffTime={selectedOrderForCancel?.mealWindow ? getMealCutoffTime(kitchenOperatingHours, selectedOrderForCancel.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
     </SafeAreaView>
   );

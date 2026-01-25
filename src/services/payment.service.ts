@@ -82,9 +82,57 @@ class PaymentService {
           });
           resolve(data);
         })
-        .catch((error: RazorpayErrorResponse) => {
-          console.error('[PaymentService] Razorpay payment failed:', error);
-          reject(error);
+        .catch((error: any) => {
+          console.error('[PaymentService] Razorpay payment failed/cancelled:', error);
+          console.error('[PaymentService] Raw error object:', JSON.stringify(error, null, 2));
+
+          // Normalize error structure - Razorpay can return errors in different formats
+          // Possible formats:
+          // 1. { code: 0, description: "Payment cancelled by user" }
+          // 2. { error: { code: 2, description: "...", reason: "..." } }
+          // 3. { code: X, message: "..." }
+          // 4. Plain error object with message property
+
+          let errorCode = -1;
+          let errorDescription = 'Payment failed';
+          let errorMessage = 'Payment failed';
+
+          // Extract error code from various possible locations
+          if (typeof error?.code === 'number') {
+            errorCode = error.code;
+          } else if (typeof error?.error?.code === 'number') {
+            errorCode = error.error.code;
+          }
+
+          // Extract error description (user-friendly message)
+          if (error?.description) {
+            errorDescription = error.description;
+          } else if (error?.error?.description) {
+            errorDescription = error.error.description;
+          } else if (error?.message) {
+            errorDescription = error.message;
+          } else if (error?.error?.reason) {
+            errorDescription = error.error.reason;
+          }
+
+          // Extract error message (technical message)
+          if (error?.message) {
+            errorMessage = error.message;
+          } else if (error?.error?.reason) {
+            errorMessage = error.error.reason;
+          } else if (error?.description) {
+            errorMessage = error.description;
+          }
+
+          const normalizedError = {
+            code: errorCode,
+            description: errorDescription,
+            message: errorMessage,
+            originalError: error, // Preserve original error for debugging
+          };
+
+          console.log('[PaymentService] Normalized error:', JSON.stringify(normalizedError, null, 2));
+          reject(normalizedError);
         });
     });
   }
@@ -174,18 +222,26 @@ class PaymentService {
       };
     } catch (error: any) {
       console.error('[PaymentService] Order payment failed:', error);
+      console.error('[PaymentService] Error details:', {
+        code: error?.code,
+        message: error?.message,
+        description: error?.description,
+      });
 
       // Check if user cancelled (Razorpay error code 0 or 2)
       if (error.code === 0 || error.code === 2) {
+        console.log('[PaymentService] User cancelled payment');
         return {
           success: false,
           error: 'Payment cancelled',
         };
       }
 
+      // Return user-friendly error message
+      const errorMessage = error.description || error.message || 'Payment failed. Please try again.';
       return {
         success: false,
-        error: error.description || error.message || 'Payment failed',
+        error: errorMessage,
       };
     }
   }
@@ -232,18 +288,26 @@ class PaymentService {
       };
     } catch (error: any) {
       console.error('[PaymentService] Subscription payment failed:', error);
+      console.error('[PaymentService] Error details:', {
+        code: error?.code,
+        message: error?.message,
+        description: error?.description,
+      });
 
       // Check if user cancelled
       if (error.code === 0 || error.code === 2) {
+        console.log('[PaymentService] User cancelled subscription payment');
         return {
           success: false,
           error: 'Payment cancelled',
         };
       }
 
+      // Return user-friendly error message
+      const errorMessage = error.description || error.message || 'Payment failed. Please try again.';
       return {
         success: false,
-        error: error.description || error.message || 'Payment failed',
+        error: errorMessage,
       };
     }
   }
@@ -304,17 +368,26 @@ class PaymentService {
       };
     } catch (error: any) {
       console.error('[PaymentService] Retry payment failed:', error);
+      console.error('[PaymentService] Error details:', {
+        code: error?.code,
+        message: error?.message,
+        description: error?.description,
+      });
 
+      // Check if user cancelled
       if (error.code === 0 || error.code === 2) {
+        console.log('[PaymentService] User cancelled retry payment');
         return {
           success: false,
           error: 'Payment cancelled',
         };
       }
 
+      // Return user-friendly error message
+      const errorMessage = error.description || error.message || 'Payment failed. Please try again.';
       return {
         success: false,
-        error: error.description || error.message || 'Payment failed',
+        error: errorMessage,
       };
     }
   }
