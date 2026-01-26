@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
@@ -22,7 +22,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromResponse } from '../../services/api.service';
 import MealWindowModal from '../../components/MealWindowModal';
 import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
-import { MealTimingDebug } from '../../components/MealTimingDebug';
+import { formatNextAutoOrderTime } from '../../utils/autoOrderUtils';
 import NotificationBell from '../../components/NotificationBell';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
@@ -55,7 +55,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setDeliveryAddressId,
   } = useCart();
   const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
-  const { usableVouchers } = useSubscription();
+  const { usableVouchers, subscriptions } = useSubscription();
+  const insets = useSafeAreaInsets();
   const [selectedMeal, setSelectedMeal] = useState<MealType>('lunch');
   const [showCartModal, setShowCartModal] = useState(false);
   const [mealQuantity, setMealQuantity] = useState(1);
@@ -76,6 +77,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Meal window modal state
   const [showMealWindowModal, setShowMealWindowModal] = useState(false);
   const [hasCheckedMealWindow, setHasCheckedMealWindow] = useState(false);
+
+  // Auto-order notification state
+  const [showAutoOrderNotification, setShowAutoOrderNotification] = useState(false);
 
   // Note: We no longer use fallback addons with fake IDs as they cause API validation errors
   // Addons must come from the API with valid MongoDB ObjectIds
@@ -325,6 +329,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       console.log('[HomeScreen] useFocusEffect triggered - refetching menu');
       fetchMenu();
     }, [selectedAddressId])
+  );
+
+  // Check for auto-ordering status and show notification
+  useFocusEffect(
+    useCallback(() => {
+      const activeAutoOrderSub = subscriptions.find(
+        sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused
+      );
+      if (activeAutoOrderSub) {
+        setShowAutoOrderNotification(true);
+      }
+    }, [subscriptions])
   );
 
   // Update addons when meal type changes
@@ -581,13 +597,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
 
-      {/* Debug Component - Remove this after debugging */}
-      <MealTimingDebug
-        currentKitchen={currentKitchen}
-        mealWindowInfo={mealWindowInfo}
-        selectedMeal={selectedMeal}
-      />
-
       <ScrollView
         className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}
@@ -715,6 +724,55 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </View>
         </View>
+
+        {/* Auto-Order Notification Banner */}
+        {showAutoOrderNotification && subscriptions.find(
+          sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused
+        ) && (
+          <View className="mx-5 mb-4 mt-4">
+            <View
+              className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 flex-row items-center"
+              style={{
+                backgroundColor: '#F3E8FF',
+                borderWidth: 1,
+                borderColor: '#E9D5FF',
+                shadowColor: '#8B5CF6',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 3,
+              }}
+            >
+              <View className="w-10 h-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: '#8B5CF6' }}>
+                <Text className="text-white text-xl">⚡</Text>
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-bold text-gray-900 mb-1">
+                  Auto-Order Active
+                </Text>
+                <Text className="text-sm text-gray-700">
+                  {(() => {
+                    const sub = subscriptions.find(s => s.status === 'ACTIVE' && s.autoOrderingEnabled && !s.isPaused);
+                    if (!sub) return 'Your meals will be automatically ordered';
+
+                    const nextOrderTime = formatNextAutoOrderTime(sub);
+                    const mealType = sub.defaultMealType === 'LUNCH' ? 'Lunch' :
+                                     sub.defaultMealType === 'DINNER' ? 'Dinner' :
+                                     sub.defaultMealType === 'BOTH' ? 'Your meals' : 'Your order';
+
+                    return `${mealType} will be automatically ordered ${nextOrderTime}`;
+                  })()}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowAutoOrderNotification(false)}
+                className="w-8 h-8 items-center justify-center"
+              >
+                <Text className="text-gray-400 text-xl">×</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* White Container with Meal Options and Image */}
         <View className="mb-6" style={{ position: 'relative', overflow: 'hidden', marginTop: -30 }}>
@@ -1030,8 +1088,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
                   {/* Quantity Controls and Checkbox */}
                   <View className="flex-row items-center">
-                    {item.selected && (
-                      <View className="flex-row items-center mr-3">
+                    {item.selected ? (
+                      <View className="flex-row items-center">
                         <TouchableOpacity
                           onPress={() => updateQuantity(item.id, false)}
                           className="w-7 h-7 rounded-full border-2 border-orange-400 items-center justify-center"
@@ -1046,16 +1104,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                           <Text className="text-orange-400 font-bold">+</Text>
                         </TouchableOpacity>
                       </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => toggleAddOn(item.id)}
+                        className="w-6 h-6 rounded border-2 items-center justify-center border-gray-300"
+                      >
+                        <Text className="text-white font-bold text-xs">✓</Text>
+                      </TouchableOpacity>
                     )}
-
-                    <TouchableOpacity
-                      onPress={() => toggleAddOn(item.id)}
-                      className={`w-6 h-6 rounded border-2 items-center justify-center ${
-                        item.selected ? 'bg-orange-400 border-orange-400' : 'border-gray-300'
-                      }`}
-                    >
-                      {item.selected && <Text className="text-white font-bold text-xs">✓</Text>}
-                    </TouchableOpacity>
                   </View>
                 </View>
               ))
@@ -1070,7 +1126,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           )}
 
           {/* Bottom Spacing for Navigation Bar and Cart Popup */}
-          <View style={{ height: showCartModal ? 100 : 80 }} />
+          <View style={{ height: (showCartModal ? 160 : 100) + insets.bottom }} />
         </View>
       </ScrollView>
 
@@ -1079,7 +1135,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View
           className="absolute left-5 right-5 bg-white rounded-full px-5 py-3 flex-row items-center justify-between"
           style={{
-            bottom: 80,
+            bottom: 80 + insets.bottom,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.2,

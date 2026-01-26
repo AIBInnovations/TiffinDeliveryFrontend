@@ -89,24 +89,26 @@ try {
   messaging().setBackgroundMessageHandler(async (remoteMessage) => {
     console.log('[Background] Message received:', remoteMessage);
 
-  try {
-    // 1. Save notification to AsyncStorage for offline access
-    await saveNotificationToStorage(remoteMessage);
+    try {
+      // 1. Save notification to AsyncStorage for offline access
+      await saveNotificationToStorage(remoteMessage);
 
-    // 2. Increment unread count
-    await incrementUnreadCount();
+      // 2. Increment unread count
+      await incrementUnreadCount();
 
-    // 3. Log notification data for debugging
-    console.log('[Background] Notification type:', remoteMessage.data?.type);
-    console.log('[Background] Notification processed successfully');
+      // 3. Log notification data for debugging
+      console.log('[Background] Notification type:', remoteMessage.data?.type);
+      console.log('[Background] Notification processed successfully');
 
-    // The notification will be displayed by the system automatically
-    // When user taps it, onNotificationOpenedApp will be triggered
-  } catch (error) {
-    console.error('[Background] Error processing notification:', error);
-    // Don't throw - allow system notification to still display
-  }
-});
+      // The notification will be displayed by the system automatically
+      // When user taps it, onNotificationOpenedApp will be triggered
+    } catch (error) {
+      console.error('[Background] Error processing notification:', error);
+      // Don't throw - allow system notification to still display
+    }
+  });
+} catch (error) {
+  console.error('[Background] Failed to register background handler:', error);
+}
 
 AppRegistry.registerComponent(appName, () => App);
-

@@ -578,6 +578,7 @@ export interface OrderTrackingData {
   canContactDriver: boolean;
   canContactKitchen: boolean;
   order?: Order;
+  deliveryOtp?: string | null; // OTP for delivery verification - only present when status is PICKED_UP or OUT_FOR_DELIVERY
 }
 
 export interface OrderTrackingResponse {

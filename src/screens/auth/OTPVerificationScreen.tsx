@@ -8,6 +8,9 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
@@ -102,12 +105,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       // Keep loading true to prevent UI flash during transition
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      showAlert(
-        'Error',
-        error.message || 'Invalid OTP. Please try again.',
-        undefined,
-        'error'
-      );
+      showAlert('Invalid OTP', 'Please try again.', undefined, 'error');
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
       setLoading(false);
@@ -140,7 +138,16 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F56B4C' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           {/* Top image / header area */}
           <View
             style={{
@@ -163,7 +170,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               <Image
                 source={require('../../assets/icons/backarrow.png')}
-                style={{ width: 40, height: 40,  }}
+                style={{ width: 40, height: 40 }}
                 resizeMode="contain"
               />
             </TouchableOpacity>
@@ -198,6 +205,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               paddingHorizontal: 20,
               paddingTop: 20,
               paddingBottom: 15,
+              minHeight: 400,
             }}
           >
             {/* Verify OTP title */}
@@ -335,16 +343,23 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               }}
             >
               By signing in, you agree to{' '}
-              <Text style={{ textDecorationLine: 'underline', color: '#6B7280' }}>
+              <Text
+                style={{ textDecorationLine: 'underline', color: '#6B7280' }}
+                onPress={() => navigation.navigate('TermsOfService')}
+              >
                 Terms of Service
               </Text>
               {'\n'}and{' '}
-              <Text style={{ textDecorationLine: 'underline', color: '#6B7280' }}>
+              <Text
+                style={{ textDecorationLine: 'underline', color: '#6B7280' }}
+                onPress={() => navigation.navigate('PrivacyPolicy')}
+              >
                 Privacy Policy
               </Text>
             </Text>
           </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Loading Overlay */}
       {loading && (

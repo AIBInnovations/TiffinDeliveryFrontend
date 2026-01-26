@@ -15,7 +15,10 @@ const { withNativeWind } = require('nativewind/metro');
 const baseConfig = getDefaultConfig(__dirname);
 
 const config = mergeConfig(baseConfig, {
- // keep any custom metro settings here if you have them
+  resolver: {
+    // Ensure ts/tsx extensions are resolved properly for node_modules like react-native-calendars
+    sourceExts: [...baseConfig.resolver.sourceExts, 'ts', 'tsx'],
+  },
 });
 
 module.exports = withNativeWind(config, { input: './global.css' });

@@ -9,7 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
@@ -55,6 +55,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const { voucherSummary, usableVouchers, fetchVouchers } = useSubscription();
   const { processOrderPayment, retryOrderPayment, isProcessing: isPaymentProcessing } = usePayment();
   const { showAlert } = useAlert();
+  const insets = useSafeAreaInsets();
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -72,6 +73,9 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
   const [pendingPaymentOrderId, setPendingPaymentOrderId] = useState<string | null>(null);
+
+  // Voucher auto-apply state
+  const [hasAutoApplied, setHasAutoApplied] = useState(false);
 
   // Refresh voucher data when screen comes into focus
   useFocusEffect(
@@ -138,57 +142,18 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         console.log('  - voucherCount sent:', voucherCount);
         console.log('  - breakdown:', JSON.stringify(response.data.breakdown));
         console.log('  - voucherCoverage:', JSON.stringify(response.data.breakdown?.voucherCoverage));
-        console.log('  - amountToPay:', response.data.breakdown?.amountToPay);
+        console.log('  - backend amountToPay:', response.data.breakdown?.amountToPay);
+        console.log('  - backend subtotal:', response.data.breakdown?.subtotal);
+        console.log('  - backend charges:', JSON.stringify(response.data.breakdown?.charges));
 
-        let finalPricing = response.data.breakdown;
-
-        // If voucherCount > 0, set charges to 0 and apply voucher discount
-        if (voucherCount > 0) {
-          console.log('[CartScreen] Voucher applied, setting charges to 0');
-
-          // Set charges to 0 when voucher is applied
-          const zeroCharges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
-
-          // If API didn't apply voucher discount, apply it locally
-          if (!response.data.breakdown?.voucherCoverage) {
-            console.log('[CartScreen] API did not apply voucher, applying locally');
-            // Find the main item (thali) price to cover with voucher
-            const mainItem = cartItems.find(item => item.hasVoucher !== false);
-            if (mainItem) {
-              const voucherDiscountAmount = mainItem.price * Math.min(voucherCount, mainItem.quantity);
-              const subtotal = finalPricing?.subtotal || 0;
-              const newAmountToPay = Math.max(0, subtotal - voucherDiscountAmount);
-
-              console.log('[CartScreen] Local voucher calculation:');
-              console.log('  - thali price:', mainItem.price);
-              console.log('  - voucherDiscountAmount:', voucherDiscountAmount);
-              console.log('  - newAmountToPay:', newAmountToPay);
-
-              finalPricing = {
-                ...finalPricing,
-                charges: zeroCharges,
-                voucherCoverage: { type: 'VOUCHER', value: voucherDiscountAmount, description: `${voucherCount} voucher applied` },
-                grandTotal: subtotal,
-                amountToPay: newAmountToPay,
-              };
-            }
-          } else {
-            // API applied voucher, just override charges to 0
-            const subtotal = finalPricing?.subtotal || 0;
-            const voucherDiscountAmount = finalPricing?.voucherCoverage?.value || 0;
-            const newAmountToPay = Math.max(0, subtotal - voucherDiscountAmount);
-
-            finalPricing = {
-              ...finalPricing,
-              charges: zeroCharges,
-              grandTotal: subtotal,
-              amountToPay: newAmountToPay,
-            };
-          }
-        }
-
-        setPricing(finalPricing);
+        // CRITICAL: Use backend pricing as-is without modification
+        // Backend is the source of truth - it has authoritative prices and calculation logic
+        // The order creation and Razorpay payment use backend's calculation
+        // Frontend MUST match backend to avoid pricing mismatches
+        setPricing(response.data.breakdown);
         setVoucherInfo(response.data.voucherEligibility);
+
+        console.log('[CartScreen] Using backend pricing directly (no frontend override)');
       }
     } catch (error: any) {
       console.error('Error calculating pricing:', error.message || error);
@@ -222,6 +187,18 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
     if (menuType === 'MEAL_MENU' && !mealWindow) {
       showAlert('Error', 'Please select a meal type', undefined, 'error');
+      return;
+    }
+
+    // Safety check: Prevent voucher orders after cutoff
+    if (voucherCount > 0 && voucherInfo?.cutoffPassed) {
+      showAlert(
+        'Voucher Unavailable',
+        voucherInfo.cutoffInfo?.message || 'Voucher ordering time has passed. Please remove the voucher to continue with a paid order.',
+        undefined,
+        'error'
+      );
+      setVoucherCount(0);
       return;
     }
 
@@ -380,8 +357,13 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const updateQuantity = (id: string, increment: boolean) => {
     const item = cartItems.find(i => i.id === id);
     if (item) {
-      const newQuantity = increment ? item.quantity + 1 : Math.max(1, item.quantity - 1);
-      updateCartQuantity(id, newQuantity);
+      if (!increment && item.quantity === 1) {
+        // Remove item if trying to decrease from 1
+        removeItem(id);
+      } else {
+        const newQuantity = increment ? item.quantity + 1 : item.quantity - 1;
+        updateCartQuantity(id, newQuantity);
+      }
     }
   };
 
@@ -403,7 +385,8 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // Get display values
+  // Get display values - use backend's subtotal when available
+  // Fallback to local calculation only if backend pricing is not yet loaded
   const subtotal = pricing?.subtotal ?? cartItems.reduce((sum, item) => {
     let itemTotal = item.price * item.quantity;
     // Include addons in subtotal calculation
@@ -415,46 +398,37 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     return sum + itemTotal;
   }, 0);
 
-  // If voucher is applied, charges should be 0, otherwise use pricing charges
-  let charges;
-  if (voucherCount > 0) {
-    // Voucher applied: charges are zero
-    charges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
-  } else if (pricing?.charges) {
-    charges = pricing.charges;
-  } else {
-    // No pricing data available
-    charges = { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
-  }
-
+  // Use backend's charges directly - backend handles voucher logic
+  const charges = pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
   const totalCharges = charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount;
 
-  // Calculate voucher discount - only when voucher is actually applied
-  // 1 voucher = 1 meal (covers the meal price)
-  // Note: Charges are also waived but shown separately as ₹0 in "Delivery & Charges" line
-  let voucherDiscount = 0;
-  if (voucherCount > 0) {
-    const mainItem = cartItems.find(item => item.hasVoucher !== false);
-    if (mainItem) {
-      // 1 voucher covers 1 meal price
-      voucherDiscount = mainItem.price * Math.min(voucherCount, mainItem.quantity);
-    }
-  }
-
+  // Use backend's voucher coverage for display
+  // Backend calculates this correctly including add-ons
+  const voucherDiscount = pricing?.voucherCoverage?.value ?? 0;
   const couponDiscount = pricing?.discount?.value ?? 0;
   const totalDiscount = voucherDiscount + couponDiscount;
 
+  // Check if cart has any add-ons
+  const hasAddons = cartItems.some(item => item.addons && item.addons.length > 0);
+
   // Calculate amountToPay
-  // When voucherCount changes, we can't trust pricing.amountToPay until API recalculates
-  // So we calculate locally to ensure immediate UI update
+  // ALWAYS use backend pricing when available to ensure UI matches Razorpay payment
+  // Backend is source of truth for pricing - it has authoritative prices from database
   let amountToPay;
-  if (voucherCount > 0) {
-    // Voucher applied: use pricing if available, otherwise calculate locally
-    amountToPay = pricing?.amountToPay ?? Math.max(0, subtotal + totalCharges - totalDiscount);
+
+  if (pricing?.amountToPay !== undefined && pricing?.amountToPay !== null) {
+    // Use backend's calculated amount - this matches what will be sent to Razorpay
+    amountToPay = pricing.amountToPay;
+    console.log('[CartScreen] Using backend pricing.amountToPay:', amountToPay);
   } else {
-    // No voucher: always calculate fresh to avoid stale pricing state
-    // amountToPay = subtotal + charges (no voucher discount)
-    amountToPay = subtotal + totalCharges;
+    // Fallback to local calculation only if backend pricing unavailable
+    amountToPay = Math.max(0, subtotal + totalCharges - totalDiscount);
+    console.log('[CartScreen] Using local calculation (no pricing data):', {
+      subtotal,
+      totalCharges,
+      totalDiscount,
+      amountToPay,
+    });
   }
 
   // Debug: Log pricing changes
@@ -519,6 +493,54 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     console.log('  - usableVouchers:', usableVouchers);
     console.log('  - maxVouchersCanUse:', maxVouchersCanUse);
   }, [voucherSummary, hasVouchers, voucherCount, voucherInfo, canUseVoucher, showRedeemButton, thaliCount, usableVouchers, maxVouchersCanUse]);
+
+  // Auto-apply voucher when eligible (cutoff not passed and vouchers available)
+  useEffect(() => {
+    // Only auto-apply once per cart session
+    if (hasAutoApplied) return;
+
+    // Check if voucher can be auto-applied
+    if (voucherInfo && !voucherInfo.cutoffPassed && voucherInfo.canUse > 0 && voucherCount === 0 && hasVouchers) {
+      console.log('[CartScreen] Auto-applying voucher');
+      setVoucherCount(1);
+      setHasAutoApplied(true);
+    }
+  }, [voucherInfo, voucherCount, hasVouchers, hasAutoApplied, setVoucherCount]);
+
+  // Reset auto-apply flag when cart is emptied
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      setHasAutoApplied(false);
+    }
+  }, [cartItems.length]);
+
+  // Auto-remove vouchers when cutoff time is detected
+  useEffect(() => {
+    if (voucherInfo?.cutoffPassed && voucherCount > 0) {
+      console.log('[CartScreen] Cutoff detected, auto-removing vouchers');
+      setVoucherCount(0);
+      showAlert(
+        'Voucher Removed',
+        voucherInfo.cutoffInfo?.message || 'Voucher ordering time has passed. Your order will proceed as a paid order.',
+        undefined,
+        'warning'
+      );
+    }
+  }, [voucherInfo?.cutoffPassed, voucherCount, setVoucherCount, showAlert]);
+
+  // Handler to remove all vouchers
+  const handleRemoveVoucher = () => {
+    console.log('[CartScreen] Removing voucher');
+    setVoucherCount(0);
+  };
+
+  // Handler to add one more voucher
+  const handleAddMoreVoucher = () => {
+    console.log('[CartScreen] Adding one more voucher');
+    if (voucherCount < maxVouchersCanUse) {
+      setVoucherCount(voucherCount + 1);
+    }
+  };
 
   // Handler to apply voucher (click to redeem)
   const handleApplyVoucher = () => {
@@ -631,9 +653,6 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
           <View className="flex-1">
             <Text className="text-2xl font-bold text-gray-900 text-center">My Cart</Text>
-            <Text className="text-sm text-gray-500 text-center mt-1">
-              Delivery Time: 25-30mins
-            </Text>
           </View>
           <View className="w-10" />
         </View>
@@ -779,86 +798,112 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         {/* Vouchers Banner */}
         {voucherInfo && (
           <View className="mx-5 mb-4">
-            <View
-              className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
-              style={{
-                height: 60,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 10,
-                elevation: 8,
-              }}
-            >
-              <View className="flex-row items-center flex-1">
-                <Image
-                  source={require('../../assets/icons/whitevoucher.png')}
-                  style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
-                  resizeMode="contain"
-                />
-                <Text className="text-white font-semibold" style={{ fontSize: 14 }}>
-                  {voucherInfo.available} vouchers available
-                </Text>
-              </View>
-              {voucherInfo.cutoffPassed ? (
-                <View className="bg-white rounded-full px-4 items-center justify-center" style={{ height: 46 }}>
-                  <Text className="text-red-500 font-semibold text-xs">Cutoff Passed</Text>
-                </View>
-              ) : voucherCount > 0 ? (
-                <View className="bg-white rounded-full px-3 items-center justify-center flex-row" style={{ height: 46 }}>
-                  {/* Decrement Button */}
-                  <TouchableOpacity
-                    onPress={handleDecrementVoucher}
-                    className="w-8 h-8 rounded-full items-center justify-center"
-                    style={{ backgroundColor: 'rgba(255, 217, 197, 0.5)' }}
-                  >
-                    <Text className="text-orange-400 font-bold text-lg">−</Text>
-                  </TouchableOpacity>
-
-                  {/* Voucher Count Display */}
-                  <View className="mx-3 items-center">
-                    <Text className="text-orange-400 font-bold text-base">
-                      {voucherCount}
-                    </Text>
+            {/* Applied Voucher Display */}
+            {voucherCount > 0 && !voucherInfo.cutoffPassed ? (
+              <View>
+                {/* Applied Voucher Card */}
+                <View
+                  className="bg-green-50 rounded-2xl px-4 py-3 flex-row items-center justify-between mb-2"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#BBF7D0',
+                  }}
+                >
+                  <View className="flex-row items-center flex-1">
+                    <Image
+                      source={require('../../assets/icons/voucher.png')}
+                      style={{ width: 20, height: 20, tintColor: '#16A34A', marginRight: 10 }}
+                      resizeMode="contain"
+                    />
+                    <View>
+                      <Text className="text-green-700 font-semibold" style={{ fontSize: 14 }}>
+                        {voucherCount} Voucher{voucherCount > 1 ? 's' : ''} Applied
+                      </Text>
+                      <Text className="text-green-600 text-xs">
+                        Saving ₹{(cartItems.find(item => item.hasVoucher !== false)?.price || 0) * voucherCount}
+                      </Text>
+                    </View>
                   </View>
-
-                  {/* Increment Button */}
+                  {/* Remove Button */}
                   <TouchableOpacity
-                    onPress={handleIncrementVoucher}
+                    onPress={handleRemoveVoucher}
                     className="w-8 h-8 rounded-full items-center justify-center"
-                    style={{
-                      backgroundColor: voucherCount >= maxVouchersCanUse ? 'rgba(232, 235, 234, 1)' : 'rgba(255, 217, 197, 1)'
-                    }}
-                    disabled={voucherCount >= maxVouchersCanUse}
+                    style={{ backgroundColor: 'rgba(220, 38, 38, 0.1)' }}
                   >
-                    <Text
-                      className="font-bold text-lg"
-                      style={{
-                        color: voucherCount >= maxVouchersCanUse ? '#9CA3AF' : '#F56B4C'
-                      }}
-                    >
-                      +
-                    </Text>
+                    <Text className="text-red-500 font-bold text-lg">×</Text>
                   </TouchableOpacity>
                 </View>
-              ) : voucherInfo.canUse > 0 ? (
-                <TouchableOpacity
-                  className="bg-white rounded-full px-5 items-center justify-center"
-                  style={{ height: 46 }}
-                  onPress={() => setVoucherCount(Math.min(1, voucherInfo.canUse))}
-                >
-                  <Text className="text-orange-400 font-semibold text-sm">Use Voucher</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  className="bg-white rounded-full px-5 items-center justify-center"
-                  style={{ height: 46 }}
-                  onPress={() => navigation.navigate('MealPlans')}
-                >
-                  <Text className="text-orange-400 font-semibold text-sm">Buy Vouchers</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+
+                {/* Add More Voucher Button - Only show if more thalis than vouchers applied */}
+                {voucherCount < maxVouchersCanUse && (
+                  <TouchableOpacity
+                    onPress={handleAddMoreVoucher}
+                    className="bg-orange-400 rounded-full px-4 py-3 flex-row items-center justify-center"
+                    style={{
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 4,
+                      elevation: 3,
+                    }}
+                  >
+                    <Image
+                      source={require('../../assets/icons/whitevoucher.png')}
+                      style={{ width: 18, height: 18, tintColor: 'white', marginRight: 8 }}
+                      resizeMode="contain"
+                    />
+                    <Text className="text-white font-semibold text-sm">
+                      + Add Another Voucher ({maxVouchersCanUse - voucherCount} more available)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              /* No Voucher Applied - Show Available Vouchers Banner */
+              <View
+                className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
+                style={{
+                  height: 60,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 10,
+                  elevation: 8,
+                }}
+              >
+                <View className="flex-row items-center flex-1">
+                  <Image
+                    source={require('../../assets/icons/whitevoucher.png')}
+                    style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
+                    resizeMode="contain"
+                  />
+                  <Text className="text-white font-semibold" style={{ fontSize: 14 }}>
+                    {voucherInfo.available} vouchers available
+                  </Text>
+                </View>
+                {voucherInfo.cutoffPassed ? (
+                  <View className="bg-white rounded-full px-4 items-center justify-center" style={{ height: 46 }}>
+                    <Text className="text-red-500 font-semibold text-xs">Cutoff Passed</Text>
+                  </View>
+                ) : voucherInfo.canUse > 0 ? (
+                  <TouchableOpacity
+                    className="bg-white rounded-full px-5 items-center justify-center"
+                    style={{ height: 46 }}
+                    onPress={() => setVoucherCount(1)}
+                  >
+                    <Text className="text-orange-400 font-semibold text-sm">Use Voucher</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    className="bg-white rounded-full px-5 items-center justify-center"
+                    style={{ height: 46 }}
+                    onPress={() => navigation.navigate('MealPlans')}
+                  >
+                    <Text className="text-orange-400 font-semibold text-sm">Buy Vouchers</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             {voucherInfo.cutoffPassed && (
               <Text className="text-red-500 text-xs mt-2 text-center">
                 {voucherInfo.cutoffInfo.message}
@@ -867,11 +912,6 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             {!voucherInfo.cutoffPassed && usableVouchers === 0 && (
               <Text className="text-gray-500 text-xs mt-2 text-center">
                 Purchase a meal plan to get vouchers and save on orders!
-              </Text>
-            )}
-            {!voucherInfo.cutoffPassed && voucherCount > 0 && (
-              <Text className="text-white text-xs mt-2 text-center">
-                Max {maxVouchersCanUse} vouchers can be used (based on {thaliCount} thali in cart)
               </Text>
             )}
           </View>
@@ -937,26 +977,29 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Bottom Spacing */}
-        <View className="h-80" />
+        {/* Bottom Spacing - Dynamic based on summary height */}
+        <View style={{ height: 300 }} />
       </ScrollView>
 
       {/* Order Summary - Sticky */}
       <View
-        className="absolute left-0 right-0 bg-white px-4 py-5"
+        className="absolute left-0 right-0 bg-white"
         style={{
-          bottom: 20,
+          bottom: 0,
+          paddingBottom: Math.max(insets.bottom + 12, 20),
+          paddingTop: 16,
+          paddingHorizontal: 20,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
+          shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.1,
           shadowRadius: 8,
-          elevation: 4,
+          elevation: 8,
         }}
       >
         {/* Voucher Promotion Card - Show only when user has no vouchers */}
         {!hasVouchers && (
           <View
-            className="rounded-2xl p-4 mb-4 flex-row items-center"
+            className="rounded-2xl p-3 mb-3 flex-row items-center"
             style={{
               backgroundColor: '#FFF5F2',
               borderWidth: 1,
@@ -965,23 +1008,23 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Image
               source={require('../../assets/icons/voucher4.png')}
-              style={{ width: 36, height: 36 }}
+              style={{ width: 32, height: 32 }}
               resizeMode="contain"
             />
-            <View className="flex-1 ml-3">
-              <Text className="font-semibold text-gray-900">Save more with Vouchers!</Text>
-              <Text className="text-sm text-gray-600">Get meal plans starting Rs149</Text>
+            <View className="flex-1 ml-2">
+              <Text className="font-semibold text-gray-900 text-sm">Save more with Vouchers!</Text>
+              <Text className="text-xs text-gray-600">Get meal plans starting Rs149</Text>
             </View>
             <TouchableOpacity
               onPress={() => navigation.navigate('MealPlans')}
-              className="bg-orange-400 rounded-full px-4 py-2"
+              className="bg-orange-400 rounded-full px-3 py-1.5"
             >
-              <Text className="text-white font-semibold text-sm">View Plans</Text>
+              <Text className="text-white font-semibold text-xs">View Plans</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <Text className="text-xl font-bold text-gray-900 mb-4">Order Summary</Text>
+        <Text className="text-lg font-bold text-gray-900 mb-2">Order Summary</Text>
 
         {isCalculating ? (
           <View className="items-center py-4">
@@ -1002,76 +1045,83 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         ) : (
           <>
             {/* Subtotal */}
-            <View className="flex-row justify-between mb-3">
-              <Text className="text-base text-gray-600">Subtotal:</Text>
-              <Text className="text-base text-gray-900">₹{subtotal.toFixed(2)}</Text>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-600">Subtotal:</Text>
+              <Text className="text-sm text-gray-900">₹{subtotal.toFixed(2)}</Text>
             </View>
 
             {/* Delivery & Charges */}
-            <View className="flex-row justify-between mb-3">
-              <Text className="text-base text-gray-600">Delivery & Charges:</Text>
-              <Text className="text-base text-gray-900">₹{totalCharges.toFixed(2)}</Text>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-600">Delivery & Charges:</Text>
+              <Text className="text-sm text-gray-900">₹{totalCharges.toFixed(2)}</Text>
             </View>
 
             {/* Voucher Discount */}
             {voucherDiscount > 0 && (
-              <View className="flex-row justify-between mb-3">
-                <Text className="text-base text-green-600">Voucher Discount:</Text>
-                <Text className="text-base text-green-600 font-semibold">- ₹{voucherDiscount.toFixed(2)}</Text>
+              <View className="flex-row justify-between mb-2">
+                <Text className="text-sm text-green-600">Voucher Discount:</Text>
+                <Text className="text-sm text-green-600 font-semibold">- ₹{voucherDiscount.toFixed(2)}</Text>
               </View>
             )}
 
             {/* Coupon Discount */}
             {couponDiscount > 0 && (
-              <View className="flex-row justify-between mb-3">
-                <Text className="text-base text-green-600">Coupon Discount:</Text>
-                <Text className="text-base text-green-600 font-semibold">- ₹{couponDiscount.toFixed(2)}</Text>
+              <View className="flex-row justify-between mb-2">
+                <Text className="text-sm text-green-600">Coupon Discount:</Text>
+                <Text className="text-sm text-green-600 font-semibold">- ₹{couponDiscount.toFixed(2)}</Text>
               </View>
             )}
 
-            <View className="border-b border-gray-200 mb-4" />
+            <View className="border-b border-gray-200 my-2" />
 
             {/* Total Amount */}
-            <View className="flex-row justify-between mb-5">
-              <Text className="text-lg font-bold text-gray-900">To Pay:</Text>
-              <Text className="text-lg font-bold text-orange-500">₹{amountToPay.toFixed(2)}</Text>
+            <View className="flex-row justify-between mb-3">
+              <Text className="text-base font-bold text-gray-900">To Pay:</Text>
+              <Text className="text-base font-bold text-orange-400">₹{amountToPay.toFixed(2)}</Text>
             </View>
           </>
         )}
 
         {/* Bottom Button - Pay Now */}
         <View
-          className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
+          className="bg-orange-400 rounded-full flex-row items-center justify-between"
           style={{
-            height: 60,
+            height: 56,
+            paddingLeft: 20,
+            paddingRight: 6,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.15,
-            shadowRadius: 10,
-            elevation: 8,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 12,
+            elevation: 10,
             opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || pricingError) ? 0.7 : 1,
           }}
         >
-          <View className="flex-row items-center">
+          <View className="flex-row items-center flex-1">
             <Text className="text-white text-xl font-bold mr-2">₹{amountToPay.toFixed(2)}</Text>
-            <Text className="text-white text-sm">Total</Text>
+            <Text className="text-white text-sm opacity-90">Total</Text>
           </View>
           <TouchableOpacity
-            className="bg-white rounded-full px-6 flex-row items-center"
-            style={{ height: 48, minWidth: 117 }}
+            className="bg-white rounded-full flex-row items-center justify-center"
+            style={{
+              height: 44,
+              paddingHorizontal: 20,
+              minWidth: 130,
+            }}
             onPress={handlePlaceOrder}
             disabled={isPlacingOrder || isCalculating || addresses.length === 0 || !!pricingError}
+            activeOpacity={0.8}
           >
             {isPlacingOrder ? (
               <ActivityIndicator size="small" color="#F56B4C" />
             ) : (
               <>
-                <Text className="text-orange-400 font-semibold text-base mr-2">
-                  {addresses.length === 0 ? 'Add Address' : 'Pay Now'}
+                <Text className="text-orange-400 font-bold text-base mr-2">
+                  {addresses.length === 0 ? 'Add Address' : amountToPay === 0 ? 'Place Order' : 'Pay Now'}
                 </Text>
                 <Image
                   source={require('../../assets/icons/uparrow.png')}
-                  style={{ width: 13, height: 13 }}
+                  style={{ width: 14, height: 14 }}
                   resizeMode="contain"
                 />
               </>

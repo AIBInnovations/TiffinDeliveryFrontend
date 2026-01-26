@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,19 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
 
 type Props = AuthScreenProps<'Login'>;
+
+const REMEMBER_PHONE_KEY = '@tiffsy_remember_phone';
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
@@ -22,6 +28,39 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const { loginWithPhone } = useUser();
   const { showAlert } = useAlert();
+
+  // Load saved phone number on mount
+  useEffect(() => {
+    loadSavedPhone();
+  }, []);
+
+  const loadSavedPhone = async () => {
+    try {
+      const savedPhone = await AsyncStorage.getItem(REMEMBER_PHONE_KEY);
+      if (savedPhone) {
+        setPhone(savedPhone);
+        setRemember(true);
+      }
+    } catch (error) {
+      console.error('Error loading saved phone:', error);
+    }
+  };
+
+  const savePhone = async (phoneNumber: string) => {
+    try {
+      await AsyncStorage.setItem(REMEMBER_PHONE_KEY, phoneNumber);
+    } catch (error) {
+      console.error('Error saving phone:', error);
+    }
+  };
+
+  const clearSavedPhone = async () => {
+    try {
+      await AsyncStorage.removeItem(REMEMBER_PHONE_KEY);
+    } catch (error) {
+      console.error('Error clearing saved phone:', error);
+    }
+  };
 
   const handleGetOtp = async () => {
     if (phone.length !== 10) {
@@ -33,6 +72,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const fullPhone = `+91${phone}`;
       const confirmation = await loginWithPhone(fullPhone);
+
+      // Save or clear phone number based on remember checkbox
+      if (remember) {
+        await savePhone(phone);
+      } else {
+        await clearSavedPhone();
+      }
 
       navigation.navigate('OTPVerification', {
         phoneNumber: fullPhone,
@@ -54,7 +100,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F56B4C' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           {/* Top image / header area */}
           <View
             style={{
@@ -71,14 +126,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 width: 36,
                 height: 36,
                 borderRadius: 18,
-                
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
               <Image
                 source={require('../../assets/icons/backarrow.png')}
-                style={{ width: 40, height: 40, }}
+                style={{ width: 40, height: 40 }}
                 resizeMode="contain"
               />
             </TouchableOpacity>
@@ -113,6 +167,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               paddingHorizontal: 20,
               paddingTop: 20,
               paddingBottom: 50,
+              minHeight: 450,
             }}
           >
             {/* Welcome heading */}
@@ -292,19 +347,23 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               }}
             >
               By signing in, you agree to{' '}
-              <Text style={{ textDecorationLine: 'underline', color: '#6B7280' }}>
+              <Text
+                style={{ textDecorationLine: 'underline', color: '#6B7280' }}
+                onPress={() => navigation.navigate('TermsOfService')}
+              >
                 Terms of Service
               </Text>
               {'\n'}and{' '}
-              <Text style={{ textDecorationLine: 'underline', color: '#6B7280' }}>
+              <Text
+                style={{ textDecorationLine: 'underline', color: '#6B7280' }}
+                onPress={() => navigation.navigate('PrivacyPolicy')}
+              >
                 Privacy Policy
               </Text>
             </Text>
-
-            {/* Bottom bar indicator */}
-            
           </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

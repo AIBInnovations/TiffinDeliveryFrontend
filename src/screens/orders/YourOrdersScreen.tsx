@@ -732,7 +732,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 }`}
                 style={{ fontSize: 13 }}
               >
-                Auto
+                Auto Order
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,10 +1,22 @@
 // src/screens/onboarding/OnboardingScreen.tsx
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StatusBar, Animated, Easing, ImageBackground, Image, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StatusBar,
+  Animated,
+  Easing,
+  ImageBackground,
+  Image,
+  useWindowDimensions,
+  Platform,
+  FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingScreenProps } from '../../types/navigation';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Props = OnboardingScreenProps<'OnboardingScreen1'>;
 
@@ -14,8 +26,6 @@ interface PageContent {
   subtitle?: string;
   image: any;
   backgroundImage: any;
-  backgroundStyle: any;
-  imageStyle: any;
   imageAnimation: 'rotate' | 'float';
 }
 
@@ -25,18 +35,6 @@ const pages: PageContent[] = [
     title: "Taste\nTasty Meals\nEvery Days",
     image: require('../../assets/images/onboarding/onboarding1.png'),
     backgroundImage: require('../../assets/images/onboarding/fastfood.png'),
-    backgroundStyle: {
-      width: 220,
-      height: 230,
-      paddingLeft: 0,
-      marginLeft: -45,
-      paddingRight: 8,
-      marginTop: -21,
-      position: 'absolute' as const,
-      top: 0,
-      left: 0
-    },
-    imageStyle: { width: 250, height: 250, borderRadius: 140 },
     imageAnimation: 'rotate',
   },
   {
@@ -45,18 +43,6 @@ const pages: PageContent[] = [
     subtitle: "Lorem ipsum dolor amet consectetur.\nAdipiscing ultricies dui morbi varius ac id.",
     image: require('../../assets/images/onboarding/onboarding2.png'),
     backgroundImage: require('../../assets/images/onboarding/couponbackground.png'),
-    backgroundStyle: {
-      width: 250,
-      height: 320,
-      paddingLeft: 2,
-      paddingRight: 8,
-      marginTop: -100,
-      marginLeft: -50,
-      position: 'absolute' as const,
-      top: 0,
-      left: 0
-    },
-    imageStyle: { width: 280, height: 260, marginBottom: -10 },
     imageAnimation: 'float',
   },
   {
@@ -65,28 +51,22 @@ const pages: PageContent[] = [
     subtitle: "Lorem ipsum dolor amet consectetur.\nAdipiscing ultricies dui morbi varius acid.",
     image: require('../../assets/images/onboarding/onboarding3.png'),
     backgroundImage: require('../../assets/images/onboarding/home.png'),
-    backgroundStyle: {
-      width: 220,
-      height: 290,
-      paddingLeft: 2,
-      paddingRight: 8,
-      marginTop: -62,
-      marginLeft: -35,
-      marginBottom: 20,
-      position: 'absolute' as const,
-      top: 0,
-      left: 0
-    },
-    imageStyle: { width: 280, height: 200 },
     imageAnimation: 'float',
   },
 ];
 
 const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  // Responsive scaling factors
+  const isSmallDevice = SCREEN_HEIGHT < 700;
+  const scale = Math.min(SCREEN_WIDTH / 375, 1.2);
+  const verticalScale = Math.min(SCREEN_HEIGHT / 812, 1.1);
+
   const [currentPage, setCurrentPage] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
 
@@ -122,43 +102,11 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     ).start();
   }, [floatAnim]);
 
-  const animateToPage = (newPage: number) => {
-    const direction = newPage > currentPage ? -1 : 1;
-
-    Animated.parallel([
-      // Slide out current content
-      Animated.timing(slideAnim, {
-        toValue: direction * SCREEN_WIDTH,
-        duration: 300,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      // Fade out current content
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setCurrentPage(newPage);
-      slideAnim.setValue(-direction * SCREEN_WIDTH);
-      fadeAnim.setValue(0);
-
-      // Slide in new content
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    });
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const slideIndex = Math.round(
+      event.nativeEvent.contentOffset.x / SCREEN_WIDTH
+    );
+    setCurrentPage(slideIndex);
   };
 
   const handlePressIn = () => {
@@ -179,7 +127,10 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleNext = () => {
     if (currentPage < pages.length - 1) {
-      animateToPage(currentPage + 1);
+      flatListRef.current?.scrollToIndex({
+        index: currentPage + 1,
+        animated: true,
+      });
     } else {
       navigation.navigate('Auth');
     }
@@ -187,7 +138,10 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleBack = () => {
     if (currentPage > 0) {
-      animateToPage(currentPage - 1);
+      flatListRef.current?.scrollToIndex({
+        index: currentPage - 1,
+        animated: true,
+      });
     }
   };
 
@@ -195,144 +149,181 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('Auth');
   };
 
-  const currentContent = pages[currentPage];
+  // Responsive styles
+  const imageSize = isSmallDevice ? SCREEN_WIDTH * 0.5 : SCREEN_WIDTH * 0.6;
+  const buttonWidth = Math.min(SCREEN_WIDTH * 0.85, 320);
+  const buttonIconSize = Math.round(36 * scale);
+  const contentPadding = Math.round(24 * scale);
 
-  // Get the appropriate image transform based on animation type
-  const getImageTransform = () => {
-    if (currentContent.imageAnimation === 'rotate') {
-      return [
-        {
-          rotate: rotateAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: ['0deg', '360deg'],
-          }),
-        },
-      ];
-    } else {
-      return [
-        { translateY: floatAnim },
-        { rotate: '-8deg' },
-      ];
-    }
+  const renderPageItem = ({ item, index }: { item: PageContent; index: number }) => {
+    const getImageTransform = () => {
+      if (item.imageAnimation === 'rotate') {
+        return [
+          {
+            rotate: rotateAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0deg', '360deg'],
+            }),
+          },
+        ];
+      } else {
+        return [
+          { translateY: floatAnim },
+          { rotate: '-8deg' },
+        ];
+      }
+    };
+
+    return (
+      <View style={{ width: SCREEN_WIDTH, paddingHorizontal: contentPadding }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+          }}
+        >
+          {/* Background Image */}
+          <ImageBackground
+            source={item.backgroundImage}
+            style={{
+              width: SCREEN_WIDTH * 0.55,
+              height: SCREEN_WIDTH * (index === 1 ? 0.75 : 0.6),
+              position: 'absolute',
+              top: index === 1 ? -SCREEN_HEIGHT * 0.02 : 0,
+              left: -SCREEN_WIDTH * 0.1,
+            }}
+            resizeMode="cover"
+            imageStyle={{
+              opacity: 0.8,
+              borderRadius: index === 1 ? 100 : 0
+            }}
+          />
+
+          {/* Title */}
+          <Text
+            style={{
+              color: 'white',
+              fontSize: Math.round(32 * scale),
+              fontWeight: 'bold',
+              lineHeight: Math.round(38 * scale),
+            }}
+          >
+            {item.title}
+          </Text>
+
+          {/* Subtitle */}
+          {item.subtitle && (
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: Math.round(13 * scale),
+                marginTop: 10,
+                lineHeight: Math.round(18 * scale),
+              }}
+            >
+              {item.subtitle}
+            </Text>
+          )}
+
+          {/* Main Image - Fixed height container */}
+          <View style={{
+            alignItems: 'center',
+            marginTop: isSmallDevice ? 15 : 25,
+            height: imageSize + 20, // Fixed height container
+            justifyContent: 'center',
+          }}>
+            <Animated.View
+              style={{
+                transform: getImageTransform(),
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.25,
+                shadowRadius: 10,
+                elevation: 10,
+              }}
+            >
+              <Animated.Image
+                source={item.image}
+                style={{
+                  width: imageSize,
+                  height: imageSize * (index === 0 ? 1 : (index === 2 ? 0.7 : 0.85)),
+                  borderRadius: index === 0 ? imageSize / 2 : 0,
+                }}
+                resizeMode={index === 0 ? 'cover' : 'contain'}
+              />
+            </Animated.View>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-500">
+    <SafeAreaView className="flex-1 bg-orange-400" edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <View className="flex-1 px-10">
-        <View className="flex-1 justify-center" style={{ width: '100%' }}>
-          <Animated.View
-            style={{
-              transform: [{ translateX: slideAnim }],
-              opacity: fadeAnim,
-            }}
-          >
-            {/* Background Image */}
-            <ImageBackground
-              source={currentContent.backgroundImage}
-              style={currentContent.backgroundStyle}
-              resizeMode="cover"
-              imageStyle={{ opacity: 0.8, borderRadius: currentPage === 1 ? 100 : 0 }}
-            />
 
-            {/* Text */}
-            <Text
+      <View style={{ flex: 1 }}>
+        {/* FlatList for swipeable pages */}
+        <FlatList
+          ref={flatListRef}
+          data={pages}
+          renderItem={renderPageItem}
+          keyExtractor={(item) => item.id.toString()}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          bounces={false}
+        />
+
+        {/* Pagination Dots - Fixed Position */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'center',
+          paddingVertical: isSmallDevice ? 10 : 15,
+        }}>
+          {pages.map((_, dotIndex) => (
+            <View
+              key={dotIndex}
               style={{
-                color: 'white',
-                fontSize: currentPage === 2 ? 37 : 38,
-                fontWeight: 'bold',
-                lineHeight: currentPage === 0 ? 44 : 40,
-                marginTop: currentPage === 1 ? 48 : 0,
+                width: currentPage === dotIndex ? 18 : 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: currentPage === dotIndex
+                  ? 'white'
+                  : 'rgba(255,255,255,0.5)',
+                marginHorizontal: 4,
               }}
-            >
-              {currentContent.title}
-            </Text>
+            />
+          ))}
+        </View>
 
-            {/* Subtitle (only for pages 2 and 3) */}
-            {currentContent.subtitle && (
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.85)',
-                  fontSize: 13,
-                  marginTop: 10,
-                  lineHeight: 18,
-                  paddingHorizontal: 0,
-                }}
-              >
-                {currentContent.subtitle}
-              </Text>
-            )}
-
-            {/* Image */}
-            <View style={{
-              alignItems: 'center',
-              marginTop: currentPage === 0 ? 40 : (currentPage === 1 ? 10 : 20),
-              marginBottom: 0
-            }}>
-              <Animated.View
-                style={{
-                  transform: getImageTransform(),
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 10 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 10,
-                }}
-              >
-                <Animated.Image
-                  source={currentContent.image}
-                  style={currentContent.imageStyle}
-                  resizeMode={currentPage === 0 ? 'cover' : 'contain'}
-                />
-              </Animated.View>
-            </View>
-
-            {/* Dots */}
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              marginTop: currentPage === 0 ? 40 : (currentPage === 1 ? 10 : 25)
-            }}>
-              {pages.map((_, index) => (
-                <View
-                  key={index}
-                  style={{
-                    width: currentPage === index ? 18 : 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: currentPage === index
-                      ? 'white'
-                      : currentPage === 0 && index > 0
-                        ? 'rgba(255,255,255,0.5)'
-                        : 'rgba(255,255,255,0.7)',
-                    marginHorizontal: 4,
-                  }}
-                />
-              ))}
-            </View>
-          </Animated.View>
-
-          {/* Next button - outside animated content so it stays in place */}
+        {/* Fixed Bottom Section - Button + Navigation */}
+        <View
+          style={{
+            paddingHorizontal: contentPadding,
+            paddingBottom: Platform.OS === 'android' ? insets.bottom + 12 : 12,
+          }}
+        >
+          {/* Next/Get Started Button - Always in same position */}
           <TouchableOpacity
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             onPress={handleNext}
             activeOpacity={1}
-            style={{ marginTop: currentPage === 0 ? 20 : 30 }}
           >
             <Animated.View
               style={{
                 backgroundColor: 'white',
                 borderRadius: 50,
-                paddingLeft: 30,
-                paddingRight: 8,
-                paddingVertical: 8,
-                height: currentPage === 2 ? 57 : undefined,
+                paddingLeft: 24,
+                paddingRight: 6,
+                paddingVertical: 6,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                width: 320,
-                marginBottom: currentPage === 1 ? 45 : 0,
+                width: buttonWidth,
                 alignSelf: 'center',
                 transform: [{ scale: scaleAnim }],
                 shadowColor: '#000',
@@ -345,21 +336,21 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
               <Text
                 style={{
                   color: '#F56B4C',
-                  fontSize: 18,
+                  fontSize: Math.round(16 * scale),
                   fontWeight: '600',
                   flex: 1,
                   textAlign: 'center',
-                  marginRight: 10,
+                  marginRight: 8,
                 }}
               >
-                Next
+                {currentPage === pages.length - 1 ? 'Get Started' : 'Next'}
               </Text>
               <View
                 style={{
                   backgroundColor: '#F56B4C',
-                  borderRadius: 20,
-                  width: 40,
-                  height: 40,
+                  borderRadius: buttonIconSize / 2,
+                  width: buttonIconSize,
+                  height: buttonIconSize,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -367,47 +358,49 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
                 <Image
                   source={require('../../assets/icons/right.png')}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: buttonIconSize * 0.65,
+                    height: buttonIconSize * 0.65,
                   }}
                   resizeMode="contain"
                 />
               </View>
             </Animated.View>
           </TouchableOpacity>
-        </View>
 
-        {/* Bottom nav & bar */}
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 40,
-            left: 0,
-            right: 0,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            paddingHorizontal: 30,
-          }}
-        >
-          <TouchableOpacity
-            style={{ padding: 10 }}
-            onPress={handleBack}
-            disabled={currentPage === 0}
+          {/* Back & Skip Navigation */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: isSmallDevice ? 12 : 16,
+              paddingHorizontal: 6,
+            }}
           >
-            <Text style={{
-              color: 'white',
-              fontSize: 16,
-              fontWeight: '500',
-              opacity: currentPage === 0 ? 0.5 : 1,
-            }}>
-              Back
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ padding: 10 }} onPress={handleSkip}>
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '500' }}>Skip</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={{ padding: 10 }}
+              onPress={handleBack}
+              disabled={currentPage === 0}
+            >
+              <Text style={{
+                color: 'white',
+                fontSize: Math.round(15 * scale),
+                fontWeight: '500',
+                opacity: currentPage === 0 ? 0.5 : 1,
+              }}>
+                Back
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ padding: 10 }} onPress={handleSkip}>
+              <Text style={{
+                color: 'white',
+                fontSize: Math.round(15 * scale),
+                fontWeight: '500'
+              }}>
+                Skip
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
       </View>
     </SafeAreaView>
   );

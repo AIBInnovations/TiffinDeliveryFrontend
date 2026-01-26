@@ -28,6 +28,8 @@ export type AuthStackParamList = {
   UserOnboarding: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  TermsOfService: undefined;
+  PrivacyPolicy: undefined;
 };
 
 // Main Tab Navigator

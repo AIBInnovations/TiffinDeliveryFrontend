@@ -59,7 +59,7 @@ const OnboardingScreen2: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-500">
+    <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       <View className="flex-1 px-10">
         <View className="flex-1 justify-center" style={{ width: '100%' }}>

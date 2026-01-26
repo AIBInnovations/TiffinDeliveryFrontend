@@ -22,7 +22,7 @@ const SplashScreen = () => {
   }, [navigation]);
 
   return (
-    <View className="flex-1 bg-orange-500 justify-center items-center">
+    <View className="flex-1 bg-orange-400 justify-center items-center">
       <View className="flex-row items-center mb-8">
         <Image
           // source={require('../assets/images/Tiffsy_Logo.png')}

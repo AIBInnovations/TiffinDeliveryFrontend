@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -153,28 +154,40 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   return (
-    <View style={styles.container} className="flex-1 bg-gray-50">
+    <View style={styles.container} className="flex-1 bg-white">
       {/* Header */}
-      <View className="bg-white px-5 py-4 border-b border-gray-200">
+      <View className="bg-orange-400 px-5 py-4" style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="mr-4 p-2"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center mr-4"
           >
-            <Text className="text-xl text-gray-700">←</Text>
+            <Image
+              source={require('../../assets/icons/backarrow3.png')}
+              style={{ width: 24, height: 24, tintColor: 'white' }}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-gray-900">Auto-Order Settings</Text>
+          <Text className="text-xl font-bold text-white">Auto-Order Settings</Text>
         </View>
       </View>
 
       <ScrollView
-        className="flex-1"
+        className="flex-1 bg-gray-50"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: 16 }}
       >
         {/* Status Card */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl p-5 shadow-sm">
+        <View
+          className="bg-white mx-4 rounded-3xl p-5"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
+        >
           {/* Enable/Disable Toggle */}
           <View className="flex-row justify-between items-center mb-4">
             <View className="flex-1">
@@ -203,7 +216,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Next Auto-Order (if active) */}
           {isEnabled && !subscription.isPaused && (
             <View className="bg-orange-50 rounded-xl p-3">
-              <Text className="text-xs text-orange-600 mb-1">⏰ Next Auto-Order</Text>
+              <Text className="text-xs text-orange-600 mb-1">Next Auto-Order</Text>
               <Text className="text-base font-bold text-orange-700">
                 {formatNextAutoOrderTime(subscription)}
               </Text>
@@ -212,7 +225,16 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Meal Preferences */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl p-5 shadow-sm">
+        <View
+          className="bg-white mx-4 mt-4 rounded-3xl p-5"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
+        >
           <Text className="text-lg font-bold text-gray-900 mb-3">Meal Preferences</Text>
           <Text className="text-sm text-gray-600 mb-4">
             Select which meals to auto-order
@@ -241,8 +263,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-base font-semibold text-gray-900">🌞 Lunch Only</Text>
-                <Text className="text-xs text-gray-600 mt-1">Orders placed at 10:00 AM</Text>
+                <Text className="text-base font-semibold text-gray-900">Lunch Only</Text>
+                <Text className="text-xs text-gray-600 mt-1">Automatically orders lunch at 10:00 AM daily</Text>
               </View>
             </TouchableOpacity>
 
@@ -268,8 +290,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-base font-semibold text-gray-900">🌙 Dinner Only</Text>
-                <Text className="text-xs text-gray-600 mt-1">Orders placed at 7:00 PM</Text>
+                <Text className="text-base font-semibold text-gray-900">Dinner Only</Text>
+                <Text className="text-xs text-gray-600 mt-1">Automatically orders dinner at 7:00 PM daily</Text>
               </View>
             </TouchableOpacity>
 
@@ -295,15 +317,24 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-base font-semibold text-gray-900">☀️ Both Meals</Text>
-                <Text className="text-xs text-gray-600 mt-1">Lunch and Dinner</Text>
+                <Text className="text-base font-semibold text-gray-900">Both Meals</Text>
+                <Text className="text-xs text-gray-600 mt-1">Automatically orders both lunch and dinner daily</Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Default Address */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl p-5 shadow-sm">
+        <View
+          className="bg-white mx-4 mt-4 rounded-3xl p-5"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
+        >
           <Text className="text-lg font-bold text-gray-900 mb-3">Default Address</Text>
 
           {defaultAddress ? (
@@ -314,7 +345,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               <View className="flex-1">
                 <View className="flex-row items-center mb-2">
                   <Text className="text-base font-semibold text-gray-900">
-                    🏠 {defaultAddress.label || 'Home'}
+                    {defaultAddress.label || 'Home'}
                   </Text>
                 </View>
                 <Text className="text-sm text-gray-600" numberOfLines={2}>
@@ -340,7 +371,16 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Quick Actions */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl p-5 shadow-sm">
+        <View
+          className="bg-white mx-4 mt-4 rounded-3xl p-5"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
+        >
           <Text className="text-lg font-bold text-gray-900 mb-4">Quick Actions</Text>
 
           {/* Pause/Resume Button */}
@@ -353,7 +393,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               }`}
             >
               <Text className={`text-base font-semibold ${isEnabled ? 'text-amber-700' : 'text-gray-400'}`}>
-                ⏸️ Pause Auto-Ordering
+                Pause Auto-Ordering
               </Text>
             </TouchableOpacity>
           ) : (
@@ -363,7 +403,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               className="flex-row items-center justify-center p-4 rounded-xl bg-green-50 border-2 border-green-200 mb-3"
             >
               <Text className="text-base font-semibold text-green-700">
-                ▶️ Resume Auto-Ordering
+                Resume Auto-Ordering
               </Text>
             </TouchableOpacity>
           )}
@@ -377,14 +417,23 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             }`}
           >
             <Text className={`text-base font-semibold ${isEnabled ? 'text-blue-700' : 'text-gray-400'}`}>
-              📅 Manage Skipped Meals
+              Manage Skipped Meals
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Skipped Meals List (if any) */}
         {subscription.skippedSlots && subscription.skippedSlots.length > 0 && (
-          <View className="bg-white mx-4 mt-4 rounded-2xl p-5 shadow-sm">
+          <View
+            className="bg-white mx-4 mt-4 rounded-3xl p-5"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
             <Text className="text-lg font-bold text-gray-900 mb-3">
               Skipped Meals ({subscription.skippedSlots.length})
             </Text>
@@ -394,10 +443,17 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 key={index}
                 className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0"
               >
-                <Text className="text-xl mr-3">{slot.mealWindow === 'LUNCH' ? '🌞' : '🌙'}</Text>
+                <View
+                  className="w-10 h-10 rounded-full mr-3 items-center justify-center"
+                  style={{ backgroundColor: slot.mealWindow === 'LUNCH' ? '#FFF7ED' : '#EDE9FE' }}
+                >
+                  <Text className="text-sm font-bold" style={{ color: slot.mealWindow === 'LUNCH' ? '#F97316' : '#8B5CF6' }}>
+                    {slot.mealWindow === 'LUNCH' ? 'L' : 'D'}
+                  </Text>
+                </View>
                 <View className="flex-1">
                   <Text className="text-sm font-semibold text-gray-900">
-                    {formatShortDate(slot.date)} - {slot.mealWindow}
+                    {formatShortDate(slot.date)} - {slot.mealWindow === 'LUNCH' ? 'Lunch' : 'Dinner'}
                   </Text>
                   {slot.reason && (
                     <Text className="text-xs text-gray-500 mt-1">{slot.reason}</Text>
@@ -411,7 +467,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={navigateToSkipCalendar}
                 className="mt-3"
               >
-                <Text className="text-center text-orange-500 font-semibold">
+                <Text className="text-center text-orange-400 font-semibold">
                   View all ({subscription.skippedSlots.length})
                 </Text>
               </TouchableOpacity>

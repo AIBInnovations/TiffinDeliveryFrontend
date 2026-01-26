@@ -189,32 +189,50 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     setVouchersLoading(true);
     setError(null);
     try {
-      const response = await apiService.getMyVouchers({ status });
-      console.log('[SubscriptionContext] fetchVouchers - Success');
-      console.log('[SubscriptionContext] fetchVouchers - Vouchers array length:', response.data.vouchers.length);
-      console.log('[SubscriptionContext] fetchVouchers - Summary from API:', JSON.stringify(response.data.summary));
+      // Fetch first page to get pagination info (max 100 per page)
+      const firstResponse = await apiService.getMyVouchers({ status, limit: 100, page: 1 });
+      console.log('[SubscriptionContext] fetchVouchers - First page success');
+      console.log('[SubscriptionContext] fetchVouchers - Pagination info:', JSON.stringify(firstResponse.data.pagination));
+
+      let allVouchers = [...firstResponse.data.vouchers];
+      const pagination = firstResponse.data.pagination;
+
+      // Fetch remaining pages if there are more
+      if (pagination && pagination.pages > 1) {
+        console.log('[SubscriptionContext] fetchVouchers - Fetching', pagination.pages - 1, 'more pages');
+        const remainingPages = [];
+        for (let page = 2; page <= pagination.pages; page++) {
+          remainingPages.push(apiService.getMyVouchers({ status, limit: 100, page }));
+        }
+        const remainingResponses = await Promise.all(remainingPages);
+        remainingResponses.forEach(response => {
+          allVouchers = [...allVouchers, ...response.data.vouchers];
+        });
+      }
+
+      console.log('[SubscriptionContext] fetchVouchers - Total vouchers fetched:', allVouchers.length);
+      console.log('[SubscriptionContext] fetchVouchers - Summary from API:', JSON.stringify(firstResponse.data.summary));
 
       // DEBUG: Log each voucher status
-      const statusCounts = response.data.vouchers.reduce((acc: any, v: any) => {
+      const statusCounts = allVouchers.reduce((acc: any, v: any) => {
         acc[v.status] = (acc[v.status] || 0) + 1;
         return acc;
       }, {});
       console.log('[SubscriptionContext] fetchVouchers - Status breakdown:', JSON.stringify(statusCounts));
 
-      const vouchersData = response.data.vouchers || [];
-      setVouchers(vouchersData);
+      setVouchers(allVouchers);
 
-      // Calculate summary from vouchers if API doesn't provide it
-      if (response.data.summary) {
-        setVoucherSummary(response.data.summary);
+      // Use summary from API (should be accurate across all pages)
+      if (firstResponse.data.summary) {
+        setVoucherSummary(firstResponse.data.summary);
       } else {
-        // Calculate summary client-side from vouchers array
+        // Calculate summary client-side from all fetched vouchers
         const calculatedSummary: VoucherSummary = {
-          available: vouchersData.filter((v: Voucher) => v.status === 'AVAILABLE').length,
-          redeemed: vouchersData.filter((v: Voucher) => v.status === 'REDEEMED').length,
-          expired: vouchersData.filter((v: Voucher) => v.status === 'EXPIRED').length,
-          restored: vouchersData.filter((v: Voucher) => v.status === 'RESTORED').length,
-          total: vouchersData.length,
+          available: allVouchers.filter((v: Voucher) => v.status === 'AVAILABLE').length,
+          redeemed: allVouchers.filter((v: Voucher) => v.status === 'REDEEMED').length,
+          expired: allVouchers.filter((v: Voucher) => v.status === 'EXPIRED').length,
+          restored: allVouchers.filter((v: Voucher) => v.status === 'RESTORED').length,
+          total: allVouchers.length,
         };
         console.log('[SubscriptionContext] fetchVouchers - Calculated summary:', JSON.stringify(calculatedSummary));
         setVoucherSummary(calculatedSummary);

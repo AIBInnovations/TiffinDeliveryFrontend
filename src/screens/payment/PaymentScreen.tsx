@@ -115,7 +115,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
         {/* Amount to Pay */}
         <View className="bg-white px-6 py-5 mb-4">
           <Text className="text-sm text-gray-600 mb-2">Amount to Pay</Text>
-          <Text className="text-3xl font-bold text-orange-500">�{totalAmount.toFixed(2)}</Text>
+          <Text className="text-3xl font-bold text-orange-400">₹{totalAmount.toFixed(2)}</Text>
           <View className="mt-3 pt-3 border-t border-gray-200">
             <View className="flex-row justify-between mb-2">
               <Text className="text-sm text-gray-600">Subtotal</Text>

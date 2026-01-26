@@ -1,6 +1,10 @@
 // src/context/CartContext.tsx
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OrderItem, OrderItemAddon } from '../services/api.service';
+
+const CART_STORAGE_KEY = '@tiffsy_cart';
+const CART_CONTEXT_STORAGE_KEY = '@tiffsy_cart_context';
 
 // Addon item in cart
 export interface CartItemAddon {
@@ -76,6 +80,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Cart items state
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Order context state
   const [kitchenId, setKitchenId] = useState<string | null>(null);
@@ -86,6 +91,101 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [couponCode, setCouponCode] = useState<string | null>(null);
   const [specialInstructions, setSpecialInstructions] = useState<string>('');
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
+
+  // Load cart from AsyncStorage on mount
+  useEffect(() => {
+    const loadCart = async () => {
+      try {
+        const [cartData, contextData] = await Promise.all([
+          AsyncStorage.getItem(CART_STORAGE_KEY),
+          AsyncStorage.getItem(CART_CONTEXT_STORAGE_KEY),
+        ]);
+
+        let savedMealWindow: MealWindow | null = null;
+
+        // Load context first to get meal window
+        if (contextData) {
+          const context = JSON.parse(contextData);
+          savedMealWindow = context.mealWindow;
+          if (context.kitchenId) setKitchenId(context.kitchenId);
+          if (context.menuType) setMenuType(context.menuType);
+          if (context.mealWindow) setMealWindow(context.mealWindow);
+          if (context.deliveryAddressId) setDeliveryAddressId(context.deliveryAddressId);
+          if (context.voucherCount) setVoucherCount(context.voucherCount);
+          if (context.couponCode) setCouponCode(context.couponCode);
+          if (context.specialInstructions) setSpecialInstructions(context.specialInstructions);
+          if (context.deliveryNotes) setDeliveryNotes(context.deliveryNotes);
+          console.log('[CartContext] Loaded cart context from storage');
+        }
+
+        // Load cart and reconstruct images based on saved meal window
+        if (cartData) {
+          const parsedCart = JSON.parse(cartData);
+
+          // Reconstruct image objects based on saved meal window
+          const cartWithImages = parsedCart.map((item: any) => ({
+            ...item,
+            image: savedMealWindow === 'LUNCH'
+              ? require('../assets/images/homepage/lunch2.png')
+              : require('../assets/images/homepage/dinneritem.png'),
+          }));
+
+          setCartItems(cartWithImages);
+          console.log('[CartContext] Loaded cart from storage:', parsedCart.length, 'items');
+        }
+      } catch (error) {
+        console.error('[CartContext] Error loading cart from storage:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadCart();
+  }, []);
+
+  // Save cart to AsyncStorage whenever it changes
+  useEffect(() => {
+    if (!isLoaded) return; // Don't save on initial load
+
+    const saveCart = async () => {
+      try {
+        // Remove image objects before saving (they can't be serialized)
+        const cartToSave = cartItems.map(({ image, ...item }) => item);
+        await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartToSave));
+        console.log('[CartContext] Saved cart to storage:', cartItems.length, 'items');
+      } catch (error) {
+        console.error('[CartContext] Error saving cart:', error);
+      }
+    };
+
+    saveCart();
+  }, [cartItems, isLoaded]);
+
+  // Save cart context to AsyncStorage whenever it changes
+  useEffect(() => {
+    if (!isLoaded) return; // Don't save on initial load
+
+    const saveContext = async () => {
+      try {
+        const context = {
+          kitchenId,
+          menuType,
+          mealWindow,
+          deliveryAddressId,
+          voucherCount,
+          couponCode,
+          specialInstructions,
+          deliveryNotes,
+        };
+        await AsyncStorage.setItem(CART_CONTEXT_STORAGE_KEY, JSON.stringify(context));
+        console.log('[CartContext] Saved cart context to storage');
+      } catch (error) {
+        console.error('[CartContext] Error saving cart context:', error);
+      }
+    };
+
+    saveContext();
+  }, [kitchenId, menuType, mealWindow, deliveryAddressId, voucherCount, couponCode, specialInstructions, deliveryNotes, isLoaded]);
 
   const addToCart = useCallback((item: CartItem) => {
     console.log('[CartContext] addToCart called with item:', JSON.stringify({
@@ -168,13 +268,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   }, []);
 
-  const clearCart = useCallback(() => {
+  const clearCart = useCallback(async () => {
     setCartItems([]);
     // Also reset voucher and coupon when clearing cart
     setVoucherCount(0);
     setCouponCode(null);
     setSpecialInstructions('');
     setDeliveryNotes('');
+
+    // Clear from AsyncStorage
+    try {
+      await AsyncStorage.removeItem(CART_STORAGE_KEY);
+      await AsyncStorage.removeItem(CART_CONTEXT_STORAGE_KEY);
+      console.log('[CartContext] Cleared cart from storage');
+    } catch (error) {
+      console.error('[CartContext] Error clearing cart from storage:', error);
+    }
   }, []);
 
   const getTotalItems = useCallback(() => {
@@ -240,7 +349,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [cartItems]);
 
   // Reset order context after successful order
-  const resetOrderContext = useCallback(() => {
+  const resetOrderContext = useCallback(async () => {
     setCartItems([]);
     setKitchenId(null);
     setMenuType(null);
@@ -250,6 +359,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCouponCode(null);
     setSpecialInstructions('');
     setDeliveryNotes('');
+
+    // Clear from AsyncStorage
+    try {
+      await AsyncStorage.removeItem(CART_STORAGE_KEY);
+      await AsyncStorage.removeItem(CART_CONTEXT_STORAGE_KEY);
+      console.log('[CartContext] Reset cart context and cleared storage');
+    } catch (error) {
+      console.error('[CartContext] Error clearing cart from storage:', error);
+    }
   }, []);
 
   // Check if cart is ready for checkout

@@ -228,7 +228,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text className="text-xs font-semibold text-gray-600 mb-2">Legend:</Text>
             <View className="flex-row items-center space-x-4">
               <View className="flex-row items-center mr-4">
-                <View className="w-3 h-3 rounded-full bg-orange-500 mr-2" />
+                <View className="w-3 h-3 rounded-full bg-orange-400 mr-2" />
                 <Text className="text-xs text-gray-600">Lunch Skipped</Text>
               </View>
               <View className="flex-row items-center">
@@ -354,7 +354,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                   onPress={isCurrentlySkipped ? handleUnskipMeal : handleSkipMeal}
                   disabled={isLoading}
                   className={`p-4 rounded-full items-center justify-center ${
-                    isCurrentlySkipped ? 'bg-green-500' : 'bg-orange-500'
+                    isCurrentlySkipped ? 'bg-green-500' : 'bg-orange-400'
                   }`}
                 >
                   {isLoading ? (

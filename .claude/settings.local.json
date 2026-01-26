@@ -22,7 +22,9 @@
       "Bash(npm run android:*)",
       "Bash(./gradlew bundleRelease:*)",
       "Bash(git pull:*)",
-      "Bash(npm i:*)"
+      "Bash(npm i:*)",
+      "Bash(tree:*)",
+      "Bash(npm start)"
     ]
   }
 }

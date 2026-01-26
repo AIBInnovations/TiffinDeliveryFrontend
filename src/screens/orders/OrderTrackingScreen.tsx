@@ -84,11 +84,9 @@ const formatTime = (dateString: string): string => {
   });
 };
 
-// Generate OTP from order number (mock - backend would provide this)
-const generateOTP = (orderNumber: string): string[] => {
-  const hash = orderNumber.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const otp = String(hash % 10000).padStart(4, '0');
-  return otp.split('');
+// Check if order is out for delivery (status where OTP should be shown)
+const isOutForDeliveryStatus = (status: OrderStatus): boolean => {
+  return status === 'PICKED_UP' || status === 'OUT_FOR_DELIVERY';
 };
 
 const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -97,6 +95,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const [tracking, setTracking] = useState<OrderTrackingData | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
+  const [deliveryOtp, setDeliveryOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickupNotes, setPickupNotes] = useState('');
@@ -132,12 +131,16 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
       let orderData: Order | null = null;
 
       const resp = orderResponse as any;
+      let orderDeliveryOtp: string | null = null;
       if (resp?.data?.order?._id) {
         orderData = resp.data.order;
+        orderDeliveryOtp = resp.data.deliveryOtp || null;
       } else if (resp?.error?.order?._id) {
         orderData = resp.error.order;
+        orderDeliveryOtp = resp.error.deliveryOtp || null;
       } else if (resp?.data?._id) {
         orderData = resp.data;
+        orderDeliveryOtp = resp.deliveryOtp || null;
       }
 
       console.log('[OrderTracking] Tracking success:', isTrackingSuccess, 'Order success:', isOrderSuccess);
@@ -145,6 +148,18 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
       if (isTrackingSuccess && trackingData && trackingData.status) {
         console.log('[OrderTracking] Tracking loaded - Status:', trackingData.status);
         setTracking(trackingData);
+
+        // Extract deliveryOtp from tracking or order response
+        // The API returns deliveryOtp in the data object when status is PICKED_UP or OUT_FOR_DELIVERY
+        const otpFromTracking = trackingData.deliveryOtp || (trackingResponse as any).data?.deliveryOtp;
+        const otpFromResponse = otpFromTracking || orderDeliveryOtp || null;
+        if (otpFromResponse) {
+          console.log('[OrderTracking] Delivery OTP received:', otpFromResponse);
+          setDeliveryOtp(otpFromResponse);
+        } else if (!isOutForDeliveryStatus(trackingData.status)) {
+          // Clear OTP if not in delivery status
+          setDeliveryOtp(null);
+        }
 
         // Use order from tracking response if available, otherwise use fetched order
         const finalOrder = trackingData.order || orderData;
@@ -318,12 +333,13 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
     showAlert('Coming Soon', 'Receipt download will be available soon!', undefined, 'default');
   };
 
-  // Get OTP for delivery
-  const otp = order ? generateOTP(order.orderNumber) : ['0', '0', '0', '0'];
-
   // Current step in progress tracker
   const currentStep = tracking ? getStepIndex(tracking.status) : 0;
   const isCancelledOrRejected = tracking?.status === 'CANCELLED' || tracking?.status === 'REJECTED';
+
+  // Check if we should show OTP (only when out for delivery)
+  const shouldShowOtp = tracking && isOutForDeliveryStatus(tracking.status);
+  const otpDigits = deliveryOtp ? deliveryOtp.split('') : [];
 
   // Debug logging
   console.log('[OrderTracking] Status:', tracking?.status, 'Current Step:', currentStep);
@@ -566,25 +582,82 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* OTP Section */}
-          {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (
-            <View className="flex-row items-center justify-between">
-              <Text className="text-base font-bold text-gray-900">
-                Give OTP during Delivery
+          {/* OTP Section - Only show when out for delivery */}
+          {shouldShowOtp && deliveryOtp && (
+            <View
+              style={{
+                backgroundColor: '#E8F5E9',
+                borderRadius: 12,
+                padding: 20,
+                borderWidth: 2,
+                borderColor: '#4CAF50',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: '#388E3C',
+                  fontWeight: '600',
+                  textAlign: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                Your Delivery OTP
               </Text>
-              <View className="flex-row">
-                {otp.map((digit, index) => (
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+                {otpDigits.map((digit, index) => (
                   <View
                     key={index}
-                    className="bg-gray-100 items-center justify-center"
-                    style={{ width: 33, height: 35, borderRadius: 7, marginRight: index < 3 ? 4 : 0 }}
+                    style={{
+                      width: 50,
+                      height: 60,
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: 8,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: '#4CAF50',
+                    }}
                   >
-                    <Text className="font-bold" style={{ fontSize: 15, color: 'rgba(81, 81, 81, 1)' }}>
+                    <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#2E7D32' }}>
                       {digit}
                     </Text>
                   </View>
                 ))}
               </View>
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: '#666666',
+                  marginTop: 12,
+                  textAlign: 'center',
+                }}
+              >
+                Share this code with your delivery partner
+              </Text>
+            </View>
+          )}
+
+          {/* OTP Error - Show when out for delivery but OTP is missing */}
+          {shouldShowOtp && !deliveryOtp && (
+            <View
+              style={{
+                backgroundColor: '#FFF3E0',
+                borderRadius: 12,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: '#FFB74D',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: '#E65100',
+                  textAlign: 'center',
+                }}
+              >
+                Delivery OTP not available. Please contact support if the driver arrives.
+              </Text>
             </View>
           )}
         </View>

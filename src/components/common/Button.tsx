@@ -36,15 +36,15 @@ const Button: React.FC<ButtonProps> = ({
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
-        return 'bg-orange-500';
+        return 'bg-orange-400';
       case 'secondary':
         return 'bg-white';
       case 'outline':
-        return 'bg-transparent border-2 border-orange-500';
+        return 'bg-transparent border-2 border-orange-400';
       case 'ghost':
         return 'bg-transparent';
       default:
-        return 'bg-orange-500';
+        return 'bg-orange-400';
     }
   };
 
@@ -53,11 +53,11 @@ const Button: React.FC<ButtonProps> = ({
       case 'primary':
         return 'text-white';
       case 'secondary':
-        return 'text-orange-500';
+        return 'text-orange-400';
       case 'outline':
-        return 'text-orange-500';
+        return 'text-orange-400';
       case 'ghost':
-        return 'text-orange-500';
+        return 'text-orange-400';
       default:
         return 'text-white';
     }
