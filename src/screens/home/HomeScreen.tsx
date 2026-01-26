@@ -729,9 +729,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         {showAutoOrderNotification && subscriptions.find(
           sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused
         ) && (
-          <View className="mx-5 mb-4 mt-4">
+          <View className="mx-4 mb-3 mt-3">
             <View
-              className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 flex-row items-center"
+              className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-3 flex-row items-center"
               style={{
                 backgroundColor: '#F3E8FF',
                 borderWidth: 1,
@@ -743,11 +743,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 elevation: 3,
               }}
             >
-              <View className="w-10 h-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: '#8B5CF6' }}>
-                <Text className="text-white text-xl">⚡</Text>
+              <View className="w-9 h-9 rounded-full items-center justify-center mr-2.5" style={{ backgroundColor: '#8B5CF6' }}>
+                <Text className="text-white text-lg">⚡</Text>
               </View>
               <View className="flex-1">
-                <Text className="text-base font-bold text-gray-900 mb-1">
+                <Text className="text-base font-bold text-gray-900 mb-0.5">
                   Auto-Order Active
                 </Text>
                 <Text className="text-sm text-gray-700">
@@ -756,9 +756,46 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     if (!sub) return 'Your meals will be automatically ordered';
 
                     const nextOrderTime = formatNextAutoOrderTime(sub);
-                    const mealType = sub.defaultMealType === 'LUNCH' ? 'Lunch' :
-                                     sub.defaultMealType === 'DINNER' ? 'Dinner' :
-                                     sub.defaultMealType === 'BOTH' ? 'Your meals' : 'Your order';
+
+                    // Determine which specific meal is coming next
+                    let mealType = 'Your order';
+                    if (sub.defaultMealType === 'LUNCH') {
+                      mealType = 'Lunch';
+                    } else if (sub.defaultMealType === 'DINNER') {
+                      mealType = 'Dinner';
+                    } else if (sub.defaultMealType === 'BOTH') {
+                      // For BOTH, determine which meal is next based on current time
+                      const now = new Date();
+                      const currentHour = now.getHours();
+
+                      // Get operating hours for accurate calculation
+                      const operatingHours = currentKitchen?.operatingHours;
+
+                      // Default lunch auto-order time is 10:00 AM (1 hour before 11:00 AM)
+                      // Default dinner auto-order time is 6:00 PM (1 hour before 7:00 PM)
+                      let lunchAutoOrderHour = 10;
+                      let dinnerAutoOrderHour = 18;
+
+                      // If operating hours are available, calculate accurate times
+                      if (operatingHours?.lunch?.startTime) {
+                        const [hoursStr] = operatingHours.lunch.startTime.split(':');
+                        lunchAutoOrderHour = parseInt(hoursStr, 10) - 1;
+                      }
+                      if (operatingHours?.dinner?.startTime) {
+                        const [hoursStr] = operatingHours.dinner.startTime.split(':');
+                        dinnerAutoOrderHour = parseInt(hoursStr, 10) - 1;
+                      }
+
+                      // Determine next meal based on current time
+                      if (currentHour < lunchAutoOrderHour) {
+                        mealType = 'Lunch';
+                      } else if (currentHour < dinnerAutoOrderHour) {
+                        mealType = 'Dinner';
+                      } else {
+                        // After dinner time, next meal is lunch tomorrow
+                        mealType = 'Lunch';
+                      }
+                    }
 
                     return `${mealType} will be automatically ordered ${nextOrderTime}`;
                   })()}

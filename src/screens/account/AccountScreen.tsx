@@ -36,9 +36,9 @@ type Props = StackScreenProps<MainTabParamList, 'Account'>;
 const ACCOUNT_MENU_ITEMS = [
   { id: 'orders', label: 'My Orders', icon: require('../../assets/icons/order2.png'), route: 'YourOrders' as const, authRequired: true },
   { id: 'addresses', label: 'Saved Addresses', icon: require('../../assets/icons/address2.png'), route: 'Address' as const, authRequired: true },
-  { id: 'mealplans', label: 'Meal Plans', icon: require('../../assets/icons/mealplan.png'), route: 'MealPlans' as const, authRequired: false },
-  { id: 'vouchers', label: 'My Vouchers', icon: require('../../assets/icons/meal.png'), route: 'Vouchers' as const, authRequired: true },
-  { id: 'autoordersettings', label: 'Auto-Order Settings', icon: require('../../assets/icons/meal.png'), route: 'AutoOrderSettings' as const, authRequired: true },
+  { id: 'mealplans', label: 'Meal Plans', icon: require('../../assets/icons/prepared2.png'), route: 'MealPlans' as const, authRequired: false },
+  { id: 'vouchers', label: 'My Vouchers', icon: require('../../assets/icons/refund2.png'), route: 'Vouchers' as const, authRequired: true },
+  { id: 'autoordersettings', label: 'Auto-Order Settings', icon: require('../../assets/icons/time2.png'), route: 'AutoOrderSettings' as const, authRequired: true },
   { id: 'bulkorders', label: 'Bulk Orders', icon: require('../../assets/icons/bulkorders.png'), route: 'BulkOrders' as const, authRequired: false },
 ];
 
@@ -659,10 +659,18 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Validity Section - Show if we have activeSubscription with expiry OR available vouchers */}
             {(() => {
-              const expiryDate = activeSubscription?.expiryDate || getNearestVoucherExpiry();
-              const vouchersCount = activeSubscription?.vouchersRemaining ?? usableVouchers;
+              // Always get the nearest expiry date from available vouchers
+              const nearestExpiry = getNearestVoucherExpiry();
 
-              if (!expiryDate || vouchersCount === 0) return null;
+              if (!nearestExpiry) return null;
+
+              // Count vouchers expiring on this specific date
+              const vouchersExpiringOnDate = vouchers.filter(
+                v => (v.status === 'AVAILABLE' || v.status === 'RESTORED') &&
+                     new Date(v.expiryDate).toDateString() === new Date(nearestExpiry).toDateString()
+              ).length;
+
+              if (vouchersExpiringOnDate === 0) return null;
 
               return (
                 <>
@@ -676,9 +684,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     <View className="flex-row items-center justify-between">
                       <View className="flex-row items-center">
                         <View className="w-2 h-2 rounded-full bg-orange-400 mr-2" />
-                        <Text className="text-sm text-gray-700">{vouchersCount} vouchers expires</Text>
+                        <Text className="text-sm text-gray-700">{vouchersExpiringOnDate} voucher{vouchersExpiringOnDate > 1 ? 's' : ''} expire{vouchersExpiringOnDate === 1 ? 's' : ''}</Text>
                       </View>
-                      <Text className="text-sm font-semibold text-gray-900">{formatExpiryDate(expiryDate)}</Text>
+                      <Text className="text-sm font-semibold text-gray-900">{formatExpiryDate(nearestExpiry)}</Text>
                     </View>
                   </View>
                 </>
@@ -891,7 +899,11 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                       <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
                         <Image
                           source={item.icon}
-                          style={{ width: 36, height: 36 }}
+                          style={{
+                            width: item.id === 'autoordersettings' ? 28 : (item.id === 'vouchers' || item.id === 'mealplans' || item.id === 'bulkorders' ? 40 : 36),
+                            height: item.id === 'autoordersettings' ? 28 : (item.id === 'vouchers' || item.id === 'mealplans' || item.id === 'bulkorders' ? 40 : 36),
+                            tintColor: item.id === 'autoordersettings' ? '#FFFFFF' : undefined
+                          }}
                           resizeMode="contain"
                         />
                       </View>

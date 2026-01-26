@@ -397,36 +397,50 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         />
 
         <View className="flex-1 ml-3">
+          {/* Row 1: Title | Price */}
           <View className="flex-row items-center justify-between mb-1">
-            <Text className="text-lg font-bold text-gray-900">{getOrderTitle(order)}</Text>
+            <Text className="text-lg font-bold text-gray-900 flex-1" numberOfLines={1} style={{ marginRight: 8 }}>
+              {getOrderTitle(order)}
+            </Text>
             <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
           </View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>Order ID - #{order.orderNumber}</Text>
-            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>{getQuantityString(order)}</Text>
+
+          {/* Row 2: Order ID */}
+          <View className="mb-1">
+            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }} numberOfLines={1}>
+              Order ID - #{order.orderNumber}
+            </Text>
           </View>
-          {order.isAutoOrder && (
-            <View className="mt-2">
+
+          {/* Row 3: Time | Auto Badge */}
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
+              {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+            {order.isAutoOrder && (
               <View
-                className="px-2 py-1 rounded-full"
-                style={{ backgroundColor: '#F3E8FF', alignSelf: 'flex-start' }}
+                className="px-2.5 py-1 rounded-full flex-row items-center"
+                style={{
+                  backgroundColor: '#8B5CF6',
+                  shadowColor: '#8B5CF6',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
               >
-                <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>
-                  Auto-Order
-                </Text>
+                <Text className="text-white text-xs mr-1">⚡</Text>
+                <Text className="text-xs font-bold text-white">Auto</Text>
               </View>
-            </View>
-          )}
+            )}
+          </View>
         </View>
       </View>
 
-      {/* Status and Time */}
-      <View className="flex-row items-center justify-between mb-4">
+      {/* Row 4: Status */}
+      <View className="mb-4">
         <Text className="text-sm font-semibold" style={{ color: '#6B7280' }}>
           {getStatusMessage(order.status)}
-        </Text>
-        <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
-          {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
 
@@ -486,7 +500,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
         <View className="flex-1 ml-3">
           <View className="flex-row items-center justify-between mb-1">
-            <Text className="text-base font-bold text-gray-900" numberOfLines={1} style={{ flex: 1, marginRight: 8 }}>
+            <Text className="text-base font-bold text-gray-900 flex-1" numberOfLines={1} style={{ marginRight: 8 }}>
               {getOrderTitle(order)}
             </Text>
             <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
@@ -494,57 +508,80 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }} numberOfLines={1}>
             Order ID - #{order.orderNumber}
           </Text>
-          <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)', marginTop: 2 }}>
-            {formatDate(order.placedAt)}
-          </Text>
-          {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
-            <Text className="text-xs" style={{ color: '#16A34A', marginTop: 4, fontWeight: '600' }}>
-              {order.voucherUsage.voucherCount} voucher{order.voucherUsage.voucherCount > 1 ? 's' : ''} used
-            </Text>
-          )}
-          {order.isAutoOrder && (
-            <View className="mt-2">
-              <View
-                className="px-2 py-1 rounded-full"
-                style={{ backgroundColor: '#F3E8FF', alignSelf: 'flex-start' }}
-              >
-                <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>
-                  Auto-Order
+          <View className="flex-row items-center justify-between mt-2">
+            <View className="flex-1">
+              <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
+                {formatDate(order.placedAt)}
+              </Text>
+              {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
+                <Text className="text-xs" style={{ color: '#16A34A', marginTop: 2, fontWeight: '600' }}>
+                  {order.voucherUsage.voucherCount} voucher{order.voucherUsage.voucherCount > 1 ? 's' : ''} used
                 </Text>
-              </View>
+              )}
             </View>
-          )}
+            {order.isAutoOrder && (
+              <View
+                className="px-2.5 py-1.5 rounded-full flex-row items-center"
+                style={{
+                  backgroundColor: '#8B5CF6',
+                  shadowColor: '#8B5CF6',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
+              >
+                <Text className="text-white text-xs mr-1">⚡</Text>
+                <Text className="text-xs font-bold text-white">Auto</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
-      {/* Re-order and Status */}
-      <View className="flex-row items-center justify-between">
+      {/* Status and Re-order */}
+      <View className="mt-3">
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center">
+            <View
+              className="w-2 h-2 rounded-full mr-2"
+              style={{
+                backgroundColor: order.status === 'DELIVERED' ? '#16A34A' : '#EF4444',
+              }}
+            />
+            <Text
+              className="text-sm font-semibold"
+              style={{
+                color: order.status === 'DELIVERED' ? '#16A34A' : '#EF4444',
+              }}
+            >
+              {getStatusMessage(order.status)}
+            </Text>
+          </View>
+        </View>
+
         <TouchableOpacity
           onPress={(e) => {
             e.stopPropagation();
             handleReorder(order._id);
           }}
-          className="rounded-full px-6 py-2 flex-row items-center"
-          style={{ backgroundColor: 'rgba(245, 107, 76, 1)' }}
+          className="rounded-full py-2.5 flex-row items-center justify-center"
+          style={{
+            backgroundColor: '#F56B4C',
+            shadowColor: '#F56B4C',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
         >
           <Image
             source={require('../../assets/icons/reorder2.png')}
             style={{ width: 16, height: 16, tintColor: 'white', marginRight: 6 }}
             resizeMode="contain"
           />
-          <Text className="text-white font-semibold text-sm">Re-order</Text>
+          <Text className="font-bold text-sm text-white">Re-order</Text>
         </TouchableOpacity>
-
-        <View className="flex-row items-center">
-          <Text
-            className="text-sm font-medium"
-            style={{
-              color: order.status === 'DELIVERED' ? '#16A34A' : '#EF4444',
-            }}
-          >
-            {getStatusMessage(order.status)}
-          </Text>
-        </View>
       </View>
     </TouchableOpacity>
   );
