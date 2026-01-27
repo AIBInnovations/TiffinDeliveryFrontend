@@ -59,6 +59,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [pauseDate, setPauseDate] = useState<Date | null>(null);
   const [pauseReason, setPauseReason] = useState('');
+  const [pauseMealType, setPauseMealType] = useState<'LUNCH' | 'DINNER' | 'BOTH'>('BOTH');
   const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Modal states for success and error messages
@@ -179,15 +180,29 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const handlePause = async () => {
     setIsLoading(true);
     try {
-      await pauseAutoOrdering(subscription._id, {
-        pauseReason: pauseReason || undefined,
-        pauseUntil: pauseDate?.toISOString(),
-      });
+      if (pauseMealType === 'BOTH') {
+        // Pause entire subscription
+        await pauseAutoOrdering(subscription._id, {
+          pauseReason: pauseReason || `Paused both lunch and dinner`,
+          pauseUntil: pauseDate?.toISOString(),
+        });
+        setModalMessage('Auto-ordering has been paused for both lunch and dinner');
+      } else {
+        // Pause specific meal type by changing defaultMealType
+        const newMealType = pauseMealType === 'LUNCH' ? 'DINNER' : 'LUNCH';
+        await updateAutoOrderSettings(subscription._id, {
+          autoOrderingEnabled: true,
+          defaultMealType: newMealType,
+          defaultAddressId: defaultAddress?._id,
+        });
+        setModalMessage(`Auto-ordering has been paused for ${pauseMealType.toLowerCase()}. Only ${newMealType.toLowerCase()} will be auto-ordered.`);
+      }
+
       setShowPauseModal(false);
       setPauseReason('');
       setPauseDate(null);
+      setPauseMealType('BOTH');
       setModalTitle('Success');
-      setModalMessage('Auto-ordering has been paused');
       setShowSuccessModal(true);
     } catch (error: any) {
       setModalTitle('Error');
@@ -373,6 +388,53 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                         </Text>
                       </View>
                     )}
+                  </View>
+
+                  {/* Active Meals Display */}
+                  <View className="pt-3 border-t border-white/20 mb-3">
+                    <Text className="text-xs text-white/80 mb-2">
+                      Auto-Ordering
+                    </Text>
+                    <View className="flex-row items-center">
+                      {selectedMealType === 'BOTH' || selectedMealType === 'LUNCH' ? (
+                        <View style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                          borderRadius: 12,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          marginRight: 8,
+                          flexDirection: 'row',
+                          alignItems: 'center'
+                        }}>
+                          <MaterialCommunityIcons name="white-balance-sunny" size={14} color="white" style={{ marginRight: 4 }} />
+                          <Text className="text-xs font-semibold text-white">Lunch</Text>
+                        </View>
+                      ) : null}
+                      {selectedMealType === 'BOTH' || selectedMealType === 'DINNER' ? (
+                        <View style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                          borderRadius: 12,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          flexDirection: 'row',
+                          alignItems: 'center'
+                        }}>
+                          <MaterialCommunityIcons name="moon-waning-crescent" size={14} color="white" style={{ marginRight: 4 }} />
+                          <Text className="text-xs font-semibold text-white">Dinner</Text>
+                        </View>
+                      ) : null}
+                      {subscription.isPaused && (
+                        <View style={{
+                          backgroundColor: 'rgba(245, 158, 11, 0.9)',
+                          borderRadius: 12,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          marginLeft: 8
+                        }}>
+                          <Text className="text-xs font-semibold text-white">All Paused</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   {/* Next Order Countdown */}
@@ -1288,13 +1350,125 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Pause Auto-Ordering</Text>
               <Text style={styles.modalMessage}>
-                This will pause all auto-orders (both lunch and dinner). You can resume anytime.
-              </Text>
-              <Text className="text-xs text-gray-400 text-center mb-4">
-                Tip: To skip specific meals, use "Manage Skipped Meals" instead.
+                Select which meals you want to pause. You can resume anytime.
               </Text>
 
-              {/* Pause indefinitely option */}
+              {/* Meal Type Selection */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 12 }}>
+                  Pause which meals?
+                </Text>
+
+                {/* Lunch Option */}
+                <TouchableOpacity
+                  onPress={() => setPauseMealType('LUNCH')}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: pauseMealType === 'LUNCH' ? '#FFF7ED' : '#F9FAFB',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 10,
+                    borderWidth: 2,
+                    borderColor: pauseMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
+                  }}
+                >
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: pauseMealType === 'LUNCH' ? '#F56B4C' : '#D1D5DB',
+                    backgroundColor: pauseMealType === 'LUNCH' ? '#F56B4C' : 'white',
+                    marginRight: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {pauseMealType === 'LUNCH' && (
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Lunch Only</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Continue dinner auto-orders</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Dinner Option */}
+                <TouchableOpacity
+                  onPress={() => setPauseMealType('DINNER')}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: pauseMealType === 'DINNER' ? '#F3E8FF' : '#F9FAFB',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 10,
+                    borderWidth: 2,
+                    borderColor: pauseMealType === 'DINNER' ? '#8B5CF6' : '#E5E7EB',
+                  }}
+                >
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: pauseMealType === 'DINNER' ? '#8B5CF6' : '#D1D5DB',
+                    backgroundColor: pauseMealType === 'DINNER' ? '#8B5CF6' : 'white',
+                    marginRight: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {pauseMealType === 'DINNER' && (
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Dinner Only</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Continue lunch auto-orders</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Both Option */}
+                <TouchableOpacity
+                  onPress={() => setPauseMealType('BOTH')}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: pauseMealType === 'BOTH' ? '#FEF3C7' : '#F9FAFB',
+                    borderRadius: 12,
+                    padding: 16,
+                    borderWidth: 2,
+                    borderColor: pauseMealType === 'BOTH' ? '#F59E0B' : '#E5E7EB',
+                  }}
+                >
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: pauseMealType === 'BOTH' ? '#F59E0B' : '#D1D5DB',
+                    backgroundColor: pauseMealType === 'BOTH' ? '#F59E0B' : 'white',
+                    marginRight: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {pauseMealType === 'BOTH' && (
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Both Meals</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Pause all auto-orders</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <Text className="text-xs text-gray-400 text-center mb-4">
+                Tip: To skip specific dates, use "Manage Skipped Meals" instead.
+              </Text>
+
+              {/* Pause button */}
               <TouchableOpacity
                 onPress={handlePause}
                 disabled={isLoading}
@@ -1303,12 +1477,17 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {isLoading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={styles.modalButtonText}>Pause Indefinitely</Text>
+                  <Text style={styles.modalButtonText}>
+                    {pauseMealType === 'BOTH' ? 'Pause Both' : `Pause ${pauseMealType === 'LUNCH' ? 'Lunch' : 'Dinner'}`}
+                  </Text>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setShowPauseModal(false)}
+                onPress={() => {
+                  setShowPauseModal(false);
+                  setPauseMealType('BOTH');
+                }}
                 style={[styles.modalButton, styles.modalButtonSecondary]}
               >
                 <Text style={styles.modalButtonTextSecondary}>Cancel</Text>

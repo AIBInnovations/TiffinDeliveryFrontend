@@ -52,6 +52,7 @@ interface MenuData {
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const {
+    cartItems,
     replaceCart,
     updateQuantity: updateCartItemQuantity,
     setKitchenId,
@@ -378,26 +379,105 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }, [isLoadingMenu, menuError, menuData, fetchSubscriptions, fetchVouchers, fetchUnreadCount, fetchNotifications])
   );
 
-  // Update addons when meal type changes
+  // Sync local state with cart when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!menuData) return;
+
+      const currentMealItem = selectedMeal === 'lunch' ? menuData.lunch : menuData.dinner;
+      if (!currentMealItem?._id) return;
+
+      // Find cart item for current meal
+      const cartItem = cartItems.find(item => item.id === currentMealItem._id);
+
+      if (cartItem) {
+        console.log('[HomeScreen] Syncing local state with cart:', {
+          quantity: cartItem.quantity,
+          addons: cartItem.addons?.length || 0,
+        });
+
+        // Restore meal quantity from cart
+        setMealQuantity(cartItem.quantity);
+
+        // Restore addon selections and quantities from cart
+        if (currentMealItem.addonIds && currentMealItem.addonIds.length > 0) {
+          const restoredAddons = currentMealItem.addonIds.map((addon: AddonItem) => {
+            // Check if this addon is in the cart
+            const cartAddon = cartItem.addons?.find(a => a.addonId === addon._id);
+            return {
+              id: addon._id,
+              name: addon.name,
+              image: require('../../assets/images/homepage/roti.png'),
+              quantity: addon.description || '1 serving',
+              price: addon.price,
+              selected: !!cartAddon,
+              count: cartAddon?.quantity || 1,
+            };
+          });
+          setAddOns(restoredAddons);
+        }
+
+        // Show cart modal if there are items
+        setShowCartModal(true);
+      } else {
+        // No cart item - reset to defaults
+        setMealQuantity(1);
+        setShowCartModal(false);
+
+        // Reset addons to unselected state
+        if (currentMealItem.addonIds && currentMealItem.addonIds.length > 0) {
+          const defaultAddons = currentMealItem.addonIds.map((addon: AddonItem) => ({
+            id: addon._id,
+            name: addon.name,
+            image: require('../../assets/images/homepage/roti.png'),
+            quantity: addon.description || '1 serving',
+            price: addon.price,
+            selected: false,
+            count: 1,
+          }));
+          setAddOns(defaultAddons);
+        }
+      }
+    }, [cartItems, selectedMeal, menuData])
+  );
+
+  // Update addons when meal type changes - sync with cart
   useEffect(() => {
     if (menuData) {
       const currentMealItem = selectedMeal === 'lunch' ? menuData.lunch : menuData.dinner;
+
+      // Find cart item for current meal
+      const cartItem = currentMealItem?._id ? cartItems.find(item => item.id === currentMealItem._id) : null;
+
       if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
-        const apiAddons: AddOn[] = currentMealItem.addonIds.map((addon: AddonItem) => ({
-          id: addon._id,
-          name: addon.name,
-          image: require('../../assets/images/homepage/roti.png'),
-          quantity: addon.description || '1 serving',
-          price: addon.price,
-          selected: false,
-          count: 1,
-        }));
+        const apiAddons: AddOn[] = currentMealItem.addonIds.map((addon: AddonItem) => {
+          // Check if this addon is in the cart
+          const cartAddon = cartItem?.addons?.find(a => a.addonId === addon._id);
+          return {
+            id: addon._id,
+            name: addon.name,
+            image: require('../../assets/images/homepage/roti.png'),
+            quantity: addon.description || '1 serving',
+            price: addon.price,
+            selected: !!cartAddon,
+            count: cartAddon?.quantity || 1,
+          };
+        });
         setAddOns(apiAddons);
       } else {
         setAddOns([]);
       }
+
+      // Sync meal quantity and modal state
+      if (cartItem) {
+        setMealQuantity(cartItem.quantity);
+        setShowCartModal(true);
+      } else {
+        setMealQuantity(1);
+        setShowCartModal(false);
+      }
     }
-  }, [selectedMeal, menuData]);
+  }, [selectedMeal, menuData, cartItems]);
 
   const onRefresh = async () => {
     setRefreshing(true);
