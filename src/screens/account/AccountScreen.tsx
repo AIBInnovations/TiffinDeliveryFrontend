@@ -48,8 +48,6 @@ const SUPPORT_MENU_ITEMS = [
 ];
 
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
-  const [lunchAutoOrder, setLunchAutoOrder] = useState(false);
-  const [dinnerAutoOrder, setDinnerAutoOrder] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
 
   // Modal states
@@ -75,12 +73,11 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     usableVouchers,
     subscriptions,
     loading,
-    updateAutoOrderSettings,
     pauseAutoOrdering,
     resumeAutoOrdering,
     skipMeal,
   } = useSubscription();
-  const { addresses, getMainAddress } = useAddress();
+  const { addresses } = useAddress();
 
   // State for default kitchen (fetched when needed)
   const [defaultKitchenId, setDefaultKitchenId] = useState<string | null>(null);
@@ -93,66 +90,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   const activeSubFull = getActiveSubscriptionFull();
 
-  // Get default address ID
-  const getDefaultAddressId = (): string | null => {
-    // First check if subscription already has a default address
-    if (activeSubFull?.defaultAddressId) {
-      return activeSubFull.defaultAddressId;
-    }
-    // Otherwise use user's main/default address
-    const mainAddress = getMainAddress();
-    return mainAddress?.id || null;
-  };
-
-  // Fetch default kitchen for the user's address
-  const fetchDefaultKitchen = async (addressId: string): Promise<string | null> => {
-    try {
-      console.log('[AccountScreen] Fetching kitchens for address:', addressId);
-      const response = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
-      console.log('[AccountScreen] Kitchens response:', JSON.stringify(response, null, 2));
-
-      // Handle different response formats
-      const data = response.data as any;
-      let allKitchens: any[] = [];
-
-      // Check for direct kitchens array (current format)
-      if (data.kitchens && Array.isArray(data.kitchens)) {
-        allKitchens = data.kitchens;
-        console.log('[AccountScreen] Found kitchens array with', allKitchens.length, 'kitchens');
-      }
-      // Check for separate tiffsy/partner arrays (legacy format)
-      else if (data.tiffsyKitchens || data.partnerKitchens) {
-        const tiffsyKitchens = data.tiffsyKitchens || [];
-        const partnerKitchens = data.partnerKitchens || [];
-        allKitchens = [...tiffsyKitchens, ...partnerKitchens];
-        console.log('[AccountScreen] Found tiffsy/partner arrays with', allKitchens.length, 'total kitchens');
-      }
-
-      if (allKitchens.length > 0) {
-        const kitchenId = allKitchens[0]._id;
-        console.log('[AccountScreen] Using default kitchen:', kitchenId, 'name:', allKitchens[0].name);
-        return kitchenId;
-      }
-
-      console.log('[AccountScreen] No kitchens found in response');
-      return null;
-    } catch (error) {
-      console.log('[AccountScreen] Error fetching kitchens:', error);
-      return null;
-    }
-  };
-
-  // Sync auto-order toggles with subscription data
+  // Store existing kitchen ID from subscription
   useEffect(() => {
-    if (activeSubFull) {
-      const mealType = activeSubFull.defaultMealType || 'BOTH';
-      setLunchAutoOrder(mealType === 'LUNCH' || mealType === 'BOTH');
-      setDinnerAutoOrder(mealType === 'DINNER' || mealType === 'BOTH');
-
-      // Store existing kitchen ID if subscription has one
-      if (activeSubFull.defaultKitchenId) {
-        setDefaultKitchenId(activeSubFull.defaultKitchenId);
-      }
+    if (activeSubFull?.defaultKitchenId) {
+      setDefaultKitchenId(activeSubFull.defaultKitchenId);
     }
   }, [activeSubFull]);
 
@@ -318,137 +259,6 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     } catch (error: any) {
       setModalMessage(error.message || 'Failed to skip meal.');
       setShowErrorModal(true);
-    } finally {
-      setIsAutoOrderLoading(false);
-    }
-  };
-
-  const handleAutoOrderToggle = async (mealType: 'LUNCH' | 'DINNER', newValue: boolean) => {
-    if (!activeSubFull) {
-      Alert.alert('No Active Subscription', 'You need an active subscription to change auto-order settings.');
-      return;
-    }
-
-    // Calculate the new defaultMealType
-    let newLunch = mealType === 'LUNCH' ? newValue : lunchAutoOrder;
-    let newDinner = mealType === 'DINNER' ? newValue : dinnerAutoOrder;
-
-    let newMealType: 'LUNCH' | 'DINNER' | 'BOTH';
-    if (newLunch && newDinner) {
-      newMealType = 'BOTH';
-    } else if (newLunch) {
-      newMealType = 'LUNCH';
-    } else if (newDinner) {
-      newMealType = 'DINNER';
-    } else {
-      // If both are being disabled, confirm with user
-      Alert.alert(
-        'Disable Auto-Ordering',
-        'Disabling both lunch and dinner will turn off auto-ordering. Are you sure?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Disable',
-            style: 'destructive',
-            onPress: async () => {
-              setIsAutoOrderLoading(true);
-              try {
-                await updateAutoOrderSettings(activeSubFull._id, {
-                  autoOrderingEnabled: false,
-                });
-                setLunchAutoOrder(false);
-                setDinnerAutoOrder(false);
-              } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to update settings.');
-              } finally {
-                setIsAutoOrderLoading(false);
-              }
-            },
-          },
-        ]
-      );
-      return;
-    }
-
-    // Optimistically update UI
-    if (mealType === 'LUNCH') {
-      setLunchAutoOrder(newValue);
-    } else {
-      setDinnerAutoOrder(newValue);
-    }
-
-    setIsAutoOrderLoading(true);
-    try {
-      // Get address ID - required for enabling auto-ordering
-      const addressId = getDefaultAddressId();
-      console.log('[AccountScreen] handleAutoOrderToggle - addressId:', addressId);
-
-      if (!addressId) {
-        // Revert UI
-        if (mealType === 'LUNCH') {
-          setLunchAutoOrder(!newValue);
-        } else {
-          setDinnerAutoOrder(!newValue);
-        }
-        setIsAutoOrderLoading(false);
-        Alert.alert(
-          'Address Required',
-          'Please add a delivery address before enabling auto-ordering.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Get kitchen ID - check subscription first, then fetch if needed
-      let kitchenId = activeSubFull.defaultKitchenId || defaultKitchenId;
-      console.log('[AccountScreen] handleAutoOrderToggle - existing kitchenId:', kitchenId);
-
-      if (!kitchenId) {
-        // Fetch available kitchens for the address
-        kitchenId = await fetchDefaultKitchen(addressId);
-        console.log('[AccountScreen] handleAutoOrderToggle - fetched kitchenId:', kitchenId);
-
-        if (!kitchenId) {
-          // Revert UI
-          if (mealType === 'LUNCH') {
-            setLunchAutoOrder(!newValue);
-          } else {
-            setDinnerAutoOrder(!newValue);
-          }
-          setIsAutoOrderLoading(false);
-          Alert.alert(
-            'No Kitchen Available',
-            'No kitchens are available for your address. Please check your delivery location.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-
-        // Store for future use
-        setDefaultKitchenId(kitchenId);
-      }
-
-      console.log('[AccountScreen] handleAutoOrderToggle - Updating settings with:', {
-        defaultMealType: newMealType,
-        autoOrderingEnabled: true,
-        defaultKitchenId: kitchenId,
-        defaultAddressId: addressId,
-      });
-
-      await updateAutoOrderSettings(activeSubFull._id, {
-        defaultMealType: newMealType,
-        autoOrderingEnabled: true,
-        defaultKitchenId: kitchenId,
-        defaultAddressId: addressId,
-      });
-    } catch (error: any) {
-      // Revert on error
-      if (mealType === 'LUNCH') {
-        setLunchAutoOrder(!newValue);
-      } else {
-        setDinnerAutoOrder(!newValue);
-      }
-      Alert.alert('Error', error.message || 'Failed to update auto-order settings.');
     } finally {
       setIsAutoOrderLoading(false);
     }
@@ -789,82 +599,23 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Auto Order Toggles */}
+            {/* Auto Order Meal Type Display */}
+            {activeSubFull && (
             <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-semibold text-gray-900">Auto Order:</Text>
-
-              <View className="flex-row items-center">
-                {/* Lunch Toggle */}
-                <TouchableOpacity
-                  onPress={() => handleAutoOrderToggle('LUNCH', !lunchAutoOrder)}
-                  disabled={isAutoOrderLoading || loading}
-                  className="flex-row items-center mr-4"
-                  style={{ opacity: isAutoOrderLoading || loading ? 0.6 : 1 }}
-                >
-                  <Text
-                    className="text-sm font-medium mr-2"
-                    style={{ color: lunchAutoOrder ? '#F56B4C' : '#6B7280' }}
-                  >
-                    Lunch
-                  </Text>
-                  <View
-                    style={{
-                      width: 34,
-                      height: 18,
-                      borderRadius: 9,
-                      backgroundColor: lunchAutoOrder ? '#F56B4C' : '#D1D5DB',
-                      padding: 2,
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 7,
-                        backgroundColor: 'white',
-                        alignSelf: lunchAutoOrder ? 'flex-end' : 'flex-start',
-                      }}
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Dinner Toggle */}
-                <TouchableOpacity
-                  onPress={() => handleAutoOrderToggle('DINNER', !dinnerAutoOrder)}
-                  disabled={isAutoOrderLoading || loading}
-                  className="flex-row items-center"
-                  style={{ opacity: isAutoOrderLoading || loading ? 0.6 : 1 }}
-                >
-                  <Text
-                    className="text-sm font-medium mr-2"
-                    style={{ color: dinnerAutoOrder ? '#F56B4C' : '#6B7280' }}
-                  >
-                    Dinner
-                  </Text>
-                  <View
-                    style={{
-                      width: 34,
-                      height: 18,
-                      borderRadius: 9,
-                      backgroundColor: dinnerAutoOrder ? '#F56B4C' : '#D1D5DB',
-                      padding: 2,
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 7,
-                        backgroundColor: 'white',
-                        alignSelf: dinnerAutoOrder ? 'flex-end' : 'flex-start',
-                      }}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </View>
+              <Text className="text-sm font-semibold text-gray-900">
+                Meal Type: {activeSubFull.defaultMealType === 'BOTH' ? 'Lunch & Dinner' :
+                            activeSubFull.defaultMealType === 'LUNCH' ? 'Lunch only' :
+                            activeSubFull.defaultMealType === 'DINNER' ? 'Dinner only' : 'Not set'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
+              >
+                <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+                  Change →
+                </Text>
+              </TouchableOpacity>
             </View>
+            )}
           </View>
           </View>
           )}
@@ -1178,8 +929,11 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
               Pause Auto-Ordering
             </Text>
-            <Text className="text-sm text-gray-600 text-center mb-4">
-              Your meals will not be auto-ordered while paused.
+            <Text className="text-sm text-gray-600 text-center mb-2">
+              This will pause <Text className="font-semibold">all auto-orders</Text> (both lunch and dinner).
+            </Text>
+            <Text className="text-xs text-gray-500 text-center mb-4">
+              Tip: To skip specific meals, use "Skip Next Meal" instead.
             </Text>
 
             {/* Pause Until Date (Optional) */}

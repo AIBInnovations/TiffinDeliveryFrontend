@@ -11,6 +11,7 @@ import {
   Pressable,
   StyleSheet,
   Image,
+  Dimensions,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -22,6 +23,21 @@ import {
   validateAutoOrderEnable,
 } from '../../utils/autoOrderUtils';
 import apiService from '../../services/api.service';
+
+// Get screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Responsive sizing helpers
+const isSmallScreen = SCREEN_WIDTH < 375;
+const isMediumScreen = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
+const scale = SCREEN_WIDTH / 375; // Base scale on iPhone SE size
+
+const responsiveSize = (size: number) => Math.round(size * scale);
+const responsiveFontSize = (size: number) => {
+  if (isSmallScreen) return Math.round(size * 0.9);
+  if (isMediumScreen) return size;
+  return Math.round(size * 1.05);
+};
 
 type Props = StackScreenProps<any, 'AutoOrderSettings'>;
 
@@ -220,31 +236,61 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <View style={styles.container} className="flex-1 bg-white">
       {/* Header */}
-      <View className="bg-orange-400 px-5 py-4" style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+      <View
+        className="bg-orange-400"
+        style={{
+          paddingHorizontal: responsiveSize(20),
+          paddingVertical: responsiveSize(16),
+          borderBottomLeftRadius: responsiveSize(30),
+          borderBottomRightRadius: responsiveSize(30)
+        }}
+      >
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 items-center justify-center mr-4"
+            style={{
+              width: responsiveSize(40),
+              height: responsiveSize(40),
+              marginRight: responsiveSize(16),
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
           >
             <Image
               source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: 34, height: 34 }}
+              style={{ width: responsiveSize(34), height: responsiveSize(34) }}
               resizeMode="contain"
             />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-white">Auto-Order Settings</Text>
+          <Text
+            style={{
+              fontSize: responsiveFontSize(20),
+              fontWeight: 'bold',
+              color: 'white',
+              flexShrink: 1
+            }}
+            numberOfLines={1}
+          >
+            Auto-Order Settings
+          </Text>
         </View>
       </View>
 
       <ScrollView
         className="flex-1 bg-gray-50"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: 20 }}
+        contentContainerStyle={{
+          paddingBottom: isSmallScreen ? 80 : 100,
+          paddingTop: responsiveSize(20)
+        }}
       >
         {/* Hero Status Card with Toggle */}
         <View
-          className="mx-4 mb-5 rounded-3xl overflow-hidden"
           style={{
+            marginHorizontal: responsiveSize(16),
+            marginBottom: responsiveSize(20),
+            borderRadius: responsiveSize(24),
+            overflow: 'hidden',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
@@ -256,14 +302,31 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           <View
             style={{
               backgroundColor: isEnabled ? '#F56B4C' : '#9CA3AF',
-              padding: 20,
+              padding: responsiveSize(20),
             }}
           >
             {/* Toggle Row */}
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-1 mr-4">
-                <Text className="text-xl font-bold text-white mb-2">Auto-Ordering</Text>
-                <Text className="text-sm text-white/90">
+            <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(16) }}>
+              <View className="flex-1" style={{ marginRight: responsiveSize(16) }}>
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(20),
+                    fontWeight: 'bold',
+                    color: 'white',
+                    marginBottom: responsiveSize(8)
+                  }}
+                  numberOfLines={1}
+                >
+                  Auto-Ordering
+                </Text>
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(14),
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    lineHeight: responsiveFontSize(18)
+                  }}
+                  numberOfLines={2}
+                >
                   {isEnabled ? 'Your meals are on autopilot' : 'Enable to automate your orders'}
                 </Text>
               </View>
@@ -273,33 +336,90 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 trackColor={{ false: '#E5E7EB', true: '#ffffff40' }}
                 thumbColor={'#ffffff'}
                 disabled={isLoading}
-                style={{ transform: [{ scale: 1.1 }] }}
+                style={{ transform: [{ scale: isSmallScreen ? 0.9 : 1.1 }] }}
               />
             </View>
 
             {/* Status Info */}
             {isEnabled && (
-              <View className="mt-2">
-                <View className="bg-white/20 rounded-2xl p-4 backdrop-blur-sm">
-                  <View className="flex-row items-center justify-between mb-3">
+              <View style={{ marginTop: responsiveSize(8) }}>
+                <View
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    borderRadius: responsiveSize(16),
+                    padding: responsiveSize(16)
+                  }}
+                >
+                  <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(12) }}>
                     <View className="flex-1">
-                      <Text className="text-xs text-white/80 mb-1">Current Plan</Text>
-                      <Text className="text-base font-bold text-white">
+                      <Text
+                        style={{
+                          fontSize: responsiveFontSize(12),
+                          color: 'rgba(255, 255, 255, 0.8)',
+                          marginBottom: responsiveSize(4)
+                        }}
+                      >
+                        Current Plan
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: responsiveFontSize(16),
+                          fontWeight: 'bold',
+                          color: 'white'
+                        }}
+                        numberOfLines={1}
+                      >
                         {getAutoOrderStatusText(subscription)}
                       </Text>
                     </View>
                     {!subscription.isPaused && (
-                      <View className="bg-white/30 rounded-full px-3 py-1">
-                        <Text className="text-xs font-semibold text-white">Active</Text>
+                      <View
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                          borderRadius: 999,
+                          paddingHorizontal: responsiveSize(12),
+                          paddingVertical: responsiveSize(4)
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: responsiveFontSize(12),
+                            fontWeight: '600',
+                            color: 'white'
+                          }}
+                        >
+                          Active
+                        </Text>
                       </View>
                     )}
                   </View>
 
                   {/* Next Order Countdown */}
                   {!subscription.isPaused && (
-                    <View className="pt-3 border-t border-white/20">
-                      <Text className="text-xs text-white/80 mb-1">Next Auto-Order</Text>
-                      <Text className="text-sm font-bold text-white">
+                    <View
+                      style={{
+                        paddingTop: responsiveSize(12),
+                        borderTopWidth: 1,
+                        borderTopColor: 'rgba(255, 255, 255, 0.2)'
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: responsiveFontSize(12),
+                          color: 'rgba(255, 255, 255, 0.8)',
+                          marginBottom: responsiveSize(4)
+                        }}
+                      >
+                        Next Auto-Order
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: responsiveFontSize(14),
+                          fontWeight: 'bold',
+                          color: 'white'
+                        }}
+                        numberOfLines={1}
+                      >
                         {formatNextAutoOrderTime(subscription, kitchenOperatingHours)}
                       </Text>
                     </View>
@@ -311,12 +431,37 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Meal Preferences */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-            <Text className="text-xl font-bold text-gray-900">Choose Your Meals</Text>
+        <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
+          <View className="flex-row items-center" style={{ marginBottom: responsiveSize(16) }}>
+            <View
+              style={{
+                width: responsiveSize(8),
+                height: responsiveSize(24),
+                backgroundColor: '#F56B4C',
+                borderRadius: 999,
+                marginRight: responsiveSize(12)
+              }}
+            />
+            <Text
+              style={{
+                fontSize: responsiveFontSize(20),
+                fontWeight: 'bold',
+                color: '#111827'
+              }}
+              numberOfLines={1}
+            >
+              Choose Your Meals
+            </Text>
           </View>
-          <Text className="text-sm text-gray-600 mb-5 pl-1">
+          <Text
+            style={{
+              fontSize: responsiveFontSize(14),
+              color: '#4B5563',
+              marginBottom: responsiveSize(20),
+              paddingLeft: responsiveSize(4)
+            }}
+            numberOfLines={2}
+          >
             Select which meals to auto-order daily
           </Text>
 
@@ -325,13 +470,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => handleMealTypeSelect('LUNCH')}
             disabled={isLoading}
             activeOpacity={0.7}
-            className="mb-3"
+            style={{ marginBottom: responsiveSize(12) }}
           >
             <View
-              className={`rounded-2xl p-5 ${
-                selectedMealType === 'LUNCH' ? 'bg-white' : 'bg-white'
-              }`}
               style={{
+                backgroundColor: 'white',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(20),
                 borderWidth: 2,
                 borderColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
                 shadowColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#000',
@@ -344,28 +489,71 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               <View className="flex-row items-center">
                 {/* Icon */}
                 <View
-                  className="w-14 h-14 rounded-2xl items-center justify-center mr-4"
-                  style={{ backgroundColor: selectedMealType === 'LUNCH' ? '#FFF7ED' : '#F9FAFB' }}
+                  style={{
+                    width: responsiveSize(56),
+                    height: responsiveSize(56),
+                    borderRadius: responsiveSize(16),
+                    backgroundColor: selectedMealType === 'LUNCH' ? '#FFF7ED' : '#F9FAFB',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: responsiveSize(16)
+                  }}
                 >
-                  <Text className="text-2xl font-bold" style={{ color: selectedMealType === 'LUNCH' ? '#F97316' : '#9CA3AF' }}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(24),
+                      fontWeight: 'bold',
+                      color: selectedMealType === 'LUNCH' ? '#F97316' : '#9CA3AF'
+                    }}
+                  >
                     L
                   </Text>
                 </View>
 
                 {/* Content */}
-                <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900 mb-1">Lunch Only</Text>
-                  <Text className="text-xs text-gray-600">{getAutoOrderTimeDisplay('LUNCH')}</Text>
+                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(18),
+                      fontWeight: 'bold',
+                      color: '#111827',
+                      marginBottom: responsiveSize(4)
+                    }}
+                    numberOfLines={1}
+                  >
+                    Lunch Only
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(12),
+                      color: '#4B5563'
+                    }}
+                    numberOfLines={1}
+                  >
+                    {getAutoOrderTimeDisplay('LUNCH')}
+                  </Text>
                 </View>
 
                 {/* Radio Button */}
                 <View
-                  className={`w-7 h-7 rounded-full items-center justify-center ${
-                    selectedMealType === 'LUNCH' ? 'bg-orange-400' : 'bg-gray-200'
-                  }`}
+                  style={{
+                    width: responsiveSize(28),
+                    height: responsiveSize(28),
+                    borderRadius: 999,
+                    backgroundColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   {selectedMealType === 'LUNCH' && (
-                    <View className="w-3 h-3 rounded-full bg-white" />
+                    <View
+                      style={{
+                        width: responsiveSize(12),
+                        height: responsiveSize(12),
+                        borderRadius: 999,
+                        backgroundColor: 'white'
+                      }}
+                    />
                   )}
                 </View>
               </View>
@@ -377,13 +565,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => handleMealTypeSelect('DINNER')}
             disabled={isLoading}
             activeOpacity={0.7}
-            className="mb-3"
+            style={{ marginBottom: responsiveSize(12) }}
           >
             <View
-              className={`rounded-2xl p-5 ${
-                selectedMealType === 'DINNER' ? 'bg-white' : 'bg-white'
-              }`}
               style={{
+                backgroundColor: 'white',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(20),
                 borderWidth: 2,
                 borderColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#E5E7EB',
                 shadowColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#000',
@@ -396,28 +584,71 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               <View className="flex-row items-center">
                 {/* Icon */}
                 <View
-                  className="w-14 h-14 rounded-2xl items-center justify-center mr-4"
-                  style={{ backgroundColor: selectedMealType === 'DINNER' ? '#EDE9FE' : '#F9FAFB' }}
+                  style={{
+                    width: responsiveSize(56),
+                    height: responsiveSize(56),
+                    borderRadius: responsiveSize(16),
+                    backgroundColor: selectedMealType === 'DINNER' ? '#EDE9FE' : '#F9FAFB',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: responsiveSize(16)
+                  }}
                 >
-                  <Text className="text-2xl font-bold" style={{ color: selectedMealType === 'DINNER' ? '#8B5CF6' : '#9CA3AF' }}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(24),
+                      fontWeight: 'bold',
+                      color: selectedMealType === 'DINNER' ? '#8B5CF6' : '#9CA3AF'
+                    }}
+                  >
                     D
                   </Text>
                 </View>
 
                 {/* Content */}
-                <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900 mb-1">Dinner Only</Text>
-                  <Text className="text-xs text-gray-600">{getAutoOrderTimeDisplay('DINNER')}</Text>
+                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(18),
+                      fontWeight: 'bold',
+                      color: '#111827',
+                      marginBottom: responsiveSize(4)
+                    }}
+                    numberOfLines={1}
+                  >
+                    Dinner Only
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(12),
+                      color: '#4B5563'
+                    }}
+                    numberOfLines={1}
+                  >
+                    {getAutoOrderTimeDisplay('DINNER')}
+                  </Text>
                 </View>
 
                 {/* Radio Button */}
                 <View
-                  className={`w-7 h-7 rounded-full items-center justify-center ${
-                    selectedMealType === 'DINNER' ? 'bg-orange-400' : 'bg-gray-200'
-                  }`}
+                  style={{
+                    width: responsiveSize(28),
+                    height: responsiveSize(28),
+                    borderRadius: 999,
+                    backgroundColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#E5E7EB',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   {selectedMealType === 'DINNER' && (
-                    <View className="w-3 h-3 rounded-full bg-white" />
+                    <View
+                      style={{
+                        width: responsiveSize(12),
+                        height: responsiveSize(12),
+                        borderRadius: 999,
+                        backgroundColor: 'white'
+                      }}
+                    />
                   )}
                 </View>
               </View>
@@ -431,10 +662,10 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             activeOpacity={0.7}
           >
             <View
-              className={`rounded-2xl p-5 ${
-                selectedMealType === 'BOTH' ? 'bg-white' : 'bg-white'
-              }`}
               style={{
+                backgroundColor: 'white',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(20),
                 borderWidth: 2,
                 borderColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#E5E7EB',
                 shadowColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#000',
@@ -447,46 +678,124 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               <View className="flex-row items-center">
                 {/* Icon */}
                 <View
-                  className="w-14 h-14 rounded-2xl items-center justify-center mr-4"
-                  style={{ backgroundColor: selectedMealType === 'BOTH' ? '#FEF3C7' : '#F9FAFB' }}
+                  style={{
+                    width: responsiveSize(56),
+                    height: responsiveSize(56),
+                    borderRadius: responsiveSize(16),
+                    backgroundColor: selectedMealType === 'BOTH' ? '#FEF3C7' : '#F9FAFB',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: responsiveSize(16)
+                  }}
                 >
                   <View className="flex-row items-center">
-                    <Text className="text-lg font-bold" style={{ color: selectedMealType === 'BOTH' ? '#F97316' : '#9CA3AF' }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(18),
+                        fontWeight: 'bold',
+                        color: selectedMealType === 'BOTH' ? '#F97316' : '#9CA3AF'
+                      }}
+                    >
                       L
                     </Text>
-                    <Text className="text-xs font-bold mx-0.5" style={{ color: selectedMealType === 'BOTH' ? '#D97706' : '#9CA3AF' }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(12),
+                        fontWeight: 'bold',
+                        marginHorizontal: responsiveSize(2),
+                        color: selectedMealType === 'BOTH' ? '#D97706' : '#9CA3AF'
+                      }}
+                    >
                       +
                     </Text>
-                    <Text className="text-lg font-bold" style={{ color: selectedMealType === 'BOTH' ? '#8B5CF6' : '#9CA3AF' }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(18),
+                        fontWeight: 'bold',
+                        color: selectedMealType === 'BOTH' ? '#8B5CF6' : '#9CA3AF'
+                      }}
+                    >
                       D
                     </Text>
                   </View>
                 </View>
 
                 {/* Content */}
-                <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900 mb-1">Both Meals</Text>
-                  <Text className="text-xs text-gray-600">Lunch & Dinner daily</Text>
+                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(18),
+                      fontWeight: 'bold',
+                      color: '#111827',
+                      marginBottom: responsiveSize(4)
+                    }}
+                    numberOfLines={1}
+                  >
+                    Both Meals
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(12),
+                      color: '#4B5563'
+                    }}
+                    numberOfLines={1}
+                  >
+                    Lunch & Dinner daily
+                  </Text>
                 </View>
 
                 {/* Radio Button */}
                 <View
-                  className={`w-7 h-7 rounded-full items-center justify-center ${
-                    selectedMealType === 'BOTH' ? 'bg-orange-400' : 'bg-gray-200'
-                  }`}
+                  style={{
+                    width: responsiveSize(28),
+                    height: responsiveSize(28),
+                    borderRadius: 999,
+                    backgroundColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#E5E7EB',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   {selectedMealType === 'BOTH' && (
-                    <View className="w-3 h-3 rounded-full bg-white" />
+                    <View
+                      style={{
+                        width: responsiveSize(12),
+                        height: responsiveSize(12),
+                        borderRadius: 999,
+                        backgroundColor: 'white'
+                      }}
+                    />
                   )}
                 </View>
               </View>
 
               {/* Popular Badge */}
               {selectedMealType === 'BOTH' && (
-                <View className="mt-3 pt-3 border-t border-orange-100">
+                <View
+                  style={{
+                    marginTop: responsiveSize(12),
+                    paddingTop: responsiveSize(12),
+                    borderTopWidth: 1,
+                    borderTopColor: '#FED7AA'
+                  }}
+                >
                   <View className="flex-row items-center">
-                    <View className="bg-orange-100 rounded-full px-3 py-1">
-                      <Text className="text-xs font-semibold text-orange-600">Most Popular</Text>
+                    <View
+                      style={{
+                        backgroundColor: '#FFEDD5',
+                        borderRadius: 999,
+                        paddingHorizontal: responsiveSize(12),
+                        paddingVertical: responsiveSize(4)
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: responsiveFontSize(12),
+                          fontWeight: '600',
+                          color: '#EA580C'
+                        }}
+                      >
+                        Most Popular
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -496,18 +805,37 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Default Address */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-            <Text className="text-xl font-bold text-gray-900">Delivery Address</Text>
+        <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
+          <View className="flex-row items-center" style={{ marginBottom: responsiveSize(16) }}>
+            <View
+              style={{
+                width: responsiveSize(8),
+                height: responsiveSize(24),
+                backgroundColor: '#F56B4C',
+                borderRadius: 999,
+                marginRight: responsiveSize(12)
+              }}
+            />
+            <Text
+              style={{
+                fontSize: responsiveFontSize(20),
+                fontWeight: 'bold',
+                color: '#111827'
+              }}
+              numberOfLines={1}
+            >
+              Delivery Address
+            </Text>
           </View>
 
           {defaultAddress ? (
             <TouchableOpacity
               onPress={() => navigation.navigate('Address')}
               activeOpacity={0.7}
-              className="bg-white rounded-2xl p-5"
               style={{
+                backgroundColor: 'white',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(20),
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
@@ -517,27 +845,71 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             >
               <View className="flex-row items-start">
                 {/* Location Icon */}
-                <View className="w-12 h-12 rounded-xl bg-orange-50 items-center justify-center mr-4">
+                <View
+                  style={{
+                    width: responsiveSize(48),
+                    height: responsiveSize(48),
+                    borderRadius: responsiveSize(12),
+                    backgroundColor: '#FFF7ED',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: responsiveSize(16)
+                  }}
+                >
                   <Image
                     source={require('../../assets/icons/address3.png')}
-                    style={{ width: 24, height: 24, tintColor: '#F56B4C' }}
+                    style={{
+                      width: responsiveSize(24),
+                      height: responsiveSize(24),
+                      tintColor: '#F56B4C'
+                    }}
                     resizeMode="contain"
                   />
                 </View>
 
                 {/* Address Details */}
                 <View className="flex-1">
-                  <View className="flex-row items-center justify-between mb-2">
-                    <Text className="text-base font-bold text-gray-900">
+                  <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(8) }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(16),
+                        fontWeight: 'bold',
+                        color: '#111827',
+                        flex: 1
+                      }}
+                      numberOfLines={1}
+                    >
                       {defaultAddress.label || 'Home'}
                     </Text>
-                    <Text className="text-gray-400 text-xl ml-2">›</Text>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(20),
+                        color: '#9CA3AF',
+                        marginLeft: responsiveSize(8)
+                      }}
+                    >
+                      ›
+                    </Text>
                   </View>
-                  <Text className="text-sm text-gray-600 leading-5" numberOfLines={2}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(14),
+                      color: '#4B5563',
+                      lineHeight: responsiveFontSize(20)
+                    }}
+                    numberOfLines={2}
+                  >
                     {defaultAddress.flatNumber ? `${defaultAddress.flatNumber}, ` : ''}
                     {defaultAddress.street}
                   </Text>
-                  <Text className="text-xs text-gray-500 mt-1">
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(12),
+                      color: '#6B7280',
+                      marginTop: responsiveSize(4)
+                    }}
+                    numberOfLines={1}
+                  >
                     {defaultAddress.city}, {defaultAddress.pincode}
                   </Text>
                 </View>
@@ -547,8 +919,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             <TouchableOpacity
               onPress={() => navigation.navigate('Address')}
               activeOpacity={0.7}
-              className="bg-orange-50 rounded-2xl p-6 border-2 border-dashed border-orange-200"
               style={{
+                backgroundColor: '#FFF7ED',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(24),
+                borderWidth: 2,
+                borderStyle: 'dashed',
+                borderColor: '#FED7AA',
                 shadowColor: '#F56B4C',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
@@ -557,15 +934,46 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               }}
             >
               <View className="items-center">
-                <View className="w-14 h-14 rounded-full bg-orange-100 items-center justify-center mb-3">
+                <View
+                  style={{
+                    width: responsiveSize(56),
+                    height: responsiveSize(56),
+                    borderRadius: 999,
+                    backgroundColor: '#FFEDD5',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: responsiveSize(12)
+                  }}
+                >
                   <Image
                     source={require('../../assets/icons/address3.png')}
-                    style={{ width: 28, height: 28, tintColor: '#F56B4C' }}
+                    style={{
+                      width: responsiveSize(28),
+                      height: responsiveSize(28),
+                      tintColor: '#F56B4C'
+                    }}
                     resizeMode="contain"
                   />
                 </View>
-                <Text className="text-base font-bold text-gray-900 mb-1">Add Delivery Address</Text>
-                <Text className="text-sm text-gray-600 text-center">
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(16),
+                    fontWeight: 'bold',
+                    color: '#111827',
+                    marginBottom: responsiveSize(4)
+                  }}
+                  numberOfLines={1}
+                >
+                  Add Delivery Address
+                </Text>
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(14),
+                    color: '#4B5563',
+                    textAlign: 'center'
+                  }}
+                  numberOfLines={2}
+                >
                   Set your default address for auto-orders
                 </Text>
               </View>
@@ -574,10 +982,27 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Quick Actions */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-            <Text className="text-xl font-bold text-gray-900">Quick Actions</Text>
+        <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
+          <View className="flex-row items-center" style={{ marginBottom: responsiveSize(16) }}>
+            <View
+              style={{
+                width: responsiveSize(8),
+                height: responsiveSize(24),
+                backgroundColor: '#F56B4C',
+                borderRadius: 999,
+                marginRight: responsiveSize(12)
+              }}
+            />
+            <Text
+              style={{
+                fontSize: responsiveFontSize(20),
+                fontWeight: 'bold',
+                color: '#111827'
+              }}
+              numberOfLines={1}
+            >
+              Quick Actions
+            </Text>
           </View>
 
           {/* Pause/Resume Button */}
@@ -586,13 +1011,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={() => setShowPauseModal(true)}
               disabled={isLoading || !isEnabled}
               activeOpacity={0.7}
-              className="mb-3"
+              style={{ marginBottom: responsiveSize(12) }}
             >
               <View
-                className={`rounded-2xl p-5 ${
-                  isEnabled ? 'bg-white' : 'bg-gray-50'
-                }`}
                 style={{
+                  backgroundColor: isEnabled ? 'white' : '#F9FAFB',
+                  borderRadius: responsiveSize(16),
+                  padding: responsiveSize(20),
                   borderWidth: 2,
                   borderColor: isEnabled ? '#FBBF24' : '#E5E7EB',
                   shadowColor: isEnabled ? '#FBBF24' : '#000',
@@ -604,24 +1029,66 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               >
                 <View className="flex-row items-center">
                   <View
-                    className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${
-                      isEnabled ? 'bg-amber-50' : 'bg-gray-100'
-                    }`}
+                    style={{
+                      width: responsiveSize(48),
+                      height: responsiveSize(48),
+                      borderRadius: responsiveSize(12),
+                      backgroundColor: isEnabled ? '#FFFBEB' : '#F3F4F6',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: responsiveSize(16)
+                    }}
                   >
                     <View className="flex-row">
-                      <View className="w-1.5 h-4 rounded-full mr-1" style={{ backgroundColor: isEnabled ? '#F59E0B' : '#9CA3AF' }} />
-                      <View className="w-1.5 h-4 rounded-full" style={{ backgroundColor: isEnabled ? '#F59E0B' : '#9CA3AF' }} />
+                      <View
+                        style={{
+                          width: responsiveSize(6),
+                          height: responsiveSize(16),
+                          borderRadius: 999,
+                          marginRight: responsiveSize(4),
+                          backgroundColor: isEnabled ? '#F59E0B' : '#9CA3AF'
+                        }}
+                      />
+                      <View
+                        style={{
+                          width: responsiveSize(6),
+                          height: responsiveSize(16),
+                          borderRadius: 999,
+                          backgroundColor: isEnabled ? '#F59E0B' : '#9CA3AF'
+                        }}
+                      />
                     </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className={`text-base font-bold ${isEnabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(16),
+                        fontWeight: 'bold',
+                        color: isEnabled ? '#111827' : '#9CA3AF'
+                      }}
+                      numberOfLines={1}
+                    >
                       Pause Auto-Ordering
                     </Text>
-                    <Text className={`text-xs mt-1 ${isEnabled ? 'text-gray-600' : 'text-gray-400'}`}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(12),
+                        marginTop: responsiveSize(4),
+                        color: isEnabled ? '#4B5563' : '#9CA3AF'
+                      }}
+                      numberOfLines={2}
+                    >
                       {isEnabled ? 'Temporarily stop automatic orders' : 'Enable auto-ordering first'}
                     </Text>
                   </View>
-                  <Text className={`text-xl ${isEnabled ? 'text-amber-500' : 'text-gray-300'}`}>›</Text>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(20),
+                      color: isEnabled ? '#F59E0B' : '#D1D5DB'
+                    }}
+                  >
+                    ›
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -630,11 +1097,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               onPress={handleResume}
               disabled={isLoading}
               activeOpacity={0.7}
-              className="mb-3"
+              style={{ marginBottom: responsiveSize(12) }}
             >
               <View
-                className="bg-white rounded-2xl p-5"
                 style={{
+                  backgroundColor: 'white',
+                  borderRadius: responsiveSize(16),
+                  padding: responsiveSize(20),
                   borderWidth: 2,
                   borderColor: '#10B981',
                   shadowColor: '#10B981',
@@ -645,30 +1114,61 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 }}
               >
                 <View className="flex-row items-center">
-                  <View className="w-12 h-12 rounded-xl bg-green-50 items-center justify-center mr-4">
+                  <View
+                    style={{
+                      width: responsiveSize(48),
+                      height: responsiveSize(48),
+                      borderRadius: responsiveSize(12),
+                      backgroundColor: '#ECFDF5',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: responsiveSize(16)
+                    }}
+                  >
                     <View style={{
                       width: 0,
                       height: 0,
-                      borderLeftWidth: 12,
+                      borderLeftWidth: responsiveSize(12),
                       borderRightWidth: 0,
-                      borderTopWidth: 8,
-                      borderBottomWidth: 8,
+                      borderTopWidth: responsiveSize(8),
+                      borderBottomWidth: responsiveSize(8),
                       borderLeftColor: '#10B981',
                       borderRightColor: 'transparent',
                       borderTopColor: 'transparent',
                       borderBottomColor: 'transparent',
-                      marginLeft: 2
+                      marginLeft: responsiveSize(2)
                     }} />
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-gray-900">
+                  <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(16),
+                        fontWeight: 'bold',
+                        color: '#111827'
+                      }}
+                      numberOfLines={1}
+                    >
                       Resume Auto-Ordering
                     </Text>
-                    <Text className="text-xs text-gray-600 mt-1">
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(12),
+                        color: '#4B5563',
+                        marginTop: responsiveSize(4)
+                      }}
+                      numberOfLines={1}
+                    >
                       Restart your automatic orders
                     </Text>
                   </View>
-                  <Text className="text-xl text-green-500">›</Text>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(20),
+                      color: '#10B981'
+                    }}
+                  >
+                    ›
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -681,10 +1181,10 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             activeOpacity={0.7}
           >
             <View
-              className={`rounded-2xl p-5 ${
-                isEnabled ? 'bg-white' : 'bg-gray-50'
-              }`}
               style={{
+                backgroundColor: isEnabled ? 'white' : '#F9FAFB',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(20),
                 borderWidth: 2,
                 borderColor: isEnabled ? '#3B82F6' : '#E5E7EB',
                 shadowColor: isEnabled ? '#3B82F6' : '#000',
@@ -696,30 +1196,65 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             >
               <View className="flex-row items-center">
                 <View
-                  className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${
-                    isEnabled ? 'bg-blue-50' : 'bg-gray-100'
-                  }`}
+                  style={{
+                    width: responsiveSize(48),
+                    height: responsiveSize(48),
+                    borderRadius: responsiveSize(12),
+                    backgroundColor: isEnabled ? '#EFF6FF' : '#F3F4F6',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: responsiveSize(16)
+                  }}
                 >
                   <View>
-                    <View className="flex-row mb-0.5">
-                      <View className="w-1 h-1 rounded-full mr-0.5" style={{ backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View className="w-1 h-1 rounded-full mr-0.5" style={{ backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View className="w-1 h-1 rounded-full mr-0.5" style={{ backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View className="w-1 h-1 rounded-full mr-0.5" style={{ backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View className="w-1 h-1 rounded-full" style={{ backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
+                    <View className="flex-row" style={{ marginBottom: responsiveSize(2) }}>
+                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
+                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
+                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
+                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
+                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
                     </View>
-                    <View className="w-6 h-5 rounded border-2" style={{ borderColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
+                    <View
+                      style={{
+                        width: responsiveSize(24),
+                        height: responsiveSize(20),
+                        borderRadius: responsiveSize(4),
+                        borderWidth: 2,
+                        borderColor: isEnabled ? '#3B82F6' : '#9CA3AF'
+                      }}
+                    />
                   </View>
                 </View>
-                <View className="flex-1">
-                  <Text className={`text-base font-bold ${isEnabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(16),
+                      fontWeight: 'bold',
+                      color: isEnabled ? '#111827' : '#9CA3AF'
+                    }}
+                    numberOfLines={1}
+                  >
                     Manage Skipped Meals
                   </Text>
-                  <Text className={`text-xs mt-1 ${isEnabled ? 'text-gray-600' : 'text-gray-400'}`}>
+                  <Text
+                    style={{
+                      fontSize: responsiveFontSize(12),
+                      marginTop: responsiveSize(4),
+                      color: isEnabled ? '#4B5563' : '#9CA3AF'
+                    }}
+                    numberOfLines={2}
+                  >
                     {isEnabled ? 'Skip specific days when needed' : 'Enable auto-ordering first'}
                   </Text>
                 </View>
-                <Text className={`text-xl ${isEnabled ? 'text-blue-500' : 'text-gray-300'}`}>›</Text>
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(20),
+                    color: isEnabled ? '#3B82F6' : '#D1D5DB'
+                  }}
+                >
+                  ›
+                </Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -727,22 +1262,54 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Skipped Meals List (if any) */}
         {subscription.skippedSlots && subscription.skippedSlots.length > 0 && (
-          <View className="mx-4 mb-4">
-            <View className="flex-row items-center justify-between mb-4">
+          <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
+            <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(16) }}>
               <View className="flex-row items-center">
-                <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-                <Text className="text-xl font-bold text-gray-900">Upcoming Skips</Text>
+                <View
+                  style={{
+                    width: responsiveSize(8),
+                    height: responsiveSize(24),
+                    backgroundColor: '#F56B4C',
+                    borderRadius: 999,
+                    marginRight: responsiveSize(12)
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(20),
+                    fontWeight: 'bold',
+                    color: '#111827'
+                  }}
+                  numberOfLines={1}
+                >
+                  Upcoming Skips
+                </Text>
               </View>
-              <View className="bg-orange-100 rounded-full px-3 py-1">
-                <Text className="text-xs font-bold text-orange-600">
+              <View
+                style={{
+                  backgroundColor: '#FFEDD5',
+                  borderRadius: 999,
+                  paddingHorizontal: responsiveSize(12),
+                  paddingVertical: responsiveSize(4)
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: responsiveFontSize(12),
+                    fontWeight: 'bold',
+                    color: '#EA580C'
+                  }}
+                >
                   {subscription.skippedSlots.length}
                 </Text>
               </View>
             </View>
 
             <View
-              className="bg-white rounded-2xl p-4"
               style={{
+                backgroundColor: 'white',
+                borderRadius: responsiveSize(16),
+                padding: responsiveSize(16),
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
@@ -753,29 +1320,65 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               {subscription.skippedSlots.slice(0, 3).map((slot, index) => (
                 <View
                   key={index}
-                  className={`flex-row items-center py-3 ${
-                    index < Math.min(2, subscription.skippedSlots.length - 1)
-                      ? 'border-b border-gray-100'
-                      : ''
-                  }`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: responsiveSize(12),
+                    borderBottomWidth: index < Math.min(2, subscription.skippedSlots.length - 1) ? 1 : 0,
+                    borderBottomColor: '#F3F4F6'
+                  }}
                 >
                   <View
-                    className="w-12 h-12 rounded-xl mr-3 items-center justify-center"
-                    style={{ backgroundColor: slot.mealWindow === 'LUNCH' ? '#FFF7ED' : '#EDE9FE' }}
+                    style={{
+                      width: responsiveSize(48),
+                      height: responsiveSize(48),
+                      borderRadius: responsiveSize(12),
+                      backgroundColor: slot.mealWindow === 'LUNCH' ? '#FFF7ED' : '#EDE9FE',
+                      marginRight: responsiveSize(12),
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
                   >
-                    <Text className="text-2xl font-bold" style={{ color: slot.mealWindow === 'LUNCH' ? '#F97316' : '#8B5CF6' }}>
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(24),
+                        fontWeight: 'bold',
+                        color: slot.mealWindow === 'LUNCH' ? '#F97316' : '#8B5CF6'
+                      }}
+                    >
                       {slot.mealWindow === 'LUNCH' ? 'L' : 'D'}
                     </Text>
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm font-bold text-gray-900">
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(14),
+                        fontWeight: 'bold',
+                        color: '#111827'
+                      }}
+                      numberOfLines={1}
+                    >
                       {slot.mealWindow === 'LUNCH' ? 'Lunch' : 'Dinner'}
                     </Text>
-                    <Text className="text-xs text-gray-600 mt-1">
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(12),
+                        color: '#4B5563',
+                        marginTop: responsiveSize(4)
+                      }}
+                      numberOfLines={1}
+                    >
                       {formatShortDate(slot.date)}
                     </Text>
                     {slot.reason && (
-                      <Text className="text-xs text-gray-500 mt-1" numberOfLines={1}>
+                      <Text
+                        style={{
+                          fontSize: responsiveFontSize(12),
+                          color: '#6B7280',
+                          marginTop: responsiveSize(4)
+                        }}
+                        numberOfLines={1}
+                      >
                         {slot.reason}
                       </Text>
                     )}
@@ -787,13 +1390,25 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 <TouchableOpacity
                   onPress={navigateToSkipCalendar}
                   activeOpacity={0.7}
-                  className="mt-3 pt-3 border-t border-gray-100"
+                  style={{
+                    marginTop: responsiveSize(12),
+                    paddingTop: responsiveSize(12),
+                    borderTopWidth: 1,
+                    borderTopColor: '#F3F4F6'
+                  }}
                 >
                   <View className="flex-row items-center justify-center">
-                    <Text className="text-sm font-semibold text-orange-400 mr-2">
+                    <Text
+                      style={{
+                        fontSize: responsiveFontSize(14),
+                        fontWeight: '600',
+                        color: '#F56B4C',
+                        marginRight: responsiveSize(8)
+                      }}
+                    >
                       View All {subscription.skippedSlots.length} Skips
                     </Text>
-                    <Text className="text-orange-400">›</Text>
+                    <Text style={{ color: '#F56B4C', fontSize: responsiveFontSize(16) }}>›</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -820,7 +1435,10 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Pause Auto-Ordering</Text>
               <Text style={styles.modalMessage}>
-                Auto-ordering will be paused. You can resume anytime.
+                This will pause all auto-orders (both lunch and dinner). You can resume anytime.
+              </Text>
+              <Text style={{ fontSize: responsiveFontSize(12), color: '#9CA3AF', textAlign: 'center', marginBottom: responsiveSize(16) }}>
+                Tip: To skip specific meals, use "Manage Skipped Meals" instead.
               </Text>
 
               {/* Pause indefinitely option */}
@@ -869,40 +1487,40 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: responsiveSize(20),
   },
   modalContainer: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: isSmallScreen ? SCREEN_WIDTH - 40 : 400,
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: responsiveSize(20),
+    padding: responsiveSize(24),
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: responsiveFontSize(20),
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: responsiveSize(12),
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 14,
+    fontSize: responsiveFontSize(14),
     color: '#6B7280',
-    marginBottom: 24,
+    marginBottom: responsiveSize(24),
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: responsiveFontSize(20),
   },
   modalButton: {
     backgroundColor: '#F56B4C',
-    paddingVertical: 14,
-    borderRadius: 25,
+    paddingVertical: responsiveSize(14),
+    borderRadius: responsiveSize(25),
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: responsiveSize(12),
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: responsiveFontSize(16),
     fontWeight: 'bold',
     color: 'white',
   },
@@ -912,7 +1530,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   modalButtonTextSecondary: {
-    fontSize: 15,
+    fontSize: responsiveFontSize(15),
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -928,8 +1546,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: responsiveSize(16),
+    padding: responsiveSize(24),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -938,8 +1556,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: responsiveSize(12),
+    fontSize: responsiveFontSize(14),
     color: '#6B7280',
   },
 });
