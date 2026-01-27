@@ -6,14 +6,16 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
   Image,
   Dimensions,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useAddress } from '../../context/AddressContext';
 import {
@@ -43,7 +45,7 @@ type Props = StackScreenProps<any, 'AutoOrderSettings'>;
 
 const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { subscriptionId } = route.params || {};
-  const { subscriptions, updateAutoOrderSettings, pauseAutoOrdering, resumeAutoOrdering } = useSubscription();
+  const { subscriptions, updateAutoOrderSettings, pauseAutoOrdering, resumeAutoOrdering, usableVouchers } = useSubscription();
   const { addresses, getMainAddress } = useAddress();
 
   // Find the subscription
@@ -58,6 +60,12 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [pauseDate, setPauseDate] = useState<Date | null>(null);
   const [pauseReason, setPauseReason] = useState('');
   const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
+
+  // Modal states for success and error messages
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
 
   // Initialize state from subscription
   useEffect(() => {
@@ -95,10 +103,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   // Loading state
   if (!subscription) {
     return (
-      <View style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
+      <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
+        <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
         <ActivityIndicator size="large" color="#F56B4C" />
         <Text className="mt-4 text-gray-600">Loading subscription...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -112,7 +121,9 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       );
 
       if (!validation.isValid) {
-        Alert.alert('Cannot Enable Auto-Ordering', validation.error);
+        setModalTitle('Cannot Enable Auto-Ordering');
+        setModalMessage(validation.error);
+        setShowErrorModal(true);
         return;
       }
     }
@@ -125,14 +136,17 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         defaultAddressId: defaultAddress?._id,
       });
       setIsEnabled(value);
-      Alert.alert(
-        'Success',
+      setModalTitle('Success');
+      setModalMessage(
         value
           ? 'Auto-ordering has been enabled'
           : 'Auto-ordering has been disabled'
       );
+      setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update auto-ordering');
+      setModalTitle('Error');
+      setModalMessage(error.message || 'Failed to update auto-ordering');
+      setShowErrorModal(true);
     } finally {
       setIsLoading(false);
     }
@@ -152,7 +166,9 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           defaultAddressId: defaultAddress?._id,
         });
       } catch (error: any) {
-        Alert.alert('Error', error.message || 'Failed to update meal preference');
+        setModalTitle('Error');
+        setModalMessage(error.message || 'Failed to update meal preference');
+        setShowErrorModal(true);
       } finally {
         setIsLoading(false);
       }
@@ -170,9 +186,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       setShowPauseModal(false);
       setPauseReason('');
       setPauseDate(null);
-      Alert.alert('Success', 'Auto-ordering has been paused');
+      setModalTitle('Success');
+      setModalMessage('Auto-ordering has been paused');
+      setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to pause auto-ordering');
+      setModalTitle('Error');
+      setModalMessage(error.message || 'Failed to pause auto-ordering');
+      setShowErrorModal(true);
     } finally {
       setIsLoading(false);
     }
@@ -183,9 +203,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
     setIsLoading(true);
     try {
       await resumeAutoOrdering(subscription._id);
-      Alert.alert('Success', 'Auto-ordering has been resumed');
+      setModalTitle('Success');
+      setModalMessage('Auto-ordering has been resumed');
+      setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to resume auto-ordering');
+      setModalTitle('Error');
+      setModalMessage(error.message || 'Failed to resume auto-ordering');
+      setShowErrorModal(true);
     } finally {
       setIsLoading(false);
     }
@@ -234,45 +258,34 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   return (
-    <View style={styles.container} className="flex-1 bg-white">
+    <SafeAreaView style={styles.container} className="flex-1 bg-white">
+      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       {/* Header */}
       <View
-        className="bg-orange-400"
+        className="bg-orange-400 px-5 py-4"
         style={{
-          paddingHorizontal: responsiveSize(20),
-          paddingVertical: responsiveSize(16),
-          borderBottomLeftRadius: responsiveSize(30),
-          borderBottomRightRadius: responsiveSize(30)
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30
         }}
       >
-        <View className="flex-row items-center">
+        <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={{
-              width: responsiveSize(40),
-              height: responsiveSize(40),
-              marginRight: responsiveSize(16),
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="w-10 h-10 items-center justify-center"
           >
             <Image
               source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: responsiveSize(34), height: responsiveSize(34) }}
+              style={{ width: 34, height: 34 }}
               resizeMode="contain"
             />
           </TouchableOpacity>
           <Text
-            style={{
-              fontSize: responsiveFontSize(20),
-              fontWeight: 'bold',
-              color: 'white',
-              flexShrink: 1
-            }}
+            className="text-xl font-bold text-white flex-1 text-center"
             numberOfLines={1}
           >
             Auto-Order Settings
           </Text>
+          <View style={{ width: 34 }} />
         </View>
       </View>
 
@@ -280,17 +293,14 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         className="flex-1 bg-gray-50"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: isSmallScreen ? 80 : 100,
-          paddingTop: responsiveSize(20)
+          paddingBottom: 100,
+          paddingTop: 20
         }}
       >
         {/* Hero Status Card with Toggle */}
         <View
+          className="mx-4 mb-5 rounded-3xl overflow-hidden"
           style={{
-            marginHorizontal: responsiveSize(16),
-            marginBottom: responsiveSize(20),
-            borderRadius: responsiveSize(24),
-            overflow: 'hidden',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
@@ -300,31 +310,22 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           {/* Gradient Background Effect */}
           <View
+            className="p-5"
             style={{
               backgroundColor: isEnabled ? '#F56B4C' : '#9CA3AF',
-              padding: responsiveSize(20),
             }}
           >
             {/* Toggle Row */}
-            <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(16) }}>
-              <View className="flex-1" style={{ marginRight: responsiveSize(16) }}>
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-1 mr-4">
                 <Text
-                  style={{
-                    fontSize: responsiveFontSize(20),
-                    fontWeight: 'bold',
-                    color: 'white',
-                    marginBottom: responsiveSize(8)
-                  }}
+                  className="text-xl font-bold text-white mb-2"
                   numberOfLines={1}
                 >
                   Auto-Ordering
                 </Text>
                 <Text
-                  style={{
-                    fontSize: responsiveFontSize(14),
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    lineHeight: responsiveFontSize(18)
-                  }}
+                  className="text-sm text-white opacity-90"
                   numberOfLines={2}
                 >
                   {isEnabled ? 'Your meals are on autopilot' : 'Enable to automate your orders'}
@@ -336,37 +337,25 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 trackColor={{ false: '#E5E7EB', true: '#ffffff40' }}
                 thumbColor={'#ffffff'}
                 disabled={isLoading}
-                style={{ transform: [{ scale: isSmallScreen ? 0.9 : 1.1 }] }}
+                style={{ transform: [{ scale: 1.1 }] }}
               />
             </View>
 
             {/* Status Info */}
             {isEnabled && (
-              <View style={{ marginTop: responsiveSize(8) }}>
+              <View className="mt-2">
                 <View
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    borderRadius: responsiveSize(16),
-                    padding: responsiveSize(16)
-                  }}
+                  className="bg-white/20 rounded-2xl p-4"
                 >
-                  <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(12) }}>
+                  <View className="flex-row items-center justify-between mb-3">
                     <View className="flex-1">
                       <Text
-                        style={{
-                          fontSize: responsiveFontSize(12),
-                          color: 'rgba(255, 255, 255, 0.8)',
-                          marginBottom: responsiveSize(4)
-                        }}
+                        className="text-xs text-white/80 mb-1"
                       >
                         Current Plan
                       </Text>
                       <Text
-                        style={{
-                          fontSize: responsiveFontSize(16),
-                          fontWeight: 'bold',
-                          color: 'white'
-                        }}
+                        className="text-base font-bold text-white"
                         numberOfLines={1}
                       >
                         {getAutoOrderStatusText(subscription)}
@@ -374,19 +363,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                     {!subscription.isPaused && (
                       <View
-                        style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                          borderRadius: 999,
-                          paddingHorizontal: responsiveSize(12),
-                          paddingVertical: responsiveSize(4)
-                        }}
+                        className="rounded-full px-3 py-1"
+                        style={{ backgroundColor: '#10B981' }}
                       >
                         <Text
-                          style={{
-                            fontSize: responsiveFontSize(12),
-                            fontWeight: '600',
-                            color: 'white'
-                          }}
+                          className="text-xs font-semibold text-white"
                         >
                           Active
                         </Text>
@@ -397,27 +378,15 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   {/* Next Order Countdown */}
                   {!subscription.isPaused && (
                     <View
-                      style={{
-                        paddingTop: responsiveSize(12),
-                        borderTopWidth: 1,
-                        borderTopColor: 'rgba(255, 255, 255, 0.2)'
-                      }}
+                      className="pt-3 border-t border-white/20"
                     >
                       <Text
-                        style={{
-                          fontSize: responsiveFontSize(12),
-                          color: 'rgba(255, 255, 255, 0.8)',
-                          marginBottom: responsiveSize(4)
-                        }}
+                        className="text-xs text-white/80 mb-1"
                       >
                         Next Auto-Order
                       </Text>
                       <Text
-                        style={{
-                          fontSize: responsiveFontSize(14),
-                          fontWeight: 'bold',
-                          color: 'white'
-                        }}
+                        className="text-sm font-bold text-white"
                         numberOfLines={1}
                       >
                         {formatNextAutoOrderTime(subscription, kitchenOperatingHours)}
@@ -431,37 +400,14 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Meal Preferences */}
-        <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
-          <View className="flex-row items-center" style={{ marginBottom: responsiveSize(16) }}>
-            <View
-              style={{
-                width: responsiveSize(8),
-                height: responsiveSize(24),
-                backgroundColor: '#F56B4C',
-                borderRadius: 999,
-                marginRight: responsiveSize(12)
-              }}
-            />
-            <Text
-              style={{
-                fontSize: responsiveFontSize(20),
-                fontWeight: 'bold',
-                color: '#111827'
-              }}
-              numberOfLines={1}
-            >
+        <View className="mx-4 mb-4">
+          <View className="flex-row items-center mb-4">
+            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
               Choose Your Meals
             </Text>
           </View>
-          <Text
-            style={{
-              fontSize: responsiveFontSize(14),
-              color: '#4B5563',
-              marginBottom: responsiveSize(20),
-              paddingLeft: responsiveSize(4)
-            }}
-            numberOfLines={2}
-          >
+          <Text className="text-sm text-gray-600 mb-5 pl-1" numberOfLines={2}>
             Select which meals to auto-order daily
           </Text>
 
@@ -499,15 +445,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     marginRight: responsiveSize(16)
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(24),
-                      fontWeight: 'bold',
-                      color: selectedMealType === 'LUNCH' ? '#F97316' : '#9CA3AF'
-                    }}
-                  >
-                    L
-                  </Text>
+                  <MaterialCommunityIcons
+                    name="white-balance-sunny"
+                    size={responsiveFontSize(28)}
+                    color={selectedMealType === 'LUNCH' ? '#F97316' : '#9CA3AF'}
+                  />
                 </View>
 
                 {/* Content */}
@@ -594,15 +536,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     marginRight: responsiveSize(16)
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(24),
-                      fontWeight: 'bold',
-                      color: selectedMealType === 'DINNER' ? '#8B5CF6' : '#9CA3AF'
-                    }}
-                  >
-                    D
-                  </Text>
+                  <MaterialCommunityIcons
+                    name="moon-waning-crescent"
+                    size={responsiveFontSize(28)}
+                    color={selectedMealType === 'DINNER' ? '#8B5CF6' : '#9CA3AF'}
+                  />
                 </View>
 
                 {/* Content */}
@@ -688,36 +626,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     marginRight: responsiveSize(16)
                   }}
                 >
-                  <View className="flex-row items-center">
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(18),
-                        fontWeight: 'bold',
-                        color: selectedMealType === 'BOTH' ? '#F97316' : '#9CA3AF'
-                      }}
-                    >
-                      L
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(12),
-                        fontWeight: 'bold',
-                        marginHorizontal: responsiveSize(2),
-                        color: selectedMealType === 'BOTH' ? '#D97706' : '#9CA3AF'
-                      }}
-                    >
-                      +
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(18),
-                        fontWeight: 'bold',
-                        color: selectedMealType === 'BOTH' ? '#8B5CF6' : '#9CA3AF'
-                      }}
-                    >
-                      D
-                    </Text>
-                  </View>
+                  <MaterialCommunityIcons
+                    name="food"
+                    size={responsiveFontSize(28)}
+                    color={selectedMealType === 'BOTH' ? '#D97706' : '#9CA3AF'}
+                  />
                 </View>
 
                 {/* Content */}
@@ -805,25 +718,10 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Default Address */}
-        <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
-          <View className="flex-row items-center" style={{ marginBottom: responsiveSize(16) }}>
-            <View
-              style={{
-                width: responsiveSize(8),
-                height: responsiveSize(24),
-                backgroundColor: '#F56B4C',
-                borderRadius: 999,
-                marginRight: responsiveSize(12)
-              }}
-            />
-            <Text
-              style={{
-                fontSize: responsiveFontSize(20),
-                fontWeight: 'bold',
-                color: '#111827'
-              }}
-              numberOfLines={1}
-            >
+        <View className="mx-4 mb-4">
+          <View className="flex-row items-center mb-4">
+            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
               Delivery Address
             </Text>
           </View>
@@ -877,7 +775,6 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                         color: '#111827',
                         flex: 1
                       }}
-                      numberOfLines={1}
                     >
                       {defaultAddress.label || 'Home'}
                     </Text>
@@ -897,20 +794,19 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                       color: '#4B5563',
                       lineHeight: responsiveFontSize(20)
                     }}
-                    numberOfLines={2}
+                    numberOfLines={1}
                   >
-                    {defaultAddress.flatNumber ? `${defaultAddress.flatNumber}, ` : ''}
-                    {defaultAddress.street}
+                    {[defaultAddress.addressLine1, defaultAddress.addressLine2].filter(Boolean).join(', ')}
                   </Text>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(12),
+                      fontSize: responsiveFontSize(13),
                       color: '#6B7280',
                       marginTop: responsiveSize(4)
                     }}
                     numberOfLines={1}
                   >
-                    {defaultAddress.city}, {defaultAddress.pincode}
+                    {[defaultAddress.locality, defaultAddress.city, defaultAddress.state, defaultAddress.pincode].filter(Boolean).join(', ')}
                   </Text>
                 </View>
               </View>
@@ -982,25 +878,10 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Quick Actions */}
-        <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
-          <View className="flex-row items-center" style={{ marginBottom: responsiveSize(16) }}>
-            <View
-              style={{
-                width: responsiveSize(8),
-                height: responsiveSize(24),
-                backgroundColor: '#F56B4C',
-                borderRadius: 999,
-                marginRight: responsiveSize(12)
-              }}
-            />
-            <Text
-              style={{
-                fontSize: responsiveFontSize(20),
-                fontWeight: 'bold',
-                color: '#111827'
-              }}
-              numberOfLines={1}
-            >
+        <View className="mx-4 mb-4">
+          <View className="flex-row items-center mb-4">
+            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
               Quick Actions
             </Text>
           </View>
@@ -1262,44 +1143,16 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Skipped Meals List (if any) */}
         {subscription.skippedSlots && subscription.skippedSlots.length > 0 && (
-          <View style={{ marginHorizontal: responsiveSize(16), marginBottom: responsiveSize(16) }}>
-            <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(16) }}>
+          <View className="mx-4 mb-4">
+            <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
-                <View
-                  style={{
-                    width: responsiveSize(8),
-                    height: responsiveSize(24),
-                    backgroundColor: '#F56B4C',
-                    borderRadius: 999,
-                    marginRight: responsiveSize(12)
-                  }}
-                />
-                <Text
-                  style={{
-                    fontSize: responsiveFontSize(20),
-                    fontWeight: 'bold',
-                    color: '#111827'
-                  }}
-                  numberOfLines={1}
-                >
+                <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+                <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
                   Upcoming Skips
                 </Text>
               </View>
-              <View
-                style={{
-                  backgroundColor: '#FFEDD5',
-                  borderRadius: 999,
-                  paddingHorizontal: responsiveSize(12),
-                  paddingVertical: responsiveSize(4)
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: responsiveFontSize(12),
-                    fontWeight: 'bold',
-                    color: '#EA580C'
-                  }}
-                >
+              <View className="bg-orange-100 rounded-full px-3 py-1">
+                <Text className="text-xs font-bold text-orange-600">
                   {subscription.skippedSlots.length}
                 </Text>
               </View>
@@ -1437,7 +1290,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.modalMessage}>
                 This will pause all auto-orders (both lunch and dinner). You can resume anytime.
               </Text>
-              <Text style={{ fontSize: responsiveFontSize(12), color: '#9CA3AF', textAlign: 'center', marginBottom: responsiveSize(16) }}>
+              <Text className="text-xs text-gray-400 text-center mb-4">
                 Tip: To skip specific meals, use "Manage Skipped Meals" instead.
               </Text>
 
@@ -1448,7 +1301,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 style={styles.modalButton}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#F56B4C" />
+                  <ActivityIndicator color="white" />
                 ) : (
                   <Text style={styles.modalButtonText}>Pause Indefinitely</Text>
                 )}
@@ -1474,7 +1327,65 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       )}
-    </View>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowSuccessModal(false)}
+        >
+          <Pressable
+            style={styles.modalContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{modalTitle}</Text>
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
+              <TouchableOpacity
+                onPress={() => setShowSuccessModal(false)}
+                style={styles.modalButton}
+              >
+                <Text style={styles.modalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowErrorModal(false)}
+        >
+          <Pressable
+            style={styles.modalContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{modalTitle}</Text>
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
+              <TouchableOpacity
+                onPress={() => setShowErrorModal(false)}
+                style={[styles.modalButton, { backgroundColor: '#EF4444' }]}
+              >
+                <Text style={styles.modalButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
@@ -1487,40 +1398,40 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: responsiveSize(20),
+    padding: 20,
   },
   modalContainer: {
     width: '100%',
-    maxWidth: isSmallScreen ? SCREEN_WIDTH - 40 : 400,
+    maxWidth: 400,
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: responsiveSize(20),
-    padding: responsiveSize(24),
+    borderRadius: 20,
+    padding: 24,
   },
   modalTitle: {
-    fontSize: responsiveFontSize(20),
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: responsiveSize(12),
+    marginBottom: 12,
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: responsiveFontSize(14),
+    fontSize: 14,
     color: '#6B7280',
-    marginBottom: responsiveSize(24),
+    marginBottom: 24,
     textAlign: 'center',
-    lineHeight: responsiveFontSize(20),
+    lineHeight: 20,
   },
   modalButton: {
     backgroundColor: '#F56B4C',
-    paddingVertical: responsiveSize(14),
-    borderRadius: responsiveSize(25),
+    paddingVertical: 14,
+    borderRadius: 25,
     alignItems: 'center',
-    marginBottom: responsiveSize(12),
+    marginBottom: 12,
   },
   modalButtonText: {
-    fontSize: responsiveFontSize(16),
+    fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
   },
@@ -1530,7 +1441,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   modalButtonTextSecondary: {
-    fontSize: responsiveFontSize(15),
+    fontSize: 15,
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -1546,8 +1457,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     backgroundColor: 'white',
-    borderRadius: responsiveSize(16),
-    padding: responsiveSize(24),
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1556,8 +1467,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   loadingText: {
-    marginTop: responsiveSize(12),
-    fontSize: responsiveFontSize(14),
+    marginTop: 12,
+    fontSize: 14,
     color: '#6B7280',
   },
 });

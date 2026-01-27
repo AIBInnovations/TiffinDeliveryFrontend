@@ -242,18 +242,24 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Update addon quantity for a specific item
   const updateAddonQuantity = useCallback((itemId: string, addonIndex: number, quantity: number) => {
+    // If quantity is 0 or less, remove the addon
+    if (quantity <= 0) {
+      removeAddon(itemId, addonIndex);
+      return;
+    }
+
     setCartItems(prevItems =>
       prevItems.map(item => {
         if (item.id === itemId && item.addons) {
           const updatedAddons = item.addons.map((addon, idx) =>
-            idx === addonIndex ? { ...addon, quantity: Math.max(1, quantity) } : addon
+            idx === addonIndex ? { ...addon, quantity } : addon
           );
           return { ...item, addons: updatedAddons };
         }
         return item;
       })
     );
-  }, []);
+  }, [removeAddon]);
 
   // Remove an addon from a specific item
   const removeAddon = useCallback((itemId: string, addonIndex: number) => {

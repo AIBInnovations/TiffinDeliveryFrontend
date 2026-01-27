@@ -1,5 +1,5 @@
 // src/screens/orders/YourOrdersScreen.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,10 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useAddress } from '../../context/AddressContext';
 import { useAlert } from '../../context/AlertContext';
 import apiService, { Order, OrderStatus } from '../../services/api.service';
+import dataPreloader from '../../services/dataPreloader.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
-import NotificationBell from '../../components/NotificationBell';
 import { getMealCutoffTime } from '../../utils/timeUtils';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
@@ -107,7 +106,6 @@ const getQuantityString = (order: Order): string => {
 
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const { usableVouchers } = useSubscription();
-  const { getMainAddress } = useAddress();
   const { showAlert } = useAlert();
 
   const [activeTab, setActiveTab] = useState<'Current' | 'History' | 'Auto'>('Current');
@@ -115,17 +113,20 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   // Current orders state
   const [currentOrders, setCurrentOrders] = useState<Order[]>([]);
-  const [currentLoading, setCurrentLoading] = useState(true);
+  const [currentLoading, setCurrentLoading] = useState(false); // Start with false - will be set to true only if cache miss
   const [currentError, setCurrentError] = useState<string | null>(null);
 
   // History orders state
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false); // Start with false - will be set to true only if cache miss
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(true);
 
   const [refreshing, setRefreshing] = useState(false);
+
+  // Track if data has been loaded to prevent unnecessary fetches
+  const hasLoadedDataRef = useRef(false);
 
   // Cancel modal state
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -133,20 +134,26 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
-  // Get display location
-  const getDisplayLocation = () => {
-    const mainAddress = getMainAddress();
-    if (mainAddress) {
-      return `${mainAddress.locality}, ${mainAddress.city}`;
-    }
-    return 'Select Location';
-  };
-
   // Fetch current orders
   const fetchCurrentOrders = async () => {
     try {
       setCurrentError(null);
-      console.log('[YourOrdersScreen] Fetching current orders');
+
+      // 🚀 Try cache first for instant display (non-blocking check)
+      const cachedOrders = dataPreloader.getCachedOrders();
+      if (cachedOrders && !dataPreloader.isCacheExpired('orders')) {
+        console.log('[YourOrdersScreen] ✓ Using cached orders from preload:', cachedOrders.length);
+        const current = cachedOrders.filter((order: Order) =>
+          CURRENT_STATUSES.includes(order.status)
+        );
+        setCurrentOrders(current);
+        setCurrentLoading(false);
+        return;
+      }
+
+      // Cache miss or expired - show loading and fetch from API
+      console.log('[YourOrdersScreen] ⚠️ Cache miss, fetching orders from API');
+      setCurrentLoading(true);
       // Note: Backend doesn't support comma-separated status values
       // Fetch all orders and filter client-side
       const response = await apiService.getMyOrders({ limit: 50 });
@@ -202,6 +209,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
     try {
       if (!append) {
         setHistoryError(null);
+        setHistoryLoading(true);
       }
       console.log('[YourOrdersScreen] Fetching history orders - Page:', page);
       // Note: Backend doesn't support comma-separated status values
@@ -267,8 +275,8 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   // Fetch all orders
   const fetchAllOrders = async () => {
-    setCurrentLoading(true);
-    setHistoryLoading(true);
+    // Don't set loading states here - let individual fetch functions handle them
+    // This allows cache to display instantly without showing loading state
     await Promise.all([fetchCurrentOrders(), fetchHistoryOrders(1, false)]);
   };
 
@@ -289,7 +297,37 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   // Fetch orders on mount and when screen is focused
   useFocusEffect(
     useCallback(() => {
-      fetchAllOrders();
+      console.log('[YourOrdersScreen] useFocusEffect triggered');
+
+      // If data already loaded, skip fetch (only load once)
+      if (hasLoadedDataRef.current) {
+        console.log('[YourOrdersScreen] ✓ Data already loaded, skipping fetch');
+        return;
+      }
+
+      // First check cache for instant display
+      const cachedOrders = dataPreloader.getCachedOrders();
+      if (cachedOrders && !dataPreloader.isCacheExpired('orders')) {
+        console.log('[YourOrdersScreen] 🚀 Cache hit - displaying instantly, skipping API fetch');
+        const current = cachedOrders.filter((order: Order) =>
+          CURRENT_STATUSES.includes(order.status)
+        );
+        const history = cachedOrders.filter((order: Order) =>
+          HISTORY_STATUSES.includes(order.status)
+        );
+        setCurrentOrders(current);
+        setHistoryOrders(history);
+        setCurrentLoading(false);
+        setHistoryLoading(false);
+        hasLoadedDataRef.current = true; // Mark as loaded
+        return; // Don't fetch from API
+      }
+
+      // Cache miss - fetch from API
+      console.log('[YourOrdersScreen] Cache miss - fetching from API');
+      fetchAllOrders().then(() => {
+        hasLoadedDataRef.current = true; // Mark as loaded after fetch
+      });
     }, [])
   );
 
@@ -402,7 +440,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-lg font-bold text-gray-900 flex-1" numberOfLines={1} style={{ marginRight: 8 }}>
               {getOrderTitle(order)}
             </Text>
-            <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
+            <Text className="text-base font-bold text-gray-900">₹{order.amountPaid.toFixed(2)}</Text>
           </View>
 
           {/* Row 2: Order ID */}
@@ -414,9 +452,16 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Row 3: Time | Auto Badge */}
           <View className="flex-row items-center justify-between">
-            <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
-              {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+            <View className="flex-1">
+              <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
+                {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
+                <Text className="text-xs" style={{ color: '#16A34A', marginTop: 2, fontWeight: '600' }}>
+                  {order.voucherUsage.voucherCount} voucher{order.voucherUsage.voucherCount > 1 ? 's' : ''} used
+                </Text>
+              )}
+            </View>
             {order.isAutoOrder && (
               <View
                 className="px-2.5 py-1 rounded-full flex-row items-center"
@@ -503,7 +548,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-base font-bold text-gray-900 flex-1" numberOfLines={1} style={{ marginRight: 8 }}>
               {getOrderTitle(order)}
             </Text>
-            <Text className="text-base font-bold text-gray-900">₹{order.grandTotal.toFixed(2)}</Text>
+            <Text className="text-base font-bold text-gray-900">₹{order.amountPaid.toFixed(2)}</Text>
           </View>
           <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }} numberOfLines={1}>
             Order ID - #{order.orderNumber}
@@ -651,31 +696,10 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* Location */}
-          <TouchableOpacity
-            className="flex-1 items-center"
-            onPress={() => navigation.navigate('Address')}
-          >
-            <Text className="text-white text-xs opacity-90">Location</Text>
-            <View className="flex-row items-center">
-              <Image
-                source={require('../../assets/icons/address3.png')}
-                style={{ width: 14, height: 14, tintColor: 'white' }}
-                resizeMode="contain"
-              />
-              <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
-                {getDisplayLocation()}
-              </Text>
-              <Image
-                source={require('../../assets/icons/down2.png')}
-                style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
-                resizeMode="contain"
-              />
-            </View>
-          </TouchableOpacity>
-
-          {/* Notification Bell */}
-          <NotificationBell color="white" size={24} />
+          {/* My Orders Title */}
+          <View className="flex-1 items-center">
+            <Text className="text-white text-xl font-bold">My Orders</Text>
+          </View>
 
           {/* Voucher Button */}
           <TouchableOpacity
@@ -723,7 +747,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 }`}
                 style={{ fontSize: 13 }}
               >
-                Current {currentOrders.filter(o => !o.isAutoOrder).length > 0 && `(${currentOrders.filter(o => !o.isAutoOrder).length})`}
+                Current {currentOrders.length > 0 && `(${currentOrders.length})`}
               </Text>
             </TouchableOpacity>
 
@@ -790,16 +814,16 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         }
       >
         {activeTab === 'Current' ? (
-          // Current Orders Layout (non-auto orders)
+          // Current Orders Layout (all current orders including auto)
           <>
             {currentLoading ? (
               renderLoading()
             ) : currentError ? (
               renderError(currentError, fetchCurrentOrders)
-            ) : currentOrders.filter(o => !o.isAutoOrder).length === 0 ? (
+            ) : currentOrders.length === 0 ? (
               renderEmpty('No current orders')
             ) : (
-              currentOrders.filter(o => !o.isAutoOrder).map(renderCurrentOrderCard)
+              currentOrders.map(renderCurrentOrderCard)
             )}
           </>
         ) : activeTab === 'History' ? (

@@ -20,6 +20,7 @@ import apiService, { OrderTrackingData, Order, OrderStatus } from '../../service
 import CancelOrderModal from '../../components/CancelOrderModal';
 import RateOrderModal from '../../components/RateOrderModal';
 import { getMealCutoffTime } from '../../utils/timeUtils';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type Props = StackScreenProps<MainTabParamList, 'OrderTracking'>;
 
@@ -467,15 +468,19 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {/* Out For Delivery */}
               <View className="items-center" style={{ width: 80 }}>
-                <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
-                  <Image
-                    source={require('../../assets/icons/delivery2.png')}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      opacity: currentStep >= 2 ? 1 : 0.7,
-                    }}
-                    resizeMode="contain"
+                <View
+                  className="items-center justify-center mb-2"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: currentStep >= 2 ? '#F56B4C' : '#9CA3AF',
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="truck-delivery"
+                    size={24}
+                    color="#FFFFFF"
                   />
                 </View>
                 <Text
@@ -499,15 +504,19 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {/* Delivered */}
               <View className="items-center" style={{ width: 80 }}>
-                <View className="w-12 h-12 rounded-full items-center justify-center mb-2">
-                  <Image
-                    source={require('../../assets/icons/delievered2.png')}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      opacity: currentStep >= 3 ? 1 : 0.7,
-                    }}
-                    resizeMode="contain"
+                <View
+                  className="items-center justify-center mb-2"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: currentStep >= 3 ? '#F56B4C' : '#9CA3AF',
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={23}
+                    color="#FFFFFF"
                   />
                 </View>
                 <Text

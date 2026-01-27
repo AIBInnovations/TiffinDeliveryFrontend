@@ -9,7 +9,10 @@ import {
   StyleSheet,
   ScrollView,
   Animated,
+  Image,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -160,31 +163,41 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
 
   if (!subscription) {
     return (
-      <View style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
+      <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
+        <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
         <ActivityIndicator size="large" color="#F56B4C" />
         <Text className="mt-4 text-gray-600">Loading calendar...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container} className="flex-1 bg-gray-50">
+    <SafeAreaView style={styles.container} className="flex-1 bg-white">
+      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       {/* Header */}
-      <View className="bg-white px-5 py-4 border-b border-gray-200">
+      <View
+        className="bg-orange-400 px-5 py-4"
+        style={{
+          borderBottomLeftRadius: 30,
+          borderBottomRightRadius: 30
+        }}
+      >
         <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1">
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              className="mr-4 p-2"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text className="text-xl text-gray-700">←</Text>
-            </TouchableOpacity>
-            <View className="flex-1">
-              <Text className="text-xl font-bold text-gray-900">Skip Meals</Text>
-              <Text className="text-xs text-gray-500 mt-1">Tap a date to manage meals</Text>
-            </View>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            className="w-10 h-10 items-center justify-center"
+          >
+            <Image
+              source={require('../../assets/icons/backarrow3.png')}
+              style={{ width: 34, height: 34 }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <View className="flex-1 items-center">
+            <Text className="text-xl font-bold text-white">Skip Meals</Text>
+            <Text className="text-xs text-white/80 mt-1">Tap a date to manage meals</Text>
           </View>
+          <View style={{ width: 34 }} />
         </View>
       </View>
 
@@ -195,7 +208,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
         </Text>
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView className="flex-1 bg-gray-50">
         {/* Calendar */}
         <View className="bg-white m-4 rounded-2xl overflow-hidden shadow-sm">
           <Calendar
@@ -204,6 +217,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
             markedDates={markedDates}
             onDayPress={handleDatePress}
             markingType={'multi-dot'}
+            renderArrow={(direction) => direction === 'left' ? null : <Text style={{ color: '#F56B4C', fontSize: 18 }}>›</Text>}
             theme={{
               backgroundColor: '#ffffff',
               calendarBackground: '#ffffff',
@@ -240,15 +254,58 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         {/* Summary Card */}
-        <View className="bg-white mx-4 mb-4 rounded-2xl p-5 shadow-sm">
-          <Text className="text-lg font-bold text-gray-900 mb-2">Summary</Text>
-          <Text className="text-sm text-gray-600">
-            You have skipped <Text className="font-bold text-orange-600">{monthlySkippedCount}</Text> meals this month
-          </Text>
+        <View
+          className="mx-4 mb-4 rounded-2xl overflow-hidden"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}
+        >
+          <View
+            className="p-5"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <View className="flex-row items-center mb-2">
+                  <Text className="text-2xl mr-2">{monthlySkippedCount > 0 ? '📊' : '✨'}</Text>
+                  <Text className="text-lg font-bold text-gray-900">Monthly Summary</Text>
+                </View>
+                <Text className="text-sm text-gray-600 leading-5">
+                  {monthlySkippedCount > 0 ? (
+                    <>
+                      You have skipped{' '}
+                      <Text className="font-bold text-orange-600 text-base">{monthlySkippedCount}</Text>
+                      {' '}meal{monthlySkippedCount > 1 ? 's' : ''} this month
+                    </>
+                  ) : (
+                    <Text className="text-green-700">No meals skipped this month! 🎉</Text>
+                  )}
+                </Text>
+              </View>
+              <View
+                className="rounded-full items-center justify-center"
+                style={{
+                  width: 56,
+                  height: 56,
+                  backgroundColor: monthlySkippedCount > 0 ? '#F56B4C' : '#10B981',
+                }}
+              >
+                <Text className="text-2xl font-bold text-white">{monthlySkippedCount}</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Bottom Panel Spacer */}
-        {selectedDate && <View style={{ height: 350 }} />}
+        {selectedDate && <View style={{ height: 400 }} />}
       </ScrollView>
 
       {/* Selected Date Panel */}
@@ -266,84 +323,146 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
             },
           ]}
         >
-          <View className="bg-white rounded-t-3xl shadow-lg">
+          <View
+            className="bg-white rounded-t-3xl"
+            style={{
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -3 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+          >
             {/* Handle */}
-            <View className="items-center py-3">
-              <View className="w-10 h-1 bg-gray-300 rounded-full" />
+            <View className="items-center py-4">
+              <View
+                className="w-12 h-1.5 rounded-full"
+                style={{ backgroundColor: '#D1D5DB' }}
+              />
             </View>
 
             {/* Content */}
-            <View className="px-5 pb-8">
+            <View className="px-6 pb-8">
               {/* Date Header */}
-              <View className="flex-row items-center justify-between mb-4">
-                <View>
-                  <Text className="text-lg font-bold text-gray-900">
+              <View className="flex-row items-center justify-between mb-5">
+                <View className="flex-1">
+                  <Text
+                    className="text-2xl font-bold"
+                    style={{ color: '#1F2937' }}
+                  >
                     {formatShortDate(selectedDate)}
                   </Text>
-                  <Text className="text-xs text-gray-500 mt-1">
-                    Select meal window to skip/unskip
+                  <Text
+                    className="text-sm mt-1"
+                    style={{ color: '#6B7280' }}
+                  >
+                    Select meal window to manage
                   </Text>
                 </View>
-                <TouchableOpacity onPress={closePanel} className="p-2">
-                  <Text className="text-xl text-gray-400">✕</Text>
+                <TouchableOpacity
+                  onPress={closePanel}
+                  className="w-10 h-10 rounded-full items-center justify-center"
+                  style={{ backgroundColor: '#F3F4F6' }}
+                >
+                  <Text className="text-xl" style={{ color: '#6B7280' }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Meal Window Selector */}
-              <View className="flex-row space-x-3 mb-4">
+              <View className="flex-row mb-6" style={{ gap: 12 }}>
                 <TouchableOpacity
                   onPress={() => setSelectedMealWindow('LUNCH')}
-                  className={`flex-1 p-4 rounded-xl border-2 ${
-                    selectedMealWindow === 'LUNCH'
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-gray-200 bg-white'
-                  }`}
+                  className="flex-1 p-5 rounded-2xl"
+                  style={{
+                    borderWidth: 2,
+                    borderColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
+                    backgroundColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#FFFFFF',
+                    shadowColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: selectedMealWindow === 'LUNCH' ? 0.25 : 0.05,
+                    shadowRadius: 8,
+                    elevation: selectedMealWindow === 'LUNCH' ? 4 : 2,
+                  }}
                 >
-                  <Text className="text-2xl text-center mb-1">🌞</Text>
-                  <Text className={`text-sm font-semibold text-center ${
-                    selectedMealWindow === 'LUNCH' ? 'text-orange-700' : 'text-gray-700'
-                  }`}>
+                  <Text className="text-3xl text-center mb-2">🌞</Text>
+                  <Text
+                    className="text-base font-bold text-center"
+                    style={{ color: selectedMealWindow === 'LUNCH' ? '#FFFFFF' : '#374151' }}
+                  >
                     Lunch
                   </Text>
                   {isMealSkipped(subscription, selectedDate, 'LUNCH') && (
-                    <Text className="text-xs text-center text-orange-600 mt-1">Skipped</Text>
+                    <View
+                      className="mt-2 px-2 py-1 rounded-full self-center"
+                      style={{ backgroundColor: selectedMealWindow === 'LUNCH' ? 'rgba(255, 255, 255, 0.3)' : '#FED7AA' }}
+                    >
+                      <Text className="text-xs font-semibold" style={{ color: selectedMealWindow === 'LUNCH' ? '#FFFFFF' : '#C2410C' }}>
+                        Skipped
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => setSelectedMealWindow('DINNER')}
-                  className={`flex-1 p-4 rounded-xl border-2 ${
-                    selectedMealWindow === 'DINNER'
-                      ? 'border-blue-400 bg-blue-50'
-                      : 'border-gray-200 bg-white'
-                  }`}
+                  className="flex-1 p-5 rounded-2xl"
+                  style={{
+                    borderWidth: 2,
+                    borderColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#E5E7EB',
+                    backgroundColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#FFFFFF',
+                    shadowColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: selectedMealWindow === 'DINNER' ? 0.25 : 0.05,
+                    shadowRadius: 8,
+                    elevation: selectedMealWindow === 'DINNER' ? 4 : 2,
+                  }}
                 >
-                  <Text className="text-2xl text-center mb-1">🌙</Text>
-                  <Text className={`text-sm font-semibold text-center ${
-                    selectedMealWindow === 'DINNER' ? 'text-blue-700' : 'text-gray-700'
-                  }`}>
+                  <Text className="text-3xl text-center mb-2">🌙</Text>
+                  <Text
+                    className="text-base font-bold text-center"
+                    style={{ color: selectedMealWindow === 'DINNER' ? '#FFFFFF' : '#374151' }}
+                  >
                     Dinner
                   </Text>
                   {isMealSkipped(subscription, selectedDate, 'DINNER') && (
-                    <Text className="text-xs text-center text-blue-600 mt-1">Skipped</Text>
+                    <View
+                      className="mt-2 px-2 py-1 rounded-full self-center"
+                      style={{ backgroundColor: selectedMealWindow === 'DINNER' ? 'rgba(255, 255, 255, 0.3)' : '#BFDBFE' }}
+                    >
+                      <Text className="text-xs font-semibold" style={{ color: selectedMealWindow === 'DINNER' ? '#FFFFFF' : '#1E40AF' }}>
+                        Skipped
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
 
               {/* Reason Input (only if not skipped) */}
               {selectedMealWindow && !isCurrentlySkipped && (
-                <View className="mb-4">
-                  <Text className="text-sm font-semibold text-gray-700 mb-2">
+                <View className="mb-6">
+                  <Text
+                    className="text-sm font-bold mb-3"
+                    style={{ color: '#374151' }}
+                  >
                     Reason (Optional)
                   </Text>
                   <TextInput
                     value={skipReason}
                     onChangeText={setSkipReason}
                     placeholder="e.g., Out of town, Office lunch"
+                    placeholderTextColor="#9CA3AF"
                     maxLength={200}
-                    className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-900 border border-gray-200"
+                    className="rounded-xl px-4 py-4 text-sm"
+                    style={{
+                      backgroundColor: '#F9FAFB',
+                      borderWidth: 1.5,
+                      borderColor: '#E5E7EB',
+                      color: '#1F2937',
+                      minHeight: 80,
+                      textAlignVertical: 'top',
+                    }}
                     multiline
-                    numberOfLines={2}
+                    numberOfLines={3}
                   />
                 </View>
               )}
@@ -353,16 +472,22 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                 <TouchableOpacity
                   onPress={isCurrentlySkipped ? handleUnskipMeal : handleSkipMeal}
                   disabled={isLoading}
-                  className={`p-4 rounded-full items-center justify-center ${
-                    isCurrentlySkipped ? 'bg-green-500' : 'bg-orange-400'
-                  }`}
+                  className="py-4 rounded-2xl items-center justify-center"
+                  style={{
+                    backgroundColor: isCurrentlySkipped ? '#10B981' : '#F56B4C',
+                    shadowColor: isCurrentlySkipped ? '#10B981' : '#F56B4C',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 5,
+                  }}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="white" />
+                    <ActivityIndicator color="white" size="small" />
                   ) : (
-                    <Text className="text-white font-bold text-base">
+                    <Text className="text-white font-bold text-lg">
                       {isCurrentlySkipped
-                        ? `✓ Unskip ${selectedMealWindow}`
+                        ? `✓ Restore ${selectedMealWindow}`
                         : `Skip ${selectedMealWindow}`}
                     </Text>
                   )}
@@ -372,7 +497,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </Animated.View>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

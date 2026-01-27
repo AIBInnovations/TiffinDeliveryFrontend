@@ -29,6 +29,8 @@ const MainNavigator = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        cardStyle: { backgroundColor: '#FFFFFF' },
+        animationEnabled: true,
       }}
     >
       <Stack.Screen name="Home" component={HomeScreen} />

@@ -276,7 +276,7 @@ export const isMealWindowAvailable = (
 };
 
 /**
- * Get cutoff time for a meal window (end time)
+ * Get cutoff time for a meal window (start time - when orders must be placed by)
  * @param operatingHours - Kitchen operating hours
  * @param mealType - Meal type
  * @returns Cutoff time in "HH:mm" format or null
@@ -290,7 +290,7 @@ export const getMealCutoffTime = (
   }
 
   const window = mealType === 'lunch' ? operatingHours.lunch : operatingHours.dinner;
-  return window?.endTime || null;
+  return window?.startTime || null;
 };
 
 /**

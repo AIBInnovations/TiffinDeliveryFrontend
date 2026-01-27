@@ -18,6 +18,7 @@ const AuthNavigator = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        cardStyle: { backgroundColor: '#FFFFFF' },
         // Smooth horizontal slide animation
         ...TransitionPresets.SlideFromRightIOS,
         // Optional: You can also use these alternatives:

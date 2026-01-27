@@ -5,6 +5,7 @@ import { firebaseAuth } from '../config/firebase';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import apiService from '../services/api.service';
 import notificationService from '../services/notification.service';
+import dataPreloader from '../services/dataPreloader.service';
 
 // ============================================
 // OFFLINE MODE FLAG - Set to false to enable backend
@@ -544,6 +545,14 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('[FCM] Notification listeners cleaned up');
       } catch (error) {
         console.warn('[FCM] Error cleaning up notification listeners:', error);
+      }
+
+      // Clear all preloaded data caches
+      try {
+        dataPreloader.clearAllCaches();
+        console.log('[DataPreloader] All caches cleared on logout');
+      } catch (error) {
+        console.warn('[DataPreloader] Error clearing caches:', error);
       }
 
       // Sign out from Firebase

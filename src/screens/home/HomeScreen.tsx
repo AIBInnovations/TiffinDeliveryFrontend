@@ -1,5 +1,5 @@
 // src/screens/home/HomeScreen.tsx
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,11 +19,16 @@ import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useNotifications } from '../../context/NotificationContext';
 import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromResponse } from '../../services/api.service';
+import dataPreloader from '../../services/dataPreloader.service';
 import MealWindowModal from '../../components/MealWindowModal';
 import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
 import { formatNextAutoOrderTime } from '../../utils/autoOrderUtils';
 import NotificationBell from '../../components/NotificationBell';
+import { useResponsive, useScaling } from '../../hooks/useResponsive';
+import { SPACING } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -55,8 +60,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setDeliveryAddressId,
   } = useCart();
   const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
-  const { usableVouchers, subscriptions } = useSubscription();
+  const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers } = useSubscription();
+  const { fetchUnreadCount, fetchNotifications } = useNotifications();
   const insets = useSafeAreaInsets();
+  const { width, isSmallDevice } = useResponsive();
+  const { scale } = useScaling();
   const [selectedMeal, setSelectedMeal] = useState<MealType>('lunch');
   const [showCartModal, setShowCartModal] = useState(false);
   const [mealQuantity, setMealQuantity] = useState(1);
@@ -80,6 +88,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   // Auto-order notification state
   const [showAutoOrderNotification, setShowAutoOrderNotification] = useState(false);
+
+  // Background data preload tracking
+  const hasPreloadedRef = useRef(false);
 
   // Note: We no longer use fallback addons with fake IDs as they cause API validation errors
   // Addons must come from the API with valid MongoDB ObjectIds
@@ -341,6 +352,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         setShowAutoOrderNotification(true);
       }
     }, [subscriptions])
+  );
+
+  // Background data preload - triggers after menu loads successfully
+  useFocusEffect(
+    useCallback(() => {
+      // Only trigger preload once per app session
+      // Only when menu data has finished loading (no error, not loading)
+      if (!hasPreloadedRef.current && !isLoadingMenu && !menuError && menuData) {
+        console.log('[HomeScreen] 🚀 Starting background data preload');
+        hasPreloadedRef.current = true;
+
+        // Start background preload (non-blocking)
+        // Pass context methods for preloader to call
+        dataPreloader
+          .startBackgroundPreload(
+            { fetchSubscriptions, fetchVouchers },
+            { fetchUnreadCount, fetchNotifications }
+          )
+          .catch(error => {
+            console.warn('[HomeScreen] ⚠️ Background preload failed (non-critical):', error);
+            // Don't show error to user - screens will fall back to on-demand fetch
+          });
+      }
+    }, [isLoadingMenu, menuError, menuData, fetchSubscriptions, fetchVouchers, fetchUnreadCount, fetchNotifications])
   );
 
   // Update addons when meal type changes
@@ -622,10 +657,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {/* Top Row: Logo, Location, Actions */}
             <View className="flex-row items-center justify-between mb-4">
               {/* Logo */}
-              <View style={{ width: 58 }}>
+              <View style={{ width: SPACING.iconXl * 1.45 }}>
                 <Image
                   source={require('../../assets/icons/Tiffsy.png')}
-                  style={{ width: 58, height: 35 }}
+                  style={{ width: SPACING.iconXl * 1.45, height: SPACING.iconXl * 0.875 }}
                   resizeMode="contain"
                 />
               </View>
@@ -635,7 +670,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 className="flex-1 items-center mx-3"
                 onPress={() => navigation.navigate('Address')}
               >
-                <Text className="text-white text-xs opacity-90">Location</Text>
+                <Text className="text-white opacity-90" style={{ fontSize: FONT_SIZES.xs }}>Location</Text>
                 <View className="flex-row items-center mt-1">
                   {isGettingLocation ? (
                     <>
@@ -648,15 +683,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     <>
                       <Image
                         source={require('../../assets/icons/address3.png')}
-                        style={{ width: 14, height: 14, tintColor: 'white' }}
+                        style={{ width: SPACING.iconSm, height: SPACING.iconSm, tintColor: 'white' }}
                         resizeMode="contain"
                       />
-                      <Text className="text-white text-sm font-semibold ml-1" numberOfLines={1}>
+                      <Text className="text-white font-semibold ml-1" style={{ fontSize: FONT_SIZES.sm }} numberOfLines={1}>
                         {getDisplayLocation()}
                       </Text>
                       <Image
                         source={require('../../assets/icons/down2.png')}
-                        style={{ width: 12, height: 12, marginLeft: 4, tintColor: 'white' }}
+                        style={{ width: SPACING.iconXs, height: SPACING.iconXs, marginLeft: 4, tintColor: 'white' }}
                         resizeMode="contain"
                       />
                     </>
@@ -665,9 +700,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
 
               {/* Right Actions: Notification Bell & Voucher */}
-              <View className="flex-row items-center" style={{ gap: 12 }}>
+              <View className="flex-row items-center" style={{ gap: SPACING.md }}>
                 {/* Notification Bell */}
-                <NotificationBell color="white" size={22} />
+                <NotificationBell color="white" size={SPACING.iconSize} />
 
                 {/* Voucher Button */}
                 <TouchableOpacity
@@ -676,18 +711,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     flexDirection: 'row',
                     alignItems: 'center',
                     backgroundColor: 'white',
-                    borderRadius: 16,
-                    paddingVertical: 5,
-                    paddingHorizontal: 8,
+                    borderRadius: SPACING.lg,
+                    paddingVertical: SPACING.xs + 1,
+                    paddingHorizontal: SPACING.sm,
                     gap: 4,
                   }}
                 >
                   <Image
                     source={require('../../assets/icons/voucher5.png')}
-                    style={{ width: 18, height: 18 }}
+                    style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
                     resizeMode="contain"
                   />
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#F56B4C' }}>
+                  <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>
                     {usableVouchers}
                   </Text>
                 </TouchableOpacity>
@@ -696,30 +731,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
             {/* Search Bar */}
-            <View className="mx-5 bg-white rounded-full flex-row items-center px-4" style={{ height: 40 }}>
+            <View className="mx-5 bg-white rounded-full flex-row items-center px-4" style={{ height: SPACING['2xl'] + SPACING.lg }}>
               <Image
                 source={require('../../assets/icons/search2.png')}
-                style={{ width: 16, height: 16 }}
+                style={{ width: SPACING.iconSm, height: SPACING.iconSm }}
                 resizeMode="contain"
               />
               <TextInput
                 placeholder="Search for addons to your meal..."
                 placeholderTextColor="#9CA3AF"
-                className="flex-1 text-gray-700 text-sm ml-2"
+                className="flex-1 text-gray-700 ml-2"
                 style={{
+                  fontSize: FONT_SIZES.sm,
                   paddingVertical: 0,
                   paddingTop: 0,
                   paddingBottom: 0,
                   includeFontPadding: false,
                   textAlignVertical: 'center',
-                  height: 40
+                  height: SPACING['2xl'] + SPACING.lg
                 }}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Text className="text-gray-400 text-lg">×</Text>
+                  <Text className="text-gray-400" style={{ fontSize: FONT_SIZES.lg }}>×</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -835,27 +871,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => setSelectedMeal('lunch')}
               className={`items-center mx-6 ${selectedMeal === 'lunch' ? '' : 'opacity-50'}`}
             >
-              <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
+              <View style={{ height: SPACING.iconXl * 2, width: SPACING.iconXl * 2, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
                 <Image
                   source={require('../../assets/images/homepage/lunch1.png')}
                   style={{
-                    width: selectedMeal === 'lunch' ? 80 : 64,
-                    height: selectedMeal === 'lunch' ? 80 : 64,
+                    width: selectedMeal === 'lunch' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
+                    height: selectedMeal === 'lunch' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
                   }}
                   resizeMode="contain"
                 />
               </View>
               <Text
-                className={`text-base font-semibold ${
+                className={`font-semibold ${
                   selectedMeal === 'lunch' ? 'text-orange-400' : 'text-gray-400'
                 }`}
+                style={{ fontSize: FONT_SIZES.base }}
               >
                 Lunch
               </Text>
               {selectedMeal === 'lunch' && (
                 <Image
                   source={require('../../assets/icons/borderline.png')}
-                  style={{ width: 100, height: 8, marginTop: 4 }}
+                  style={{ width: SPACING['5xl'] * 2, height: SPACING.sm, marginTop: 4 }}
                   resizeMode="contain"
                 />
               )}
@@ -865,27 +902,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => setSelectedMeal('dinner')}
               className={`items-center mx-6 ${selectedMeal === 'dinner' ? '' : 'opacity-50'}`}
             >
-              <View style={{ height: 80, width: 80, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
+              <View style={{ height: SPACING.iconXl * 2, width: SPACING.iconXl * 2, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
                 <Image
                   source={require('../../assets/images/homepage/dinner1.png')}
                   style={{
-                    width: selectedMeal === 'dinner' ? 80 : 64,
-                    height: selectedMeal === 'dinner' ? 80 : 64,
+                    width: selectedMeal === 'dinner' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
+                    height: selectedMeal === 'dinner' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
                   }}
                   resizeMode="contain"
                 />
               </View>
               <Text
-                className={`text-base font-semibold ${
+                className={`font-semibold ${
                   selectedMeal === 'dinner' ? 'text-orange-400' : 'text-gray-400'
                 }`}
+                style={{ fontSize: FONT_SIZES.base }}
               >
                 Dinner
               </Text>
               {selectedMeal === 'dinner' && (
                 <Image
                   source={require('../../assets/icons/borderline.png')}
-                  style={{ width: 100, height: 8, marginTop: 4 }}
+                  style={{ width: SPACING['5xl'] * 2, height: SPACING.sm, marginTop: 4 }}
                   resizeMode="contain"
                 />
               )}
@@ -900,7 +938,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   ? require('../../assets/images/homepage/lunchThali.png')
                   : require('../../assets/images/homepage/dinnerThali.png')
               }
-              style={{ width: 380, height: 380, alignSelf: 'center', marginLeft: 20 }}
+              style={{ width: width * 0.95, height: width * 0.95, alignSelf: 'center', marginLeft: SPACING.lg + 4 }}
               resizeMode="contain"
             />
           </View>
@@ -983,8 +1021,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <>
           <View className="flex-row items-center justify-between mb-6">
             <View className="flex-1">
-              <Text className="text-2xl font-bold text-gray-900">{getMealName()}</Text>
-              <Text className="text-base text-gray-600 mt-1">
+              <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.h3 }}>{getMealName()}</Text>
+              <Text className="text-gray-600 mt-1" style={{ fontSize: FONT_SIZES.base }}>
                 From: <Text className="font-semibold text-gray-900">₹{getMealPrice().toFixed(2)}</Text>
               </Text>
             </View>
@@ -994,10 +1032,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={0.7}
                 style={{
                   backgroundColor: 'rgba(245, 107, 76, 1)',
-                  borderRadius: 30,
-                  width: 150,
-                  height: 45,
-                  paddingHorizontal: 24,
+                  borderRadius: SPACING['3xl'],
+                  width: SPACING['5xl'] * 3.125,
+                  height: SPACING['2xl'] + SPACING.xl + 1,
+                  paddingHorizontal: SPACING.xl + 4,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1006,34 +1044,34 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               >
                 <View
                   style={{
-                    width: 45,
-                    height: 45,
-                    borderRadius: 28,
+                    width: SPACING['2xl'] + SPACING.xl + 1,
+                    height: SPACING['2xl'] + SPACING.xl + 1,
+                    borderRadius: SPACING['2xl'] + 4,
                     backgroundColor: 'rgba(255, 148, 92, 1)',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginLeft: -24,
+                    marginLeft: -(SPACING['3xl']),
                   }}
                 >
                   <Image
                     source={require('../../assets/icons/cart3.png')}
-                    style={{ width: 20, height: 20, tintColor: 'rgba(255, 255, 255, 1)' }}
+                    style={{ width: SPACING.lg + 4, height: SPACING.lg + 4, tintColor: 'rgba(255, 255, 255, 1)' }}
                     resizeMode="contain"
                   />
                 </View>
-                <Text style={{ color: 'white', fontSize: 14, fontWeight: '600', marginLeft: 12}}>Add to Cart</Text>
+                <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600', marginLeft: SPACING.md }}>Add to Cart</Text>
               </TouchableOpacity>
             ) : (
               <View
                 style={{
                   backgroundColor: 'white',
-                  borderRadius: 30,
-                  height: 40,
-                  paddingHorizontal: 6,
+                  borderRadius: SPACING['3xl'],
+                  height: SPACING['2xl'] + SPACING.lg,
+                  paddingHorizontal: SPACING.xs + 2,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  minWidth: 70,
+                  minWidth: SPACING['4xl'] + SPACING['3xl'] - 2,
                   borderWidth: 1,
                   borderColor: 'rgba(232, 235, 234, 1)',
                 }}
@@ -1041,31 +1079,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <TouchableOpacity
                   onPress={() => updateMealQuantity(false)}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: SPACING.xl + 8,
+                    height: SPACING.xl + 8,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
                   <Image
                     source={require('../../assets/icons/subtract.png')}
-                    style={{ width: 10, height: 10 }}
+                    style={{ width: SPACING.xs + 6, height: SPACING.xs + 6 }}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
-                <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: 16, fontWeight: '600', marginHorizontal: 8 }}>{mealQuantity}</Text>
+                <Text style={{ color: 'rgba(0, 0, 0, 1)', fontSize: FONT_SIZES.lg, fontWeight: '600', marginHorizontal: SPACING.sm }}>{mealQuantity}</Text>
                 <TouchableOpacity
                   onPress={() => updateMealQuantity(true)}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: SPACING.xl + 8,
+                    height: SPACING.xl + 8,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
                   <Image
                     source={require('../../assets/icons/plus.png')}
-                    style={{ width: 30, height: 32 }}
+                    style={{ width: SPACING['3xl'] - 2, height: SPACING['3xl'] }}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
@@ -1075,20 +1113,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Details Section */}
           <View className="mb-6">
-            <Text className="text-xl font-bold text-gray-900 mb-3">Details</Text>
-            <Text className="text-gray-600 leading-6">
+            <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.h4 }}>Details</Text>
+            <Text className="text-gray-600" style={{ fontSize: FONT_SIZES.base, lineHeight: FONT_SIZES.base * 1.5 }}>
               {getMealDescription()}
             </Text>
             {getCurrentMealItem()?.includes && getCurrentMealItem()!.includes!.length > 0 && (
-              <View className="mt-4 bg-orange-50 rounded-2xl p-4" style={{ borderWidth: 1, borderColor: 'rgba(251, 146, 60, 0.3)' }}>
-                <Text className="text-base font-bold text-gray-900 mb-3">What's Included</Text>
+              <View className="mt-4 bg-orange-50 p-4" style={{ borderRadius: SPACING['2xl'], borderWidth: 1, borderColor: 'rgba(251, 146, 60, 0.3)' }}>
+                <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.base }}>What's Included</Text>
                 <View className="flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
                   {getCurrentMealItem()!.includes!.map((item, index) => (
                     <View key={index} className="flex-row items-start mb-3" style={{ width: '50%', paddingHorizontal: 6 }}>
-                      <View className="w-5 h-5 rounded-full bg-orange-400 items-center justify-center mr-2" style={{ marginTop: 2 }}>
-                        <Text className="text-white text-xs font-bold">✓</Text>
+                      <View className="rounded-full bg-orange-400 items-center justify-center mr-2" style={{ width: SPACING.lg + 4, height: SPACING.lg + 4, marginTop: 2 }}>
+                        <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.xs }}>✓</Text>
                       </View>
-                      <Text className="text-gray-700 text-sm" style={{ flex: 1 }}>{item}</Text>
+                      <Text className="text-gray-700" style={{ fontSize: FONT_SIZES.sm, flex: 1 }}>{item}</Text>
                     </View>
                   ))}
                 </View>
@@ -1098,7 +1136,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Add-ons Section */}
           <View>
-            <Text className="text-xl font-bold text-gray-900 mb-4">Add-ons</Text>
+            <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: FONT_SIZES.h4 }}>Add-ons</Text>
 
             {filteredAddOns.length > 0 ? (
               filteredAddOns.map((item) => (
@@ -1110,14 +1148,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   <View className="flex-row items-center flex-1">
                     <Image
                       source={item.image}
-                      style={{ width: 56, height: 56, borderRadius: 28 }}
+                      style={{ width: SPACING.iconXl + 16, height: SPACING.iconXl + 16, borderRadius: (SPACING.iconXl + 16) / 2 }}
                       resizeMode="cover"
                     />
                     <View className="ml-4 flex-1">
-                      <Text className="text-base font-semibold text-gray-900">
+                      <Text className="font-semibold text-gray-900" style={{ fontSize: FONT_SIZES.base }}>
                         {item.name}
                       </Text>
-                      <Text className="text-sm text-gray-500 mt-0.5">
+                      <Text className="text-gray-500 mt-0.5" style={{ fontSize: FONT_SIZES.sm }}>
                         {item.quantity} <Text className="font-semibold text-gray-900">+ ₹{item.price}.00</Text>
                       </Text>
                     </View>
@@ -1129,14 +1167,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                       <View className="flex-row items-center">
                         <TouchableOpacity
                           onPress={() => updateQuantity(item.id, false)}
-                          className="w-7 h-7 rounded-full border-2 border-orange-400 items-center justify-center"
+                          className="rounded-full border-2 border-orange-400 items-center justify-center"
+                          style={{ width: SPACING.lg + 12, height: SPACING.lg + 12 }}
                         >
                           <Text className="text-orange-400 font-bold">−</Text>
                         </TouchableOpacity>
-                        <Text className="mx-3 text-base font-semibold">{item.count}</Text>
+                        <Text className="mx-3 font-semibold" style={{ fontSize: FONT_SIZES.base }}>{item.count}</Text>
                         <TouchableOpacity
                           onPress={() => updateQuantity(item.id, true)}
-                          className="w-7 h-7 rounded-full border-2 border-orange-400 items-center justify-center"
+                          className="rounded-full border-2 border-orange-400 items-center justify-center"
+                          style={{ width: SPACING.lg + 12, height: SPACING.lg + 12 }}
                         >
                           <Text className="text-orange-400 font-bold">+</Text>
                         </TouchableOpacity>
@@ -1144,9 +1184,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     ) : (
                       <TouchableOpacity
                         onPress={() => toggleAddOn(item.id)}
-                        className="w-6 h-6 rounded border-2 items-center justify-center border-gray-300"
+                        className="rounded border-2 items-center justify-center border-gray-300"
+                        style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
                       >
-                        <Text className="text-white font-bold text-xs">✓</Text>
+                        <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.xs }}>✓</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1154,8 +1195,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               ))
             ) : (
               <View className="py-10 items-center">
-                <Text className="text-gray-400 text-base">No items found</Text>
-                <Text className="text-gray-400 text-sm mt-2">Try searching for something else</Text>
+                <Text className="text-gray-400" style={{ fontSize: FONT_SIZES.base }}>No items found</Text>
+                <Text className="text-gray-400 mt-2" style={{ fontSize: FONT_SIZES.sm }}>Try searching for something else</Text>
               </View>
             )}
           </View>
@@ -1170,9 +1211,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {/* Cart Popup - Sticky at bottom */}
       {showCartModal && (
         <View
-          className="absolute left-5 right-5 bg-white rounded-full px-5 py-3 flex-row items-center justify-between"
+          className="absolute left-5 right-5 bg-white rounded-full px-5 flex-row items-center justify-between"
           style={{
-            bottom: 80 + insets.bottom,
+            bottom: SPACING['4xl'] * 2 + insets.bottom,
+            paddingVertical: SPACING.md,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.2,
@@ -1188,12 +1230,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   ? require('../../assets/images/homepage/lunch2.png')
                   : require('../../assets/images/homepage/dinneritem.png')
               }
-              style={{ width: 48, height: 48, borderRadius: 24 }}
+              style={{ width: SPACING['5xl'], height: SPACING['5xl'], borderRadius: SPACING['5xl'] / 2 }}
               resizeMode="cover"
             />
             <View className="ml-3 flex-1" style={{ marginRight: 10 }}>
-              <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{getMealName()}</Text>
-              <Text className="text-xs text-gray-500 mt-0.5">
+              <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.base }} numberOfLines={1}>{getMealName()}</Text>
+              <Text className="text-gray-500 mt-0.5" style={{ fontSize: FONT_SIZES.xs }}>
                 {getSelectedAddOnsCount()} Add-ons
               </Text>
             </View>
@@ -1201,24 +1243,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* View Cart Button */}
           <TouchableOpacity
-            className="bg-orange-400 rounded-full px-5 py-2.5 flex-row items-center"
+            className="bg-orange-400 rounded-full flex-row items-center"
+            style={{ paddingHorizontal: SPACING.lg + 4, paddingVertical: SPACING.xs + 6 }}
             onPress={() => navigation.navigate('Cart')}
           >
             <Image
               source={require('../../assets/icons/cart3.png')}
-              style={{ width: 18, height: 18, tintColor: 'white', marginRight: 6 }}
+              style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2, tintColor: 'white', marginRight: 6 }}
               resizeMode="contain"
             />
-            <Text className="text-white text-sm font-semibold">View Cart</Text>
+            <Text className="text-white font-semibold" style={{ fontSize: FONT_SIZES.sm }} numberOfLines={1}>View Cart</Text>
           </TouchableOpacity>
 
           {/* Close Button */}
           <TouchableOpacity
             onPress={() => setShowCartModal(false)}
-            className="w-8 h-8 items-center justify-center"
-            style={{ marginRight: -12 }}
+            className="items-center justify-center"
+            style={{ width: SPACING.lg * 2, height: SPACING.lg * 2, marginRight: -12 }}
           >
-            <Text className="text-gray-500 text-2xl">×</Text>
+            <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.h3 }}>×</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1232,23 +1275,23 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       />
 
       {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: SPACING['4xl'] + SPACING['3xl'] - 2, backgroundColor: 'white' }} />
 
       {/* Bottom Navigation Bar */}
       <View
         style={{
           position: 'absolute',
-          bottom: 10,
-          left: 20,
-          right: 20,
+          bottom: SPACING.xs + 6,
+          left: SPACING.lg + 4,
+          right: SPACING.lg + 4,
           backgroundColor: 'white',
           borderRadius: 50,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingVertical: 6,
-          paddingLeft: 20,
-          paddingRight: 30,
+          paddingVertical: SPACING.xs + 2,
+          paddingLeft: SPACING.lg + 4,
+          paddingRight: SPACING['3xl'] - 2,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.15,
@@ -1262,25 +1305,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'home' ? 16 : 8,
-            marginLeft: -8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'home' ? SPACING.lg : SPACING.sm,
+            marginLeft: -SPACING.sm,
             marginRight: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/house.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'home' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'home' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               Home
             </Text>
           )}
@@ -1295,24 +1338,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'orders' ? 16 : 8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'orders' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/cart3.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'orders' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'orders' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               Orders
             </Text>
           )}
@@ -1328,24 +1371,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'meals' ? 16 : 8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'meals' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/kitchen.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'meals' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'meals' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               On-Demand
             </Text>
           )}
@@ -1360,24 +1403,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'profile' ? 16 : 8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'profile' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/profile2.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'profile' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'profile' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               Profile
             </Text>
           )}

@@ -9,7 +9,10 @@ const OnboardingNavigator = () => {
   return (
     <Stack.Navigator
       initialRouteName="OnboardingScreen1"
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: '#FFFFFF' },
+      }}
     >
       <Stack.Screen name="OnboardingScreen1" component={OnboardingScreen} />
     </Stack.Navigator>

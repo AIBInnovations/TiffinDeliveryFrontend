@@ -1,5 +1,5 @@
 // src/screens/account/AccountScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -22,8 +23,11 @@ import { MealWindowType, Subscription } from '../../services/api.service';
 import apiService from '../../services/api.service';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InfoModal from '../../components/InfoModal';
-import NotificationBell from '../../components/NotificationBell';
 import { formatNextAutoOrderTime } from '../../utils/autoOrderUtils';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useResponsive, useScaling } from '../../hooks/useResponsive';
+import { SPACING } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 // ============================================
 // OFFLINE MODE FLAG - Set to false to enable backend
@@ -48,6 +52,8 @@ const SUPPORT_MENU_ITEMS = [
 ];
 
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
+  const { width, height, isSmallDevice } = useResponsive();
+  const { scale } = useScaling();
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('profile');
 
   // Modal states
@@ -55,6 +61,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
+  const [modalTitle, setModalTitle] = useState('Success');
+  const [shouldLogoutOnClose, setShouldLogoutOnClose] = useState(false);
 
   // Auto-ordering modal states
   const [showPauseModal, setShowPauseModal] = useState(false);
@@ -76,6 +84,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     pauseAutoOrdering,
     resumeAutoOrdering,
     skipMeal,
+    fetchSubscriptions,
   } = useSubscription();
   const { addresses } = useAddress();
 
@@ -117,6 +126,44 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
     fetchKitchenOperatingHours();
   }, [defaultKitchenId]);
+
+  // Refresh subscriptions when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isGuest) {
+        console.log('[AccountScreen] Screen focused, refreshing subscriptions');
+        fetchSubscriptions();
+      }
+    }, [isGuest, fetchSubscriptions])
+  );
+
+  // Show loading state while fetching subscriptions
+  if (loading && !isGuest) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+        {/* Header with orange background */}
+        <View className="bg-orange-400 pb-4" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+          <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+            <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10 }}>
+              <Image
+                source={require('../../assets/icons/Tiffsy.png')}
+                style={{ width: 58, height: 35 }}
+                resizeMode="contain"
+              />
+            </View>
+            <Text className="text-white text-xl font-bold">My Profile</Text>
+            <View style={{ width: 58 }} />
+          </View>
+        </View>
+        {/* Loading indicator */}
+        <View className="flex-1 justify-center items-center bg-white">
+          <ActivityIndicator size="large" color="#F56B4C" />
+          <Text className="mt-4 text-gray-600">Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Get nearest expiry date from usable vouchers (AVAILABLE or RESTORED)
   const getNearestVoucherExpiry = () => {
@@ -187,7 +234,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     setIsAutoOrderLoading(true);
     try {
       const response = await resumeAutoOrdering(activeSubFull._id);
+      setModalTitle('Auto-Ordering Resumed');
       setModalMessage(response.data.message || 'Auto-ordering has been resumed successfully.');
+      setShouldLogoutOnClose(false);
       setShowSuccessModal(true);
     } catch (error: any) {
       setModalMessage(error.message || 'Failed to resume auto-ordering.');
@@ -208,7 +257,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         pauseUntil: pauseUntilDate || undefined,
         pauseReason: pauseReason || undefined,
       });
+      setModalTitle('Auto-Ordering Paused');
       setModalMessage(response.data.message || 'Auto-ordering has been paused.');
+      setShouldLogoutOnClose(false);
       setShowSuccessModal(true);
       // Reset form
       setPauseReason('');
@@ -251,7 +302,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         mealWindow: skipMealWindow,
         reason: skipMealReason || undefined,
       });
+      setModalTitle('Meal Skipped');
       setModalMessage(response.message || 'Meal skipped successfully.');
+      setShouldLogoutOnClose(false);
       setShowSuccessModal(true);
       // Reset form
       setSkipMealDate('');
@@ -270,7 +323,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     // OFFLINE MODE: Simulate successful account deletion
     if (OFFLINE_MODE) {
       console.log('[OFFLINE MODE] Simulating account deletion');
+      setModalTitle('Account Deletion Scheduled');
       setModalMessage('Your account will be deleted in 10 days. (OFFLINE MODE)');
+      setShouldLogoutOnClose(true);
       setShowSuccessModal(true);
       return;
     }
@@ -279,7 +334,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const response: any = await apiService.deleteAccount();
       if (response.success) {
+        setModalTitle('Account Deletion Scheduled');
         setModalMessage(response.message || 'Your account will be deleted in 10 days.');
+        setShouldLogoutOnClose(true);
         setShowSuccessModal(true);
       } else {
         setModalMessage(response.message || 'Failed to delete account');
@@ -295,7 +352,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
-    logout();
+    if (shouldLogoutOnClose) {
+      logout();
+      setShouldLogoutOnClose(false);
+    }
   };
 
   return (
@@ -327,13 +387,12 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {/* Title */}
-            <Text className="text-white text-xl font-bold">My Profile</Text>
+            <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold' }}>
+              My Profile
+            </Text>
 
-            {/* Right Section with Bell and Voucher */}
+            {/* Right Section with Voucher */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              {/* Notification Bell */}
-              <NotificationBell color="white" size={24} />
-
               {/* Voucher Button */}
               <TouchableOpacity
                 onPress={() => navigation.navigate('MealPlans')}
@@ -372,7 +431,12 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               <View className="items-center mb-4">
                 <Image
                   source={require('../../assets/images/myaccount/user2.png')}
-                  style={{ width: 80, height: 80, borderRadius: 40, opacity: 0.7 }}
+                  style={{
+                    width: SPACING.iconXl * 2,
+                    height: SPACING.iconXl * 2,
+                    borderRadius: SPACING.iconXl,
+                    opacity: 0.7
+                  }}
                   resizeMode="cover"
                 />
               </View>
@@ -403,25 +467,37 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 {user?.profileImage ? (
                   <Image
                     source={{ uri: user.profileImage }}
-                    style={{ width: 70, height: 70, borderRadius: 35 }}
+                    style={{
+                      width: SPACING.iconXl * 1.75,
+                      height: SPACING.iconXl * 1.75,
+                      borderRadius: SPACING.iconXl * 0.875
+                    }}
                     resizeMode="cover"
                   />
                 ) : (
                   <Image
                     source={require('../../assets/images/myaccount/user2.png')}
-                    style={{ width: 70, height: 70, borderRadius: 35 }}
+                    style={{
+                      width: SPACING.iconXl * 1.75,
+                      height: SPACING.iconXl * 1.75,
+                      borderRadius: SPACING.iconXl * 0.875
+                    }}
                     resizeMode="cover"
                   />
                 )}
-                <View className="ml-8">
-                  <Text className="text-lg font-bold text-gray-900">{user?.name || 'User'}</Text>
-                  <Text className="text-sm text-gray-500 mt-0.5">{user?.phone || 'No phone'}</Text>
+                <View style={{ marginLeft: SPACING.lg + 4 }}>
+                  <Text style={{ fontSize: FONT_SIZES.lg, fontWeight: 'bold', color: '#111827' }}>
+                    {user?.name || 'User'}
+                  </Text>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#6B7280', marginTop: 2 }}>
+                    {user?.phone || 'No phone'}
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
                 <Image
                   source={require('../../assets/icons/edit.png')}
-                  style={{ width: 40, height: 40 }}
+                  style={{ width: SPACING.iconLg + 4, height: SPACING.iconLg + 4 }}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
@@ -442,21 +518,34 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               <View className="flex-row items-center">
                 <Image
                   source={require('../../assets/icons/voucher4.png')}
-                  style={{ width: 45, height: 45 }}
+                  style={{ width: SPACING.iconXl + 5, height: SPACING.iconXl + 5 }}
                   resizeMode="contain"
                 />
-                <View className="ml-3">
-                  <Text className="text-4xl font-bold text-gray-900">
-                    {usableVouchers} <Text className="text-base font-normal text-gray-700">vouchers</Text>
+                <View style={{ marginLeft: SPACING.md }}>
+                  <Text style={{ fontSize: FONT_SIZES.h2, fontWeight: 'bold', color: '#111827' }}>
+                    {usableVouchers}{' '}
+                    <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'normal', color: '#374151' }}>
+                      vouchers
+                    </Text>
                   </Text>
                 </View>
               </View>
               <TouchableOpacity
-                className="bg-white rounded-full px-4 py-2"
-                style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}
+                className="bg-white rounded-full"
+                style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.sm,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2
+                }}
                 onPress={() => navigation.navigate('MealPlans')}
               >
-                <Text className="text-orange-400 font-semibold text-sm">Buy More</Text>
+                <Text style={{ color: '#F56B4C', fontWeight: '600', fontSize: FONT_SIZES.sm }}>
+                  Buy More
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -507,7 +596,12 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             {activeSubFull?.isPaused && (
               <View className="mt-3 rounded-xl p-3 border" style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }}>
                 <View className="flex-row items-center mb-1">
-                  <Text className="text-base font-bold mr-2" style={{ color: '#D97706' }}>⏸️</Text>
+                  <MaterialCommunityIcons
+                    name="pause-circle"
+                    size={20}
+                    color="#D97706"
+                    style={{ marginRight: 8 }}
+                  />
                   <Text className="text-sm font-bold" style={{ color: '#D97706' }}>
                     Auto-Ordering Paused
                   </Text>
@@ -520,12 +614,17 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             )}
 
-            {/* Next Auto-Order Card */}
+            {/* Next Auto-Order Card - Only show if auto-ordering is enabled and not paused */}
             {activeSubFull?.autoOrderingEnabled && !activeSubFull.isPaused && (
               <View className="mt-3 rounded-xl p-3" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)' }}>
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center">
-                    <Text className="text-base mr-2">⏰</Text>
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={20}
+                      color="#8B5CF6"
+                      style={{ marginRight: 8 }}
+                    />
                     <View>
                       <Text className="text-xs text-gray-600">Next Auto-Order</Text>
                       <Text className="text-sm font-bold" style={{ color: '#8B5CF6' }}>
@@ -540,6 +639,23 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>Settings</Text>
                   </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Disabled Message - Show when auto-ordering is disabled */}
+            {activeSubFull && !activeSubFull.autoOrderingEnabled && (
+              <View className="mt-3 rounded-xl p-3" style={{ backgroundColor: 'rgba(243, 244, 246, 0.8)', borderWidth: 1, borderColor: '#E5E7EB' }}>
+                <View className="flex-row items-center">
+                  <MaterialCommunityIcons
+                    name="sleep"
+                    size={20}
+                    color="#6B7280"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text className="text-xs text-gray-600 flex-1">
+                    Auto-ordering is currently disabled
+                  </Text>
                 </View>
               </View>
             )}
@@ -559,7 +675,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               {/* Pause/Resume Button */}
               <TouchableOpacity
                 onPress={handlePause}
-                disabled={isAutoOrderLoading || loading}
+                disabled={isAutoOrderLoading || !activeSubFull?.autoOrderingEnabled}
                 className="flex-1 mr-2 bg-white rounded-full py-2.5 items-center"
                 style={{
                   borderWidth: 1.5,
@@ -569,7 +685,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   shadowOpacity: 0.1,
                   shadowRadius: 4,
                   elevation: 2,
-                  opacity: isAutoOrderLoading || loading ? 0.6 : 1,
+                  opacity: (isAutoOrderLoading || !activeSubFull?.autoOrderingEnabled) ? 0.4 : 1,
                 }}
               >
                 {isAutoOrderLoading ? (
@@ -584,13 +700,16 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               {/* Skip Next Meal Button */}
               <TouchableOpacity
                 onPress={handleSkipNextMeal}
-                className="flex-1 ml-2 bg-orange-400 rounded-full py-2.5 items-center"
+                disabled={!activeSubFull?.autoOrderingEnabled}
+                className="flex-1 ml-2 rounded-full py-2.5 items-center"
                 style={{
+                  backgroundColor: activeSubFull?.autoOrderingEnabled ? '#F56B4C' : '#D1D5DB',
                   shadowColor: '#F56B4C',
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3,
+                  shadowOpacity: activeSubFull?.autoOrderingEnabled ? 0.3 : 0.1,
                   shadowRadius: 4,
                   elevation: 2,
+                  opacity: activeSubFull?.autoOrderingEnabled ? 1 : 0.6,
                 }}
               >
                 <Text className="text-white font-semibold text-sm">
@@ -599,22 +718,39 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Auto Order Meal Type Display */}
+            {/* Auto Order Meal Type Display or Enable Message */}
             {activeSubFull && (
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-semibold text-gray-900">
-                Meal Type: {activeSubFull.defaultMealType === 'BOTH' ? 'Lunch & Dinner' :
-                            activeSubFull.defaultMealType === 'LUNCH' ? 'Lunch only' :
-                            activeSubFull.defaultMealType === 'DINNER' ? 'Dinner only' : 'Not set'}
-              </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
-              >
-                <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
-                  Change →
-                </Text>
-              </TouchableOpacity>
-            </View>
+              <>
+                {!activeSubFull.autoOrderingEnabled ? (
+                  <View className="rounded-xl p-3" style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D' }}>
+                    <Text className="text-sm text-center" style={{ color: '#92400E' }}>
+                      Auto-ordering is disabled. Enable it in{' '}
+                      <Text
+                        className="font-bold"
+                        style={{ color: '#D97706' }}
+                        onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
+                      >
+                        Settings →
+                      </Text>
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-sm font-semibold text-gray-900">
+                      Meal Type: {activeSubFull.defaultMealType === 'BOTH' ? 'Lunch & Dinner' :
+                                  activeSubFull.defaultMealType === 'LUNCH' ? 'Lunch only' :
+                                  activeSubFull.defaultMealType === 'DINNER' ? 'Dinner only' : 'Not set'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
+                    >
+                      <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+                        Change →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
           </View>
           </View>
@@ -631,7 +767,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
           return (
             <View className="px-5 mb-3">
-              <Text className="text-xl font-bold text-gray-900 mb-3">Account</Text>
+              <Text style={{ fontSize: FONT_SIZES.h4, fontWeight: 'bold', color: '#111827', marginBottom: SPACING.md }}>
+                Account
+              </Text>
               <View className="bg-white rounded-2xl overflow-hidden">
                 {filteredAccountItems.map((item) => (
                   <TouchableOpacity
@@ -647,20 +785,27 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     }}
                   >
                     <View className="flex-row items-center">
-                      <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                      <View
+                        className="rounded-full bg-orange-400 items-center justify-center"
+                        style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
+                      >
                         <Image
                           source={item.icon}
                           style={{
-                            width: item.id === 'autoordersettings' ? 28 : (item.id === 'vouchers' || item.id === 'mealplans' || item.id === 'bulkorders' ? 40 : 36),
-                            height: item.id === 'autoordersettings' ? 28 : (item.id === 'vouchers' || item.id === 'mealplans' || item.id === 'bulkorders' ? 40 : 36),
+                            width: item.id === 'autoordersettings' ? SPACING.iconSize :
+                                  (item.id === 'mealplans' ? SPACING.iconLg + 8 : SPACING.iconLg + 4),
+                            height: item.id === 'autoordersettings' ? SPACING.iconSize :
+                                   (item.id === 'mealplans' ? SPACING.iconLg + 8 : SPACING.iconLg + 4),
                             tintColor: item.id === 'autoordersettings' ? '#FFFFFF' : undefined
                           }}
                           resizeMode="contain"
                         />
                       </View>
-                      <Text className="text-base font-medium text-gray-900 ml-3">{item.label}</Text>
+                      <Text style={{ fontSize: FONT_SIZES.base, fontWeight: '500', color: '#111827', marginLeft: SPACING.md }}>
+                        {item.label}
+                      </Text>
                     </View>
-                    <Text style={{ color: '#9CA3AF', fontSize: 32 }}>›</Text>
+                    <Text style={{ color: '#9CA3AF', fontSize: FONT_SIZES.h2 }}>›</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -678,7 +823,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
           return (
             <View className="px-5 mb-6">
-              <Text className="text-xl font-bold text-gray-900 mb-3">Support</Text>
+              <Text style={{ fontSize: FONT_SIZES.h4, fontWeight: 'bold', color: '#111827', marginBottom: SPACING.md }}>
+                Support
+              </Text>
               <View className="bg-white rounded-2xl overflow-hidden">
                 {filteredSupportItems.map((item) => (
                   <TouchableOpacity
@@ -687,16 +834,21 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     onPress={() => navigation.navigate(item.route)}
                   >
                     <View className="flex-row items-center">
-                      <View className="w-12 h-12 rounded-full bg-orange-400 items-center justify-center">
+                      <View
+                        className="rounded-full bg-orange-400 items-center justify-center"
+                        style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
+                      >
                         <Image
                           source={item.icon}
-                          style={{ width: 36, height: 36 }}
+                          style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
                           resizeMode="contain"
                         />
                       </View>
-                      <Text className="text-base font-medium text-gray-900 ml-3">{item.label}</Text>
+                      <Text style={{ fontSize: FONT_SIZES.base, fontWeight: '500', color: '#111827', marginLeft: SPACING.md }}>
+                        {item.label}
+                      </Text>
                     </View>
-                    <Text style={{ color: '#9CA3AF', fontSize: 32 }}>›</Text>
+                    <Text style={{ color: '#9CA3AF', fontSize: FONT_SIZES.h2 }}>›</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -709,9 +861,12 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         <View className="px-5 mb-2">
           <TouchableOpacity
             onPress={handleLogout}
-            className="bg-orange-400 rounded-full py-4 items-center shadow-lg"
+            className="bg-orange-400 rounded-full items-center shadow-lg"
+            style={{ paddingVertical: SPACING.lg }}
           >
-            <Text className="text-white font-bold text-lg">Logout</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: FONT_SIZES.lg }}>
+              Logout
+            </Text>
           </TouchableOpacity>
         </View>
         )}
@@ -721,36 +876,46 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         <View className="px-5 mb-2">
           <TouchableOpacity
             onPress={handleDeleteAccount}
-            className="bg-white rounded-full py-4 items-center"
+            className="bg-white rounded-full items-center"
             style={{
               borderWidth: 2,
               borderColor: '#F56B4C',
+              paddingVertical: SPACING.lg,
             }}
           >
-            <Text className="font-bold text-lg" style={{ color: '#F56B4C' }}>Delete Account</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: FONT_SIZES.lg, color: '#F56B4C' }}>
+              Delete Account
+            </Text>
           </TouchableOpacity>
         </View>
         )}
       </ScrollView>
 
       {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: SPACING['4xl'] + SPACING['3xl'] - 2,
+        backgroundColor: 'white'
+      }} />
 
       {/* Bottom Navigation Bar */}
       <View
         style={{
           position: 'absolute',
-          bottom: 10,
-          left: 20,
-          right: 20,
+          bottom: SPACING.xs + 6,
+          left: SPACING.lg + 4,
+          right: SPACING.lg + 4,
           backgroundColor: 'white',
           borderRadius: 50,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingVertical: 6,
-          paddingLeft: 20,
-          paddingRight: 30,
+          paddingVertical: SPACING.xs + 2,
+          paddingLeft: SPACING.lg + 4,
+          paddingRight: SPACING['3xl'] - 2,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.15,
@@ -767,25 +932,25 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'home' ? 16 : 8,
-            marginLeft: -8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'home' ? SPACING.lg : SPACING.sm,
+            marginLeft: -SPACING.sm,
             marginRight: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/house.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'home' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'home' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               Home
             </Text>
           )}
@@ -805,24 +970,24 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'orders' ? 16 : 8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'orders' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/cart3.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'orders' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'orders' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               Orders
             </Text>
           )}
@@ -837,24 +1002,24 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'meals' ? 16 : 8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'meals' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/kitchen.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'meals' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'meals' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               On-Demand
             </Text>
           )}
@@ -866,24 +1031,24 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           className="flex-row items-center justify-center"
           style={{
             backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: activeTab === 'profile' ? 16 : 8,
+            borderRadius: SPACING.xl + 5,
+            paddingVertical: SPACING.sm,
+            paddingHorizontal: activeTab === 'profile' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
           }}
         >
           <Image
             source={require('../../assets/icons/profile2.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'profile' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'profile' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
               Profile
             </Text>
           )}
@@ -905,7 +1070,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
       {/* Success Modal */}
       <InfoModal
         visible={showSuccessModal}
-        title="Account Deletion Scheduled"
+        title={modalTitle}
         message={modalMessage}
         buttonText="OK"
         type="success"

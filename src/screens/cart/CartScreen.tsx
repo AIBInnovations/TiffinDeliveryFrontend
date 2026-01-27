@@ -24,6 +24,7 @@ import apiService, {
   VoucherEligibility,
   Order,
 } from '../../services/api.service';
+import dataPreloader from '../../services/dataPreloader.service';
 
 type Props = StackScreenProps<MainTabParamList, 'Cart'>;
 
@@ -292,6 +293,13 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           console.log('[CartScreen] No payment required (voucher-only or zero amount)');
         }
 
+        // Invalidate cached data after successful order placement
+        console.log('[CartScreen] 🗑️ Invalidating orders & vouchers cache after order placement');
+        dataPreloader.invalidateCache('orders');
+        if (voucherCount > 0) {
+          dataPreloader.invalidateCache('vouchers');
+        }
+
         // Step 3: Show success modal
         setOrderResult({ orderId, orderNumber, amountToPay: orderAmountToPay });
         setShowSuccessModal(true);
@@ -320,6 +328,11 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
       if (paymentResult.success) {
         console.log('[CartScreen] Retry payment successful!');
+
+        // Invalidate cached data after successful retry payment
+        console.log('[CartScreen] 🗑️ Invalidating orders cache after retry payment');
+        dataPreloader.invalidateCache('orders');
+
         setOrderResult({ orderId, orderNumber, amountToPay });
         setShowSuccessModal(true);
         setPendingPaymentOrderId(null);
@@ -828,7 +841,11 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity
                     onPress={handleRemoveVoucher}
                     className="w-8 h-8 rounded-full items-center justify-center"
-                    style={{ backgroundColor: 'rgba(220, 38, 38, 0.1)' }}
+                    style={{
+                      backgroundColor: 'white',
+                      borderWidth: 1.5,
+                      borderColor: '#F56B4C',
+                    }}
                   >
                     <Text className="text-red-500 font-bold text-lg">×</Text>
                   </TouchableOpacity>

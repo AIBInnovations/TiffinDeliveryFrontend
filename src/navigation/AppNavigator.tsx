@@ -51,8 +51,43 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <NavigationContainer
+      theme={{
+        dark: false,
+        colors: {
+          primary: '#F56B4C',
+          background: '#FFFFFF',
+          card: '#FFFFFF',
+          text: '#000000',
+          border: '#FFFFFF',
+          notification: '#F56B4C',
+        },
+        fonts: {
+          regular: {
+            fontFamily: 'System',
+            fontWeight: '400',
+          },
+          medium: {
+            fontFamily: 'System',
+            fontWeight: '500',
+          },
+          bold: {
+            fontFamily: 'System',
+            fontWeight: '700',
+          },
+          heavy: {
+            fontFamily: 'System',
+            fontWeight: '900',
+          },
+        },
+      }}
+    >
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          cardStyle: { backgroundColor: '#FFFFFF' },
+        }}
+      >
         {isGuest ? (
           // Guest mode - show main app with limited access
           <Stack.Screen name="Main" component={MainNavigator} />

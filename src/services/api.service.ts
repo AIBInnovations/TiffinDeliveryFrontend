@@ -504,6 +504,7 @@ export interface Order {
   canRate?: boolean;
   cancelledAt?: string;
   cancellationReason?: string;
+  isAutoOrder?: boolean;
   createdAt: string;
   updatedAt: string;
 }
