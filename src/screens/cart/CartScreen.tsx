@@ -25,6 +25,8 @@ import apiService, {
   Order,
 } from '../../services/api.service';
 import dataPreloader from '../../services/dataPreloader.service';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 
 type Props = StackScreenProps<MainTabParamList, 'Cart'>;
 
@@ -57,6 +59,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   const { processOrderPayment, retryOrderPayment, isProcessing: isPaymentProcessing } = usePayment();
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
+  const { isSmallDevice } = useResponsive();
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -673,7 +676,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Your Order Section */}
-        <View className="bg-white px-5 py-5 mb-4">
+        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
           <Text className="text-xl font-bold text-gray-900 mb-4">Your Order</Text>
 
           {cartItems.map((item) => (
@@ -718,15 +721,20 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     <TouchableOpacity
                       onPress={() => updateQuantity(item.id, false)}
-                      className="w-6 h-6 rounded-full items-center justify-center"
+                      className="rounded-full items-center justify-center"
+                      style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
                     >
                       <Text className="text-gray-600 font-bold text-sm">−</Text>
                     </TouchableOpacity>
                     <Text className="mx-3 text-sm font-semibold">{item.quantity}</Text>
                     <TouchableOpacity
                       onPress={() => updateQuantity(item.id, true)}
-                      className="w-6 h-6 rounded-full items-center justify-center"
-                      style={{ backgroundColor: 'rgba(255, 217, 197, 1)' }}
+                      className="rounded-full items-center justify-center"
+                      style={{
+                        backgroundColor: 'rgba(255, 217, 197, 1)',
+                        minWidth: TOUCH_TARGETS.minimum,
+                        minHeight: TOUCH_TARGETS.minimum
+                      }}
                     >
                       <Image
                         source={require('../../assets/icons/plus.png')}
@@ -777,15 +785,20 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                     >
                       <TouchableOpacity
                         onPress={() => updateAddonQuantity(item.id, addonIndex, addon.quantity - 1)}
-                        className="w-6 h-6 rounded-full items-center justify-center"
+                        className="rounded-full items-center justify-center"
+                        style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
                       >
                         <Text className="text-gray-600 font-bold text-sm">−</Text>
                       </TouchableOpacity>
                       <Text className="mx-3 text-sm font-semibold">{addon.quantity}</Text>
                       <TouchableOpacity
                         onPress={() => updateAddonQuantity(item.id, addonIndex, addon.quantity + 1)}
-                        className="w-6 h-6 rounded-full items-center justify-center"
-                        style={{ backgroundColor: 'rgba(255, 217, 197, 1)' }}
+                        className="rounded-full items-center justify-center"
+                        style={{
+                          backgroundColor: 'rgba(255, 217, 197, 1)',
+                          minWidth: TOUCH_TARGETS.minimum,
+                          minHeight: TOUCH_TARGETS.minimum
+                        }}
                       >
                         <Image
                           source={require('../../assets/icons/plus.png')}
@@ -935,7 +948,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         )}
 
         {/* Delivery Address */}
-        <View className="bg-white px-5 py-5 mb-4">
+        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
           <Text className="text-xl font-bold text-gray-900 mb-4">Delivery Address</Text>
 
           {addresses.length === 0 ? (

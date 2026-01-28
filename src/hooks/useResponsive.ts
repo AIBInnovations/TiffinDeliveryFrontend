@@ -17,6 +17,26 @@ export const useResponsive = () => {
     const isSmallDevice = height < 700;
     const isLandscape = width > height;
 
+    // Scaling factors
+    const baseWidth = 375;
+    const baseHeight = 812;
+    const scale = Math.min(width / baseWidth, 1.2);
+    const verticalScale = Math.min(height / baseHeight, 1.1);
+
+    // Vertical spacing factor based on screen height
+    const verticalSpacingFactor = height < 667 ? 0.85 : height > 926 ? 1.1 : 1;
+
+    // Font scale - cap at 1.15x to prevent over-scaling text
+    const fontScale = Math.min(scale, 1.15);
+
+    // Touch target validation utility - ensures minimum 44px touch targets
+    const validateTouchSize = (size: number) => ({
+      minWidth: Math.max(size, 44),
+      minHeight: Math.max(size, 44),
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    });
+
     return {
       width,
       height,
@@ -29,6 +49,13 @@ export const useResponsive = () => {
       isSmall: category === 'small',
       isMedium: category === 'medium',
       isLarge: category === 'large',
+      // Scaling factors
+      scale,
+      verticalScale,
+      // New utilities
+      verticalSpacingFactor,
+      validateTouchSize,
+      fontScale,
     };
   }, [width, height]);
 

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width } = Dimensions.get('window');
 
@@ -35,7 +36,7 @@ const NotificationPermissionModal: React.FC<NotificationPermissionModalProps> = 
         <View style={styles.container}>
           {/* Bell Icon */}
           <View style={styles.iconContainer}>
-            <Text style={styles.bellIcon}>🔔</Text>
+            <Ionicons name="notifications" size={40} color="#F56B4C" />
           </View>
 
           {/* Title */}
@@ -49,15 +50,15 @@ const NotificationPermissionModal: React.FC<NotificationPermissionModalProps> = 
           {/* Benefits List */}
           <View style={styles.benefitsList}>
             <View style={styles.benefitItem}>
-              <Text style={styles.checkmark}>✓</Text>
+              <Ionicons name="checkmark" size={16} color="#10B981" style={{ marginRight: 10 }} />
               <Text style={styles.benefitText}>Real-time order tracking</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Text style={styles.checkmark}>✓</Text>
+              <Ionicons name="checkmark" size={16} color="#10B981" style={{ marginRight: 10 }} />
               <Text style={styles.benefitText}>Delivery updates & reminders</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Text style={styles.checkmark}>✓</Text>
+              <Ionicons name="checkmark" size={16} color="#10B981" style={{ marginRight: 10 }} />
               <Text style={styles.benefitText}>Special offers & discounts</Text>
             </View>
           </View>
@@ -120,9 +121,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  bellIcon: {
-    fontSize: 40,
-  },
   title: {
     fontSize: 24,
     fontWeight: '700',
@@ -145,12 +143,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  checkmark: {
-    fontSize: 16,
-    color: '#10B981',
-    marginRight: 10,
-    fontWeight: '600',
   },
   benefitText: {
     fontSize: 14,

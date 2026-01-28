@@ -61,3 +61,13 @@ export const TOUCH_TARGETS = {
   comfortable: 48,
   large: 56,
 } as const;
+
+/**
+ * Button height standards for consistent touch targets
+ * Alias for TOUCH_TARGETS for button-specific usage
+ */
+export const BUTTON_HEIGHTS = {
+  small: 44,    // Minimum touch target
+  medium: 48,   // Comfortable
+  large: 56,    // Primary actions
+} as const;

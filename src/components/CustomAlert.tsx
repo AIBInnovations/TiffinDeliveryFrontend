@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export interface AlertButton {
   text: string;
@@ -32,31 +33,20 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
   onClose,
   type = 'default',
 }) => {
-  const getIconForType = () => {
+  const getIconConfig = () => {
     switch (type) {
       case 'success':
-        return '✓';
+        return { name: 'checkmark', color: '#10B981' };
       case 'error':
-        return '✕';
+        return { name: 'close', color: '#EF4444' };
       case 'warning':
-        return '⚠';
+        return { name: 'warning', color: '#F59E0B' };
       default:
-        return 'ℹ';
+        return { name: 'information', color: '#F56B4C' };
     }
   };
 
-  const getColorForType = () => {
-    switch (type) {
-      case 'success':
-        return '#10B981';
-      case 'error':
-        return '#EF4444';
-      case 'warning':
-        return '#F59E0B';
-      default:
-        return '#F56B4C';
-    }
-  };
+  const iconConfig = getIconConfig();
 
   const handleButtonPress = (button: AlertButton) => {
     if (button.onPress) {
@@ -80,12 +70,10 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: getColorForType() + '15' },
+              { backgroundColor: iconConfig.color + '15' },
             ]}
           >
-            <Text style={[styles.icon, { color: getColorForType() }]}>
-              {getIconForType()}
-            </Text>
+            <Ionicons name={iconConfig.name} size={32} color={iconConfig.color} />
           </View>
 
           {/* Title */}
@@ -161,10 +149,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  icon: {
-    fontSize: 32,
-    fontWeight: 'bold',
   },
   title: {
     fontSize: 20,

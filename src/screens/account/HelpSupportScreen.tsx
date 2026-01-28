@@ -13,6 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'HelpSupport'>;
 
@@ -24,6 +27,7 @@ interface FAQ {
 }
 
 const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
+  const { isSmallDevice } = useResponsive();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,18 +111,22 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
       <View className="bg-white px-5 py-4 flex-row items-center justify-between">
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+          className="rounded-full bg-orange-400 items-center justify-center"
+          style={{
+            minWidth: TOUCH_TARGETS.minimum,
+            minHeight: TOUCH_TARGETS.minimum,
+          }}
         >
           <Image
             source={require('../../assets/icons/backarrow2.png')}
-            style={{ width: 32, height: 32 }}
+            style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
             resizeMode="contain"
           />
         </TouchableOpacity>
 
-        <Text className="text-xl font-bold text-gray-900">Help & Support</Text>
+        <Text className="font-bold text-gray-900" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>Help & Support</Text>
 
-        <View className="w-10 h-10" />
+        <View style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }} />
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -126,11 +134,14 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
         <View className="px-5 py-4 bg-white">
           <View
             className="flex-row items-center bg-gray-50 rounded-full border border-gray-200"
-            style={{ paddingHorizontal: 16, height: 46 }}
+            style={{
+              paddingHorizontal: SPACING.lg,
+              minHeight: TOUCH_TARGETS.comfortable,
+            }}
           >
             <Image
               source={require('../../assets/icons/search2.png')}
-              style={{ width: 20, height: 20, tintColor: '#F97316' }}
+              style={{ width: SPACING.iconSize, height: SPACING.iconSize, tintColor: '#F97316' }}
               resizeMode="contain"
             />
             <TextInput
@@ -138,21 +149,24 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              className="flex-1 ml-3 text-base text-gray-900"
+              className="flex-1 text-gray-900"
+              style={{ marginLeft: SPACING.md, fontSize: FONT_SIZES.base }}
             />
           </View>
         </View>
 
         {/* Contact Us Section */}
         <View className="px-5 py-4 bg-white">
-          <Text className="text-xl font-bold text-gray-900 mb-4">Contact Us</Text>
+          <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>Contact Us</Text>
 
           <View className="flex-row justify-between">
             {/* Call Us Card */}
             <TouchableOpacity
               onPress={handleCall}
-              className="flex-1 bg-white rounded-2xl p-5 mr-2 items-center"
+              className="flex-1 bg-white rounded-2xl mr-2 items-center"
               style={{
+                padding: SPACING.lg,
+                minHeight: TOUCH_TARGETS.large,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.15,
@@ -160,23 +174,32 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
                 elevation: 4,
               }}
             >
-              <View className="w-14 h-14 rounded-full bg-orange-50 items-center justify-center mb-3">
+              <View
+                className="rounded-full bg-orange-50 items-center justify-center"
+                style={{
+                  width: SPACING.iconXl * 1.4,
+                  height: SPACING.iconXl * 1.4,
+                  marginBottom: SPACING.md,
+                }}
+              >
                 <Image
                   source={require('../../assets/icons/call3.png')}
-                  style={{ width: 36, height: 36 }}
+                  style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
                   resizeMode="contain"
                 />
               </View>
-              <Text className="text-base font-bold text-gray-900 mb-1">Call us</Text>
-              <Text className="text-sm font-semibold text-gray-900 mb-1">+91 98765-43210</Text>
-              <Text className="text-xs text-gray-500">Mon-Fri • 9-10</Text>
+              <Text className="font-bold text-gray-900 mb-1" style={{ fontSize: FONT_SIZES.base }}>Call us</Text>
+              <Text className="font-semibold text-gray-900 mb-1" style={{ fontSize: FONT_SIZES.sm }}>+91 98765-43210</Text>
+              <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.xs }}>Mon-Fri • 9-10</Text>
             </TouchableOpacity>
 
             {/* Email Us Card */}
             <TouchableOpacity
               onPress={handleEmail}
-              className="flex-1 bg-white rounded-2xl p-5 ml-2 items-center"
+              className="flex-1 bg-white rounded-2xl ml-2 items-center"
               style={{
+                padding: SPACING.lg,
+                minHeight: TOUCH_TARGETS.large,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.15,
@@ -184,23 +207,30 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
                 elevation: 4,
               }}
             >
-              <View className="w-14 h-14 rounded-full bg-orange-50 items-center justify-center mb-3">
+              <View
+                className="rounded-full bg-orange-50 items-center justify-center"
+                style={{
+                  width: SPACING.iconXl * 1.4,
+                  height: SPACING.iconXl * 1.4,
+                  marginBottom: SPACING.md,
+                }}
+              >
                 <Image
                   source={require('../../assets/icons/mail3.png')}
-                  style={{ width: 36, height: 36 }}
+                  style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
                   resizeMode="contain"
                 />
               </View>
-              <Text className="text-base font-bold text-gray-900 mb-1">Email Us</Text>
-              <Text className="text-sm font-semibold text-gray-900 mb-1">info@tiffindabba.in</Text>
-              <Text className="text-xs text-gray-500">Mon-Fri • 9-10</Text>
+              <Text className="font-bold text-gray-900 mb-1" style={{ fontSize: FONT_SIZES.base }}>Email Us</Text>
+              <Text className="font-semibold text-gray-900 mb-1" style={{ fontSize: FONT_SIZES.sm }}>info@tiffindabba.in</Text>
+              <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.xs }}>Mon-Fri • 9-10</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* FAQ Section */}
         <View className="px-5 py-4 bg-white mt-2">
-          <Text className="text-xl font-bold text-gray-900 mb-4">
+          <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
             Frequently Asked Questions
           </Text>
 
@@ -214,18 +244,22 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 key={category}
                 onPress={() => setSelectedCategory(category)}
-                className={`mr-2 px-5 py-2 rounded-full ${
-                  selectedCategory === category
-                    ? 'bg-orange-400'
-                    : 'bg-gray-100'
-                }`}
+                className="mr-2 rounded-full"
+                style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.sm,
+                  minHeight: TOUCH_TARGETS.minimum,
+                  backgroundColor: selectedCategory === category ? '#F56B4C' : '#F3F4F6',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 <Text
-                  className={`text-sm font-medium ${
-                    selectedCategory === category
-                      ? 'text-white'
-                      : 'text-gray-600'
-                  }`}
+                  className="font-medium"
+                  style={{
+                    fontSize: FONT_SIZES.sm,
+                    color: selectedCategory === category ? '#FFFFFF' : '#4B5563',
+                  }}
                 >
                   {category}
                 </Text>
@@ -239,9 +273,11 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 key={faq.id}
                 onPress={() => toggleFAQ(faq.id)}
-                className="bg-white rounded-2xl p-4"
+                className="bg-white rounded-2xl"
                 style={{
-                  marginBottom: index < filteredFAQs.length - 1 ? 8 : 0,
+                  padding: SPACING.lg,
+                  minHeight: TOUCH_TARGETS.large,
+                  marginBottom: index < filteredFAQs.length - 1 ? SPACING.sm : 0,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.15,
@@ -250,14 +286,20 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
                 }}
               >
                 <View className="flex-row items-center justify-between">
-                  <Text className="flex-1 text-base font-semibold text-gray-900 mr-3">
+                  <Text
+                    className="flex-1 font-semibold text-gray-900"
+                    style={{
+                      fontSize: FONT_SIZES.base,
+                      marginRight: SPACING.md,
+                    }}
+                  >
                     {faq.question}
                   </Text>
                   <Image
                     source={require('../../assets/icons/downarrow.png')}
                     style={{
-                      width: 20,
-                      height: 20,
+                      width: SPACING.iconSize,
+                      height: SPACING.iconSize,
                       transform: [{ rotate: expandedFAQ === faq.id ? '180deg' : '0deg' }],
                     }}
                     resizeMode="contain"
@@ -265,7 +307,14 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
 
                 {expandedFAQ === faq.id && (
-                  <Text className="text-sm text-gray-600 mt-3 leading-5">
+                  <Text
+                    className="text-gray-600"
+                    style={{
+                      fontSize: FONT_SIZES.sm,
+                      lineHeight: FONT_SIZES.sm * 1.5,
+                      marginTop: SPACING.md,
+                    }}
+                  >
                     {faq.answer}
                   </Text>
                 )}

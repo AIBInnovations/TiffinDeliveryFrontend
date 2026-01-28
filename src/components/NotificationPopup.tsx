@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NotificationData } from '../context/NotificationContext';
 import { NotificationType } from '../constants/notificationTypes';
 
@@ -57,44 +59,47 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
     switch (type) {
       // Order notifications
       case NotificationType.ORDER_ACCEPTED:
-        return '✅';
+        return { iconName: 'checkmark-circle', iconType: 'Ionicons', color: '#10B981' };
       case NotificationType.ORDER_PREPARING:
-        return '👨‍🍳';
+        return { iconName: 'chef-hat', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case NotificationType.ORDER_READY:
-        return '🍱';
+        return { iconName: 'food', iconType: 'MaterialCommunityIcons', color: '#10B981' };
       case NotificationType.ORDER_PICKED_UP:
       case NotificationType.ORDER_OUT_FOR_DELIVERY:
-        return '🚗';
+        return { iconName: 'car', iconType: 'MaterialCommunityIcons', color: '#3B82F6' };
       case NotificationType.ORDER_DELIVERED:
-        return '✅';
+        return { iconName: 'checkmark-circle', iconType: 'Ionicons', color: '#10B981' };
       case NotificationType.ORDER_CANCELLED:
       case NotificationType.ORDER_REJECTED:
-        return '❌';
+        return { iconName: 'close-circle', iconType: 'Ionicons', color: '#EF4444' };
       case NotificationType.AUTO_ORDER_SUCCESS:
-        return '✅';
+        return { iconName: 'checkmark-circle', iconType: 'Ionicons', color: '#10B981' };
       case NotificationType.AUTO_ORDER_FAILED:
-        return '⚠️';
+        return { iconName: 'warning', iconType: 'Ionicons', color: '#EF4444' };
       case NotificationType.ORDER_STATUS_CHANGE:
-        return '📦';
+        return { iconName: 'package-variant', iconType: 'MaterialCommunityIcons', color: '#10B981' };
 
       // Subscription notifications
       case NotificationType.VOUCHER_EXPIRY_REMINDER:
-        return '🎟️';
+        return { iconName: 'ticket', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case NotificationType.SUBSCRIPTION_CREATED:
-        return '🎉';
+        return { iconName: 'party-popper', iconType: 'MaterialCommunityIcons', color: '#8B5CF6' };
 
       // General notifications
       case NotificationType.MENU_UPDATE:
-        return '👨‍🍳';
+        return { iconName: 'chef-hat', iconType: 'MaterialCommunityIcons', color: '#3B82F6' };
       case NotificationType.PROMOTIONAL:
-        return '🎁';
+        return { iconName: 'gift', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case NotificationType.ADMIN_PUSH:
-        return '🔔';
+        return { iconName: 'notifications', iconType: 'Ionicons', color: '#8B5CF6' };
 
       default:
-        return '📬';
+        return { iconName: 'notifications', iconType: 'Ionicons', color: '#6B7280' };
     }
   };
+
+  const iconConfig = getNotificationIcon(notification.type);
+  const IconComponent = iconConfig.iconType === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
 
   return (
     <Modal
@@ -112,14 +117,14 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({
             {/* Icon and Close Button */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
-                <Text style={styles.icon}>{getNotificationIcon(notification.type)}</Text>
+                <IconComponent name={iconConfig.iconName} size={24} color={iconConfig.color} />
               </View>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={onDismiss}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.closeIcon}>✕</Text>
+                <Ionicons name="close" size={20} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
 
@@ -198,16 +203,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  icon: {
-    fontSize: 24,
-  },
   closeButton: {
     padding: 4,
-  },
-  closeIcon: {
-    fontSize: 20,
-    color: '#9CA3AF',
-    fontWeight: '600',
   },
   title: {
     fontSize: 18,

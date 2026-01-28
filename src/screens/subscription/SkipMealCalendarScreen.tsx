@@ -22,12 +22,16 @@ import {
   getMonthlySkippedCount,
   isPastDate,
 } from '../../utils/autoOrderUtils';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<any, 'SkipMealCalendar'>;
 
 const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
   const { subscriptionId } = route.params || {};
   const { subscriptions, skipMeal, unskipMeal } = useSubscription();
+  const { isSmallDevice } = useResponsive();
 
   // Find the subscription
   const subscription = subscriptions.find(s => s._id === subscriptionId);
@@ -185,25 +189,29 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 items-center justify-center"
+            className="items-center justify-center"
+            style={{
+              minWidth: TOUCH_TARGETS.minimum,
+              minHeight: TOUCH_TARGETS.minimum,
+            }}
           >
             <Image
               source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: 34, height: 34 }}
+              style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
               resizeMode="contain"
             />
           </TouchableOpacity>
           <View className="flex-1 items-center">
-            <Text className="text-xl font-bold text-white">Skip Meals</Text>
-            <Text className="text-xs text-white/80 mt-1">Tap a date to manage meals</Text>
+            <Text className="font-bold text-white" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>Skip Meals</Text>
+            <Text className="text-white/80 mt-1" style={{ fontSize: FONT_SIZES.xs }}>Tap a date to manage meals</Text>
           </View>
-          <View style={{ width: 34 }} />
+          <View style={{ minWidth: TOUCH_TARGETS.minimum }} />
         </View>
       </View>
 
       {/* Info Banner */}
       <View className="bg-blue-50 px-5 py-3 border-b border-blue-100">
-        <Text className="text-sm text-blue-700">
+        <Text className="text-blue-700" style={{ fontSize: FONT_SIZES.sm }}>
           💡 Tap any future date to skip lunch or dinner. You can unskip anytime.
         </Text>
       </View>
@@ -239,15 +247,15 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Legend */}
           <View className="px-5 py-4 border-t border-gray-100">
-            <Text className="text-xs font-semibold text-gray-600 mb-2">Legend:</Text>
+            <Text className="font-semibold text-gray-600 mb-2" style={{ fontSize: FONT_SIZES.xs }}>Legend:</Text>
             <View className="flex-row items-center space-x-4">
               <View className="flex-row items-center mr-4">
                 <View className="w-3 h-3 rounded-full bg-orange-400 mr-2" />
-                <Text className="text-xs text-gray-600">Lunch Skipped</Text>
+                <Text className="text-gray-600" style={{ fontSize: FONT_SIZES.xs }}>Lunch Skipped</Text>
               </View>
               <View className="flex-row items-center">
                 <View className="w-3 h-3 rounded-full bg-blue-500 mr-2" />
-                <Text className="text-xs text-gray-600">Dinner Skipped</Text>
+                <Text className="text-gray-600" style={{ fontSize: FONT_SIZES.xs }}>Dinner Skipped</Text>
               </View>
             </View>
           </View>
@@ -275,14 +283,14 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <View className="flex-row items-center mb-2">
-                  <Text className="text-2xl mr-2">{monthlySkippedCount > 0 ? '📊' : '✨'}</Text>
-                  <Text className="text-lg font-bold text-gray-900">Monthly Summary</Text>
+                  <Text style={{ fontSize: FONT_SIZES['2xl'], marginRight: SPACING.sm }}>{monthlySkippedCount > 0 ? '📊' : '✨'}</Text>
+                  <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.h4 }}>Monthly Summary</Text>
                 </View>
-                <Text className="text-sm text-gray-600 leading-5">
+                <Text className="text-gray-600" style={{ fontSize: FONT_SIZES.sm, lineHeight: FONT_SIZES.sm * 1.4 }}>
                   {monthlySkippedCount > 0 ? (
                     <>
                       You have skipped{' '}
-                      <Text className="font-bold text-orange-600 text-base">{monthlySkippedCount}</Text>
+                      <Text className="font-bold text-orange-600" style={{ fontSize: FONT_SIZES.base }}>{monthlySkippedCount}</Text>
                       {' '}meal{monthlySkippedCount > 1 ? 's' : ''} this month
                     </>
                   ) : (
@@ -293,12 +301,12 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
               <View
                 className="rounded-full items-center justify-center"
                 style={{
-                  width: 56,
-                  height: 56,
+                  width: TOUCH_TARGETS.large,
+                  height: TOUCH_TARGETS.large,
                   backgroundColor: monthlySkippedCount > 0 ? '#F56B4C' : '#10B981',
                 }}
               >
-                <Text className="text-2xl font-bold text-white">{monthlySkippedCount}</Text>
+                <Text className="font-bold text-white" style={{ fontSize: FONT_SIZES['2xl'] }}>{monthlySkippedCount}</Text>
               </View>
             </View>
           </View>
@@ -347,33 +355,39 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
               <View className="flex-row items-center justify-between mb-5">
                 <View className="flex-1">
                   <Text
-                    className="text-2xl font-bold"
-                    style={{ color: '#1F2937' }}
+                    className="font-bold"
+                    style={{ fontSize: FONT_SIZES['2xl'], color: '#1F2937' }}
                   >
                     {formatShortDate(selectedDate)}
                   </Text>
                   <Text
-                    className="text-sm mt-1"
-                    style={{ color: '#6B7280' }}
+                    className="mt-1"
+                    style={{ fontSize: FONT_SIZES.sm, color: '#6B7280' }}
                   >
                     Select meal window to manage
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={closePanel}
-                  className="w-10 h-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: '#F3F4F6' }}
+                  className="rounded-full items-center justify-center"
+                  style={{
+                    minWidth: TOUCH_TARGETS.minimum,
+                    minHeight: TOUCH_TARGETS.minimum,
+                    backgroundColor: '#F3F4F6'
+                  }}
                 >
-                  <Text className="text-xl" style={{ color: '#6B7280' }}>✕</Text>
+                  <Text style={{ fontSize: FONT_SIZES.h4, color: '#6B7280' }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Meal Window Selector */}
-              <View className="flex-row mb-6" style={{ gap: 12 }}>
+              <View className="flex-row mb-6" style={{ gap: SPACING.md }}>
                 <TouchableOpacity
                   onPress={() => setSelectedMealWindow('LUNCH')}
-                  className="flex-1 p-5 rounded-2xl"
+                  className="flex-1 rounded-2xl"
                   style={{
+                    padding: SPACING.lg,
+                    minHeight: TOUCH_TARGETS.large,
                     borderWidth: 2,
                     borderColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
                     backgroundColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#FFFFFF',
@@ -384,10 +398,10 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                     elevation: selectedMealWindow === 'LUNCH' ? 4 : 2,
                   }}
                 >
-                  <Text className="text-3xl text-center mb-2">🌞</Text>
+                  <Text className="text-center mb-2" style={{ fontSize: FONT_SIZES['3xl'] }}>🌞</Text>
                   <Text
-                    className="text-base font-bold text-center"
-                    style={{ color: selectedMealWindow === 'LUNCH' ? '#FFFFFF' : '#374151' }}
+                    className="font-bold text-center"
+                    style={{ fontSize: FONT_SIZES.base, color: selectedMealWindow === 'LUNCH' ? '#FFFFFF' : '#374151' }}
                   >
                     Lunch
                   </Text>
@@ -396,7 +410,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                       className="mt-2 px-2 py-1 rounded-full self-center"
                       style={{ backgroundColor: selectedMealWindow === 'LUNCH' ? 'rgba(255, 255, 255, 0.3)' : '#FED7AA' }}
                     >
-                      <Text className="text-xs font-semibold" style={{ color: selectedMealWindow === 'LUNCH' ? '#FFFFFF' : '#C2410C' }}>
+                      <Text className="font-semibold" style={{ fontSize: FONT_SIZES.xs, color: selectedMealWindow === 'LUNCH' ? '#FFFFFF' : '#C2410C' }}>
                         Skipped
                       </Text>
                     </View>
@@ -405,8 +419,10 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
 
                 <TouchableOpacity
                   onPress={() => setSelectedMealWindow('DINNER')}
-                  className="flex-1 p-5 rounded-2xl"
+                  className="flex-1 rounded-2xl"
                   style={{
+                    padding: SPACING.lg,
+                    minHeight: TOUCH_TARGETS.large,
                     borderWidth: 2,
                     borderColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#E5E7EB',
                     backgroundColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#FFFFFF',
@@ -417,10 +433,10 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                     elevation: selectedMealWindow === 'DINNER' ? 4 : 2,
                   }}
                 >
-                  <Text className="text-3xl text-center mb-2">🌙</Text>
+                  <Text className="text-center mb-2" style={{ fontSize: FONT_SIZES['3xl'] }}>🌙</Text>
                   <Text
-                    className="text-base font-bold text-center"
-                    style={{ color: selectedMealWindow === 'DINNER' ? '#FFFFFF' : '#374151' }}
+                    className="font-bold text-center"
+                    style={{ fontSize: FONT_SIZES.base, color: selectedMealWindow === 'DINNER' ? '#FFFFFF' : '#374151' }}
                   >
                     Dinner
                   </Text>
@@ -429,7 +445,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                       className="mt-2 px-2 py-1 rounded-full self-center"
                       style={{ backgroundColor: selectedMealWindow === 'DINNER' ? 'rgba(255, 255, 255, 0.3)' : '#BFDBFE' }}
                     >
-                      <Text className="text-xs font-semibold" style={{ color: selectedMealWindow === 'DINNER' ? '#FFFFFF' : '#1E40AF' }}>
+                      <Text className="font-semibold" style={{ fontSize: FONT_SIZES.xs, color: selectedMealWindow === 'DINNER' ? '#FFFFFF' : '#1E40AF' }}>
                         Skipped
                       </Text>
                     </View>
@@ -441,8 +457,8 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
               {selectedMealWindow && !isCurrentlySkipped && (
                 <View className="mb-6">
                   <Text
-                    className="text-sm font-bold mb-3"
-                    style={{ color: '#374151' }}
+                    className="font-bold mb-3"
+                    style={{ fontSize: FONT_SIZES.sm, color: '#374151' }}
                   >
                     Reason (Optional)
                   </Text>
@@ -452,8 +468,11 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                     placeholder="e.g., Out of town, Office lunch"
                     placeholderTextColor="#9CA3AF"
                     maxLength={200}
-                    className="rounded-xl px-4 py-4 text-sm"
+                    className="rounded-xl"
                     style={{
+                      paddingHorizontal: SPACING.lg,
+                      paddingVertical: SPACING.md,
+                      fontSize: FONT_SIZES.sm,
                       backgroundColor: '#F9FAFB',
                       borderWidth: 1.5,
                       borderColor: '#E5E7EB',
@@ -472,8 +491,10 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                 <TouchableOpacity
                   onPress={isCurrentlySkipped ? handleUnskipMeal : handleSkipMeal}
                   disabled={isLoading}
-                  className="py-4 rounded-2xl items-center justify-center"
+                  className="rounded-2xl items-center justify-center"
                   style={{
+                    paddingVertical: SPACING.md,
+                    minHeight: TOUCH_TARGETS.large,
                     backgroundColor: isCurrentlySkipped ? '#10B981' : '#F56B4C',
                     shadowColor: isCurrentlySkipped ? '#10B981' : '#F56B4C',
                     shadowOffset: { width: 0, height: 4 },
@@ -485,7 +506,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                   {isLoading ? (
                     <ActivityIndicator color="white" size="small" />
                   ) : (
-                    <Text className="text-white font-bold text-lg">
+                    <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.h4 }}>
                       {isCurrentlySkipped
                         ? `✓ Restore ${selectedMealWindow}`
                         : `Skip ${selectedMealWindow}`}

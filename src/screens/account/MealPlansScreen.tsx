@@ -20,6 +20,9 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { useUser } from '../../context/UserContext';
 import { usePayment } from '../../context/PaymentContext';
 import { SubscriptionPlan, PurchaseSubscriptionResponse, CancelSubscriptionResponse } from '../../services/api.service';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'MealPlans'>;
 
@@ -41,6 +44,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
     clearError,
   } = useSubscription();
   const { processSubscriptionPayment, isProcessing: isPaymentProcessing } = usePayment();
+  const { isSmallDevice } = useResponsive();
 
   // Modal states
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -239,11 +243,17 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
               {/* Back Button */}
               <TouchableOpacity
                 onPress={() => navigation.goBack()}
-                className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+                className="rounded-full bg-orange-400"
+                style={{
+                  minWidth: TOUCH_TARGETS.minimum,
+                  minHeight: TOUCH_TARGETS.minimum,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 <Image
                   source={require('../../assets/icons/arrow.png')}
-                  style={{ width: 32, height: 32 }}
+                  style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
@@ -258,26 +268,27 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   alignItems: 'center',
                   backgroundColor: 'white',
                   borderRadius: 20,
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                  gap: 6,
+                  paddingVertical: SPACING.sm,
+                  paddingHorizontal: SPACING.md,
+                  gap: SPACING.sm,
+                  minHeight: TOUCH_TARGETS.minimum,
                 }}
               >
                 <Image
                   source={require('../../assets/icons/voucher5.png')}
-                  style={{ width: 24, height: 24 }}
+                  style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
                   resizeMode="contain"
                 />
-                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+                <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Greeting Text */}
             <View>
-              <Text className="font-bold text-white" style={{ fontSize: 36 }}>
+              <Text className="font-bold text-white" style={{ fontSize: isSmallDevice ? FONT_SIZES['2xl'] : FONT_SIZES['3xl'] }}>
                 Hello {user?.name?.split(' ')[0] || 'there'}
               </Text>
-              <Text className="font-semibold text-white mt-1" style={{ fontSize: 36 }}>
+              <Text className="font-semibold text-white mt-1" style={{ fontSize: isSmallDevice ? FONT_SIZES['2xl'] : FONT_SIZES['3xl'] }}>
                 Enjoy Experience
               </Text>
             </View>
@@ -288,7 +299,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
         <View className="bg-white px-5 pt-6 pb-10 flex-1" style={{ borderRadius: 33, marginTop: -20 }}>
           {/* Purchase Vouchers Heading */}
           <View className="mb-6">
-            <Text className="text-2xl font-bold text-gray-900">Purchase Vouchers</Text>
+            <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.h2 }}>Purchase Vouchers</Text>
           </View>
 
           {/* Current Voucher Balance / Active Subscription */}
@@ -511,7 +522,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Choose Your Plan */}
         <View className="px-5 mb-6">
-          <Text className="text-xl font-bold text-gray-900 mb-4">Choose Your Plan</Text>
+          <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: FONT_SIZES.h3 }}>Choose Your Plan</Text>
 
           {/* Loading State */}
           {plansLoading && renderLoadingSkeleton()}
@@ -667,8 +678,10 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                     {!isGuest ? (
                       <TouchableOpacity
                         onPress={() => handleSubscribe(plan)}
-                        className="bg-orange-400 rounded-full py-3"
+                        className="bg-orange-400 rounded-full"
                         style={{
+                          paddingVertical: SPACING.md,
+                          minHeight: TOUCH_TARGETS.large,
                           shadowColor: '#F56B4C',
                           shadowOffset: { width: 0, height: 4 },
                           shadowOpacity: 0.3,
@@ -676,16 +689,20 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                           elevation: 6,
                         }}
                       >
-                        <Text className="text-center text-white font-bold text-base">
+                        <Text className="text-center text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>
                           {hasActivePlan ? 'Purchase Again' : 'Subscribe'}
                         </Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
                         onPress={() => navigation.navigate('Account')}
-                        className="bg-gray-300 rounded-full py-3"
+                        className="bg-gray-300 rounded-full"
+                        style={{
+                          paddingVertical: SPACING.md,
+                          minHeight: TOUCH_TARGETS.large,
+                        }}
                       >
-                        <Text className="text-center text-gray-600 font-bold text-base">
+                        <Text className="text-center text-gray-600 font-bold" style={{ fontSize: FONT_SIZES.base }}>
                           Login to Subscribe
                         </Text>
                       </TouchableOpacity>
@@ -764,20 +781,30 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => setShowPurchaseModal(false)}
-                className="flex-1 py-3 rounded-full border border-gray-300"
+                className="flex-1 rounded-full border border-gray-300"
+                style={{
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  justifyContent: 'center',
+                }}
                 disabled={isProcessing}
               >
-                <Text className="text-center text-gray-600 font-semibold">Cancel</Text>
+                <Text className="text-center text-gray-600 font-semibold" style={{ fontSize: FONT_SIZES.base }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmPurchase}
-                className="flex-1 py-3 rounded-full bg-orange-400"
+                className="flex-1 rounded-full bg-orange-400"
+                style={{
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  justifyContent: 'center',
+                }}
                 disabled={isProcessing}
               >
                 {isProcessing ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-center text-white font-semibold">Confirm</Text>
+                  <Text className="text-center text-white font-semibold" style={{ fontSize: FONT_SIZES.base }}>Confirm</Text>
                 )}
               </TouchableOpacity>
             </View>

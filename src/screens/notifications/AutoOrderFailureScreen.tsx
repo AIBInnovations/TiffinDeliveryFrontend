@@ -4,6 +4,9 @@ import { SafeAreaView, View, Text, TouchableOpacity, Image, StatusBar } from 're
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import AutoOrderFailureModal from '../../components/AutoOrderFailureModal';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'AutoOrderFailure'>;
 
@@ -13,6 +16,7 @@ type Props = StackScreenProps<MainTabParamList, 'AutoOrderFailure'>;
  */
 const AutoOrderFailureScreen: React.FC<Props> = ({ navigation, route }) => {
   const { failureCategory, mealWindow, message } = route.params;
+  const { isSmallDevice } = useResponsive();
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -22,15 +26,19 @@ const AutoOrderFailureScreen: React.FC<Props> = ({ navigation, route }) => {
       <View className="bg-white px-5 py-4 flex-row items-center border-b border-gray-100">
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+          className="rounded-full bg-orange-400 items-center justify-center"
+          style={{
+            minWidth: TOUCH_TARGETS.minimum,
+            minHeight: TOUCH_TARGETS.minimum,
+          }}
         >
           <Image
             source={require('../../assets/icons/arrow.png')}
-            style={{ width: 32, height: 32 }}
+            style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
             resizeMode="contain"
           />
         </TouchableOpacity>
-        <Text className="flex-1 text-center text-xl font-bold text-gray-900 mr-10">
+        <Text className="flex-1 text-center font-bold text-gray-900" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3, marginRight: SPACING.iconXl }}>
           Auto-Order Failed
         </Text>
       </View>

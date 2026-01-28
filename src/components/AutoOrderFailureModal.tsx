@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AutoOrderFailureCategory } from '../constants/notificationTypes';
 
 interface AutoOrderFailureModalProps {
@@ -23,7 +25,8 @@ interface AutoOrderFailureModalProps {
 type NavigationProp = NativeStackNavigationProp<any>;
 
 interface CategoryContent {
-  icon: string;
+  iconName: string;
+  iconType: 'Ionicons' | 'MaterialCommunityIcons';
   title: string;
   message: string;
   primaryAction: {
@@ -52,7 +55,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
     switch (failureCategory) {
       case AutoOrderFailureCategory.NO_VOUCHERS:
         return {
-          icon: '🎟️',
+          iconName: 'ticket',
+          iconType: 'MaterialCommunityIcons',
           title: 'No Vouchers Available',
           message: customMessage || `You don't have any vouchers for ${mealText}. Buy a subscription to continue receiving automatic orders.`,
           primaryAction: {
@@ -73,7 +77,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
 
       case AutoOrderFailureCategory.NO_ADDRESS:
         return {
-          icon: '📍',
+          iconName: 'map-marker',
+          iconType: 'MaterialCommunityIcons',
           title: 'No Delivery Address',
           message: customMessage || 'Please add a delivery address to enable automatic orders.',
           primaryAction: {
@@ -88,7 +93,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
 
       case AutoOrderFailureCategory.NO_ZONE:
         return {
-          icon: '🗺️',
+          iconName: 'map',
+          iconType: 'MaterialCommunityIcons',
           title: 'Address Not Serviceable',
           message: customMessage || 'Your current address is outside our delivery zone. Please update your address to a serviceable location.',
           primaryAction: {
@@ -110,7 +116,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
 
       case AutoOrderFailureCategory.NO_KITCHEN:
         return {
-          icon: '🍳',
+          iconName: 'chef-hat',
+          iconType: 'MaterialCommunityIcons',
           title: 'No Kitchen Available',
           message: customMessage || `No kitchen is available for ${mealText} in your area. We'll try again for the next meal.`,
           primaryAction: {
@@ -125,7 +132,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
 
       case AutoOrderFailureCategory.NO_MENU_ITEM:
         return {
-          icon: '📋',
+          iconName: 'clipboard-text',
+          iconType: 'MaterialCommunityIcons',
           title: 'Menu Not Available',
           message: customMessage || `The ${mealText} menu is not available yet. We'll try again when the menu is ready.`,
           primaryAction: {
@@ -140,7 +148,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
 
       case AutoOrderFailureCategory.VOUCHER_REDEMPTION_FAILED:
         return {
-          icon: '⚠️',
+          iconName: 'warning',
+          iconType: 'Ionicons',
           title: 'Voucher Issue',
           message: customMessage || 'There was a problem redeeming your voucher. Please contact support or try ordering manually.',
           primaryAction: {
@@ -162,7 +171,8 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
       case AutoOrderFailureCategory.UNKNOWN:
       default:
         return {
-          icon: '❌',
+          iconName: 'close-circle',
+          iconType: 'Ionicons',
           title: 'Auto-Order Failed',
           message: customMessage || `We couldn't automatically place your ${mealText} order. Please try ordering manually.`,
           primaryAction: {
@@ -178,6 +188,7 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
   };
 
   const content = getCategoryContent();
+  const IconComponent = content.iconType === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
 
   return (
     <Modal
@@ -198,12 +209,12 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.closeIcon}>✕</Text>
+              <Ionicons name="close" size={24} color="#9CA3AF" />
             </TouchableOpacity>
 
             {/* Icon */}
             <View style={styles.iconContainer}>
-              <Text style={styles.icon}>{content.icon}</Text>
+              <IconComponent name={content.iconName} size={40} color="#F56B4C" />
             </View>
 
             {/* Title */}
@@ -280,11 +291,6 @@ const styles = StyleSheet.create({
     padding: 4,
     zIndex: 10,
   },
-  closeIcon: {
-    fontSize: 24,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
   iconContainer: {
     width: 80,
     height: 80,
@@ -294,9 +300,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     marginBottom: 16,
-  },
-  icon: {
-    fontSize: 40,
   },
   title: {
     fontSize: 22,

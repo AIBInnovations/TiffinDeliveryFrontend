@@ -20,6 +20,8 @@ import apiService, { Order, OrderStatus } from '../../services/api.service';
 import dataPreloader from '../../services/dataPreloader.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
 import { getMealCutoffTime } from '../../utils/timeUtils';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING } from '../../constants/spacing';
 
 type Props = StackScreenProps<MainTabParamList, 'YourOrders'>;
 
@@ -107,6 +109,7 @@ const getQuantityString = (order: Order): string => {
 const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const { usableVouchers } = useSubscription();
   const { showAlert } = useAlert();
+  const { isSmallDevice } = useResponsive();
 
   const [activeTab, setActiveTab] = useState<'Current' | 'History' | 'Auto'>('Current');
   const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
@@ -417,8 +420,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       key={order._id}
       onPress={() => handleViewOrderDetail(order._id)}
       activeOpacity={0.7}
-      className="bg-white rounded-3xl p-4 mb-4"
+      className="bg-white rounded-3xl mb-4"
       style={{
+        padding: isSmallDevice ? SPACING.md : SPACING.lg,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -524,8 +528,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
       key={order._id}
       onPress={() => handleViewOrderDetail(order._id)}
       activeOpacity={0.7}
-      className="bg-white rounded-2xl p-4 mb-3"
+      className="bg-white rounded-2xl mb-3"
       style={{
+        padding: isSmallDevice ? SPACING.md : SPACING.lg,
         minHeight: 160,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -739,6 +744,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: activeTab === 'Current' ? 0.1 : 0,
                 shadowRadius: 2,
                 elevation: activeTab === 'Current' ? 2 : 0,
+                minHeight: 48,
               }}
             >
               <Text
@@ -762,6 +768,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: activeTab === 'History' ? 0.1 : 0,
                 shadowRadius: 2,
                 elevation: activeTab === 'History' ? 2 : 0,
+                minHeight: 48,
               }}
             >
               <Text
@@ -785,6 +792,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: activeTab === 'Auto' ? 0.1 : 0,
                 shadowRadius: 2,
                 elevation: activeTab === 'Auto' ? 2 : 0,
+                minHeight: 48,
               }}
             >
               <Text

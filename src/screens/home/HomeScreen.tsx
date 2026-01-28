@@ -737,10 +737,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {/* Top Row: Logo, Location, Actions */}
             <View className="flex-row items-center justify-between mb-4">
               {/* Logo */}
-              <View style={{ width: SPACING.iconXl * 1.45 }}>
+              <View style={{ width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45 }}>
                 <Image
                   source={require('../../assets/icons/Tiffsy.png')}
-                  style={{ width: SPACING.iconXl * 1.45, height: SPACING.iconXl * 0.875 }}
+                  style={{
+                    width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45,
+                    height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875
+                  }}
                   resizeMode="contain"
                 />
               </View>
@@ -1390,6 +1393,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             paddingHorizontal: activeTab === 'home' ? SPACING.lg : SPACING.sm,
             marginLeft: -SPACING.sm,
             marginRight: 4,
+            minWidth: 44,
+            minHeight: 44,
           }}
         >
           <Image
@@ -1422,6 +1427,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             paddingVertical: SPACING.sm,
             paddingHorizontal: activeTab === 'orders' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
+            minWidth: 44,
+            minHeight: 44,
           }}
         >
           <Image
@@ -1455,6 +1462,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             paddingVertical: SPACING.sm,
             paddingHorizontal: activeTab === 'meals' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
+            minWidth: 44,
+            minHeight: 44,
           }}
         >
           <Image
@@ -1487,6 +1496,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             paddingVertical: SPACING.sm,
             paddingHorizontal: activeTab === 'profile' ? SPACING.lg : SPACING.sm,
             marginHorizontal: 4,
+            minWidth: 44,
+            minHeight: 44,
           }}
         >
           <Image

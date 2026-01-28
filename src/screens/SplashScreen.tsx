@@ -3,6 +3,8 @@ import { View, Text, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
+import { SPACING } from '../constants/spacing';
+import { FONT_SIZES } from '../constants/typography';
 
 type SplashScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -27,17 +29,17 @@ const SplashScreen = () => {
         <Image
           // source={require('../assets/images/Tiffsy_Logo.png')}
           source={require('../assets/images/logo.png')}
-          style={{ width: 40, height: 40 }}
+          style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
           resizeMode="contain"
         />
-        <Text className="text-white text-4xl ml-2">LOGO</Text>
+        <Text className="text-white ml-2" style={{ fontSize: FONT_SIZES.h1 }}>LOGO</Text>
       </View>
 
       <View
         className="flex-row justify-center items-center mb-8"
-        style={{ gap: 15 }}
+        style={{ gap: SPACING.md }}
       >
-        <Text className="text-white text-xl">Order</Text>
+        <Text className="text-white" style={{ fontSize: FONT_SIZES.h3 }}>Order</Text>
         <View
           style={{
             width: 6,
@@ -46,7 +48,7 @@ const SplashScreen = () => {
             backgroundColor: 'white',
           }}
         />
-        <Text className="text-white text-xl">Eat</Text>
+        <Text className="text-white" style={{ fontSize: FONT_SIZES.h3 }}>Eat</Text>
         <View
           style={{
             width: 6,
@@ -55,7 +57,7 @@ const SplashScreen = () => {
             backgroundColor: 'white',
           }}
         />
-        <Text className="text-white text-xl">Enjoy</Text>
+        <Text className="text-white" style={{ fontSize: FONT_SIZES.h3 }}>Enjoy</Text>
       </View>
     </View>
   );

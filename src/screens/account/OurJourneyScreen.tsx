@@ -12,10 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'OurJourney'>;
 
 const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
+  const { isSmallDevice } = useResponsive();
+
   const handleSocialMedia = (url: string) => {
     Linking.openURL(url);
   };
@@ -28,33 +33,37 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
       <View className="bg-white px-5 py-4 flex-row items-center justify-between">
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+          className="rounded-full bg-orange-400 items-center justify-center"
+          style={{
+            minWidth: TOUCH_TARGETS.minimum,
+            minHeight: TOUCH_TARGETS.minimum,
+          }}
         >
           <Image
             source={require('../../assets/icons/backarrow2.png')}
-            style={{ width: 32, height: 32 }}
+            style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
             resizeMode="contain"
           />
         </TouchableOpacity>
 
-        <Text className="text-xl font-bold text-gray-900">Our Journey</Text>
+        <Text className="font-bold text-gray-900" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>Our Journey</Text>
 
-        <View className="w-10 h-10" />
+        <View style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }} />
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Tiffin Dabba Section */}
         <View className="px-5 mt-6">
-          <Text className="text-rgba(0, 0, 0, 1) mb-1" style={{ fontSize: 24, fontWeight: '500',  }}>Tiffin Dabba</Text>
-          <Text className="text-sm leading-6 mb-6" style={{ color: 'rgba(145, 145, 145, 1)' }}>
+          <Text className="text-rgba(0, 0, 0, 1) mb-1" style={{ fontSize: FONT_SIZES['2xl'], fontWeight: '500' }}>Tiffin Dabba</Text>
+          <Text className="leading-6 mb-6" style={{ fontSize: FONT_SIZES.sm, lineHeight: FONT_SIZES.sm * 1.5, color: 'rgba(145, 145, 145, 1)' }}>
             Bringing the warmth of homecooked meals to your doorstep, one tiffin at a time.
           </Text>
         </View>
 
         {/* The Beginnings Section */}
         <View className="px-5 mt-30">
-          <Text className="text-rgba(0, 0, 0, 1) mb-2" style={{ fontSize: 20, fontWeight: '500' }}>The Beginnings</Text>
-          <Text className="text-sm leading-6 mb-4" style={{ color: 'rgba(145, 145, 145, 1)', fontFamily: 'Inter', fontWeight: '400' }}>
+          <Text className="text-rgba(0, 0, 0, 1) mb-2" style={{ fontSize: FONT_SIZES.h3, fontWeight: '500' }}>The Beginnings</Text>
+          <Text className="leading-6 mb-4" style={{ fontSize: FONT_SIZES.sm, lineHeight: FONT_SIZES.sm * 1.5, color: 'rgba(145, 145, 145, 1)', fontFamily: 'Inter', fontWeight: '400' }}>
             Lorem ipsum dolor sit amet consectetur. Quisque libero eget id consectetur gravida vulputate dignissim rutrum. Nulla mauris tincidunt et sed aliquam nullam quis tristique. Laoreet sit sollicitudin interdum dolor. Et dignissim fermentum eu sem. Enim vitae eu vehicula duis aenean orci ligula diam a. Arcu phasellus nunc ac euismod nunc. Aliquam tellus odio nunc nisl quis aliquam.
           </Text>
 
@@ -75,8 +84,8 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Later Journey Section */}
         <View className="px-5 mt-4">
-          <Text className="text-rgba(0, 0, 0, 1) mb-2" style={{ fontSize: 20, fontWeight: '400',  lineHeight: 30 }}>Later Journey</Text>
-          <Text className="text-sm leading-6 mb-6" style={{ color: 'rgba(145, 145, 145, 1)', fontFamily: 'Inter', fontWeight: '400' }}>
+          <Text className="text-rgba(0, 0, 0, 1) mb-2" style={{ fontSize: FONT_SIZES.h3, fontWeight: '400', lineHeight: FONT_SIZES.h3 * 1.5 }}>Later Journey</Text>
+          <Text className="leading-6 mb-6" style={{ fontSize: FONT_SIZES.sm, lineHeight: FONT_SIZES.sm * 1.5, color: 'rgba(145, 145, 145, 1)', fontFamily: 'Inter', fontWeight: '400' }}>
             Lorem ipsum dolor sit amet consectetur. Quisque libero eget id consectetur gravida vulputate dignissim rutrum. Nulla mauris tincidunt et sed aliquam nullam quis tristique. Laoreet sit sollicitudin interdum dolor. Et dignissim fermentum eu sem. Enim vitae eu vehicula duis aenean orci ligula diam a. Arcu phasellus nunc ac euismod nunc. Aliquam tellus odio nunc nisl quis aliquam.
           </Text>
         </View>
@@ -182,56 +191,65 @@ const OurJourneyScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Follow Us Section */}
         <View className="px-5 mb-6">
-          <Text className="text-xl font-bold text-gray-900 mb-4">Follow Us at</Text>
+          <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>Follow Us at</Text>
 
           {/* Facebook */}
           <TouchableOpacity
             className="flex-row items-center mb-4"
+            style={{
+              minHeight: TOUCH_TARGETS.minimum,
+            }}
             onPress={() => handleSocialMedia('https://facebook.com')}
           >
             <Image
               source={require('../../assets/icons/facebook2.png')}
-              style={{ width: 40, height: 40, marginRight: 12 }}
+              style={{ width: SPACING.iconXl, height: SPACING.iconXl, marginRight: SPACING.md }}
               resizeMode="contain"
             />
-            <Text className="text-base font-medium text-gray-900">Facebook</Text>
+            <Text className="font-medium text-gray-900" style={{ fontSize: FONT_SIZES.base }}>Facebook</Text>
           </TouchableOpacity>
 
           {/* Twitter */}
           <TouchableOpacity
             className="flex-row items-center mb-4"
+            style={{
+              minHeight: TOUCH_TARGETS.minimum,
+            }}
             onPress={() => handleSocialMedia('https://twitter.com')}
           >
             <Image
               source={require('../../assets/icons/twitter2.png')}
-              style={{ width: 40, height: 40, marginRight: 12 }}
+              style={{ width: SPACING.iconXl, height: SPACING.iconXl, marginRight: SPACING.md }}
               resizeMode="contain"
             />
-            <Text className="text-base font-medium text-gray-900">Twitter</Text>
+            <Text className="font-medium text-gray-900" style={{ fontSize: FONT_SIZES.base }}>Twitter</Text>
           </TouchableOpacity>
 
           {/* Instagram */}
           <TouchableOpacity
             className="flex-row items-center mb-4"
+            style={{
+              minHeight: TOUCH_TARGETS.minimum,
+            }}
             onPress={() => handleSocialMedia('https://instagram.com')}
           >
             <Image
               source={require('../../assets/icons/insta2.png')}
-              style={{ width: 40, height: 40, marginRight: 12 }}
+              style={{ width: SPACING.iconXl, height: SPACING.iconXl, marginRight: SPACING.md }}
               resizeMode="contain"
             />
-            <Text className="text-base font-medium text-gray-900">Instagram</Text>
+            <Text className="font-medium text-gray-900" style={{ fontSize: FONT_SIZES.base }}>Instagram</Text>
           </TouchableOpacity>
         </View>
 
         {/* Opening Hours */}
-        <View className="px-5 mb-8 flex-row items-center" style={{ backgroundColor: 'rgba(255, 245, 242, 1)', width: 320, height: 48, borderRadius: 42, alignSelf: 'center' }}>
+        <View className="px-5 mb-8 flex-row items-center" style={{ backgroundColor: 'rgba(255, 245, 242, 1)', width: 320, minHeight: TOUCH_TARGETS.comfortable, borderRadius: 42, alignSelf: 'center' }}>
           <Image
             source={require('../../assets/icons/time2.png')}
-            style={{ width: 20, height: 20, marginRight: 8 }}
+            style={{ width: SPACING.iconSize, height: SPACING.iconSize, marginRight: SPACING.sm }}
             resizeMode="contain"
           />
-          <Text className="text-sm text-orange-400 font-medium">
+          <Text className="text-orange-400 font-medium" style={{ fontSize: FONT_SIZES.sm }}>
             Mon-Sat: 9 AM - 9 PM | Sun: 10 AM - 6 PM
           </Text>
         </View>

@@ -16,6 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = AuthScreenProps<'OTPVerification'>;
 
@@ -29,6 +32,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const { verifyOTP, loginWithPhone } = useUser();
   const { showAlert } = useAlert();
+  const { isSmallDevice, width, height } = useResponsive();
 
   // Refs for input fields
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -161,16 +165,16 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
+                minWidth: TOUCH_TARGETS.minimum,
+                minHeight: TOUCH_TARGETS.minimum,
+                borderRadius: TOUCH_TARGETS.minimum / 2,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
               <Image
                 source={require('../../assets/icons/backarrow.png')}
-                style={{ width: 40, height: 40 }}
+                style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
                 resizeMode="contain"
               />
             </TouchableOpacity>
@@ -187,8 +191,8 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               <Image
                 source={require('../../assets/images/login/pana.png')}
                 style={{
-                  width: 200,
-                  height: 170,
+                  width: width * 0.5,
+                  height: height * 0.2,
                 }}
                 resizeMode="contain"
               />
@@ -211,7 +215,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Verify OTP title */}
             <Text
               style={{
-                fontSize: 24,
+                fontSize: isSmallDevice ? FONT_SIZES.h2 : FONT_SIZES.h1,
                 fontWeight: '700',
                 color: '#111827',
                 marginBottom: 8,
@@ -223,10 +227,10 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Description */}
             <Text
               style={{
-                fontSize: 14,
+                fontSize: FONT_SIZES.base,
                 color: '#6B7280',
-                marginBottom: 20,
-                lineHeight: 20,
+                marginBottom: SPACING.xl,
+                lineHeight: FONT_SIZES.base * 1.4,
               }}
             >
               Enter the 6-digit code sent to{'\n'}
@@ -254,13 +258,13 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                     onChangeText={(value) => handleOtpChange(value, index)}
                     onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                     style={{
-                      width: 45,
-                      height: 45,
+                      width: isSmallDevice ? 48 : 52,
+                      height: isSmallDevice ? 48 : 52,
                       borderWidth: 1,
                       borderColor: digit ? 'rgba(55, 200, 127, 1)' : 'rgba(239, 239, 239, 1)',
                       borderRadius: 10,
                       textAlign: 'center',
-                      fontSize: 20,
+                      fontSize: FONT_SIZES.h3,
                       fontWeight: '600',
                       color: '#111827',
                       backgroundColor: 'rgba(250, 250, 252, 1)',
@@ -280,9 +284,9 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text
               style={{
                 textAlign: 'center',
-                fontSize: 14,
+                fontSize: FONT_SIZES.base,
                 color: '#6B7280',
-                marginBottom: 20,
+                marginBottom: SPACING.lg,
               }}
             >
               {canResend ? (
@@ -313,10 +317,12 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               style={{
                 backgroundColor: '#F56B4C',
                 borderRadius: 100,
-                paddingVertical: 15,
+                minHeight: TOUCH_TARGETS.large,
+                paddingVertical: SPACING.md,
+                paddingHorizontal: SPACING.xl,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 20,
+                marginBottom: SPACING.lg,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
@@ -326,7 +332,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               }}
             >
               <Text
-                style={{ color: 'white', fontSize: 16, fontWeight: '600' }}
+                style={{ color: 'white', fontSize: FONT_SIZES.base, fontWeight: '600' }}
               >
                 Get Started
               </Text>
@@ -335,11 +341,11 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Footer text */}
             <Text
               style={{
-                fontSize: 12,
+                fontSize: FONT_SIZES.xs,
                 color: '#9CA3AF',
                 textAlign: 'center',
-                lineHeight: 18,
-                marginBottom: 10,
+                lineHeight: FONT_SIZES.xs * 1.5,
+                marginBottom: SPACING.sm,
               }}
             >
               By signing in, you agree to{' '}
@@ -389,20 +395,20 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               elevation: 8,
             }}
           >
-            <ActivityIndicator size="large" color="#F56B4C" style={{ marginBottom: 16 }} />
+            <ActivityIndicator size="large" color="#F56B4C" style={{ marginBottom: SPACING.lg }} />
             <Text
               style={{
-                fontSize: 18,
+                fontSize: FONT_SIZES.h4,
                 fontWeight: '600',
                 color: '#111827',
-                marginBottom: 8,
+                marginBottom: SPACING.sm,
               }}
             >
               {loadingMessage}
             </Text>
             <Text
               style={{
-                fontSize: 14,
+                fontSize: FONT_SIZES.base,
                 color: '#6B7280',
                 textAlign: 'center',
               }}

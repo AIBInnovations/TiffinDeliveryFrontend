@@ -14,9 +14,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { Swipeable } from 'react-native-gesture-handler';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNotifications } from '../../context/NotificationContext';
 import { NotificationData } from '../../context/NotificationContext';
 import NotificationDetailModal from '../../components/NotificationDetailModal';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<any, 'Notifications'>;
 
@@ -33,6 +38,7 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
     markAllAsRead,
     deleteNotification,
   } = useNotifications();
+  const { isSmallDevice } = useResponsive();
 
   const [selectedNotification, setSelectedNotification] = useState<NotificationData | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -121,15 +127,15 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'MENU_UPDATE':
-        return { emoji: '👨‍🍳', color: '#3B82F6' };
+        return { iconName: 'chef-hat', iconType: 'MaterialCommunityIcons', color: '#3B82F6' };
       case 'ORDER_STATUS_CHANGE':
-        return { emoji: '📦', color: '#10B981' };
+        return { iconName: 'package-variant', iconType: 'MaterialCommunityIcons', color: '#10B981' };
       case 'VOUCHER_EXPIRY_REMINDER':
-        return { emoji: '🎟️', color: '#F59E0B' };
+        return { iconName: 'ticket', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case 'ADMIN_PUSH':
-        return { emoji: '🔔', color: '#8B5CF6' };
+        return { iconName: 'notifications', iconType: 'Ionicons', color: '#8B5CF6' };
       default:
-        return { emoji: '📬', color: '#6B7280' };
+        return { iconName: 'notifications', iconType: 'Ionicons', color: '#F56B4C' };
     }
   };
 
@@ -148,7 +154,8 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
   // Render notification item
   const renderNotificationItem = ({ item }: { item: NotificationData }) => {
-    const { emoji, color } = getNotificationIcon(item.type);
+    const { iconName, iconType, color } = getNotificationIcon(item.type);
+    const IconComponent = iconType === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
 
     return (
       <Swipeable
@@ -165,7 +172,7 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
         >
           {/* Icon */}
           <View style={[styles.iconContainer, { backgroundColor: `${color}20` }]}>
-            <Text style={styles.iconEmoji}>{emoji}</Text>
+            <IconComponent name={iconName} size={24} color={color} />
           </View>
 
           {/* Content */}
@@ -203,7 +210,9 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🔔</Text>
+        <View style={styles.emptyIconContainer}>
+          <Ionicons name="notifications-outline" size={64} color="#D1D5DB" />
+        </View>
         <Text style={styles.emptyTitle}>No notifications yet</Text>
         <Text style={styles.emptyMessage}>
           We'll notify you when there's something new!
@@ -236,7 +245,7 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={20} color="white" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Notifications</Text>
@@ -300,68 +309,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.lg,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F56B4C',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backIcon: {
-    fontSize: 24,
-    color: '#1F2937',
-  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: FONT_SIZES.h3,
     fontWeight: 'bold',
     color: '#1F2937',
     flex: 1,
     textAlign: 'center',
   },
   markAllButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   markAllText: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.base,
     fontWeight: '600',
     color: '#F56B4C',
   },
   placeholder: {
-    width: 80,
+    width: SPACING['4xl'] * 2,
   },
   list: {
-    paddingVertical: 8,
+    paddingVertical: SPACING.sm,
   },
   emptyList: {
     flexGrow: 1,
   },
   notificationItem: {
     flexDirection: 'row',
-    padding: 16,
+    padding: SPACING.lg,
     backgroundColor: '#F3F4F6',
-    marginHorizontal: 12,
-    marginVertical: 4,
-    borderRadius: 12,
+    marginHorizontal: SPACING.md,
+    marginVertical: SPACING.xs,
+    borderRadius: SPACING.md,
+    minHeight: TOUCH_TARGETS.large,
   },
   unreadNotification: {
     backgroundColor: 'white',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: SPACING['3xl'],
+    height: SPACING['3xl'],
+    borderRadius: SPACING['3xl'] / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  iconEmoji: {
-    fontSize: 24,
+    marginRight: SPACING.md,
   },
   contentContainer: {
     flex: 1,
@@ -369,11 +376,11 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
   },
   title: {
     flex: 1,
-    fontSize: 16,
+    fontSize: FONT_SIZES.h4,
     fontWeight: '600',
     color: '#1F2937',
   },
@@ -381,61 +388,61 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: SPACING.sm,
+    height: SPACING.sm,
+    borderRadius: SPACING.sm / 2,
     backgroundColor: '#3B82F6',
-    marginLeft: 8,
+    marginLeft: SPACING.sm,
   },
   body: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.base,
     color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 4,
+    lineHeight: FONT_SIZES.base * 1.4,
+    marginBottom: SPACING.xs,
   },
   timestamp: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.xs,
     color: '#9CA3AF',
   },
   deleteAction: {
     backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    marginVertical: 4,
-    marginRight: 12,
-    borderRadius: 12,
+    width: SPACING['4xl'] * 2,
+    marginVertical: SPACING.xs,
+    marginRight: SPACING.md,
+    borderRadius: SPACING.md,
+    minHeight: TOUCH_TARGETS.large,
   },
   deleteActionText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: FONT_SIZES.base,
     fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: SPACING['2xl'],
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+  emptyIconContainer: {
+    marginBottom: SPACING.lg,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: FONT_SIZES.h3,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   emptyMessage: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.base,
     color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: FONT_SIZES.base * 1.4,
   },
   footerLoader: {
-    paddingVertical: 16,
+    paddingVertical: SPACING.lg,
     alignItems: 'center',
   },
 });

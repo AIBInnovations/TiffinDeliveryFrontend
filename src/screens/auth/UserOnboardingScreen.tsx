@@ -14,6 +14,9 @@ import { useUser, DietaryPreferences } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
 import NotificationPermissionModal from '../../components/NotificationPermissionModal';
 import notificationService from '../../services/notification.service';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 // This screen is rendered directly in RootStackNavigator when user is authenticated but not onboarded
 // Navigation is handled automatically by AppNavigator based on state changes
@@ -38,6 +41,7 @@ const SPICE_LEVELS = [
 const UserOnboardingScreen: React.FC = () => {
   const { completeOnboarding, registerFcmToken, logout } = useUser();
   const { showAlert } = useAlert();
+  const { isSmallDevice } = useResponsive();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [foodType, setFoodType] = useState<'VEG' | 'NON-VEG' | 'VEGAN'>('VEG');
@@ -166,15 +170,15 @@ const UserOnboardingScreen: React.FC = () => {
             onPress={handleBackPress}
             className="absolute top-12 left-5 z-10"
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
+              minWidth: TOUCH_TARGETS.minimum,
+              minHeight: TOUCH_TARGETS.minimum,
+              borderRadius: TOUCH_TARGETS.minimum / 2,
               backgroundColor: 'rgba(255, 255, 255, 0.3)',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+            <MaterialCommunityIcons name="arrow-left" size={SPACING.iconSize} color="#FFFFFF" />
           </TouchableOpacity>
 
           {/* Decorative elements */}
@@ -187,17 +191,17 @@ const UserOnboardingScreen: React.FC = () => {
 
           <View className="items-center mt-4">
             <View className="flex-row items-center mb-2">
-              <Text className="text-white text-3xl font-bold text-center">
+              <Text className="text-white font-bold text-center" style={{ fontSize: isSmallDevice ? FONT_SIZES.h2 : FONT_SIZES['2xl'] }}>
                 Welcome!
               </Text>
               <MaterialCommunityIcons
                 name="hand-wave"
-                size={28}
+                size={SPACING.iconXl}
                 color="#FFFFFF"
-                style={{ marginLeft: 8 }}
+                style={{ marginLeft: SPACING.sm }}
               />
             </View>
-            <Text className="text-white text-base text-center opacity-90">
+            <Text className="text-white text-center opacity-90" style={{ fontSize: FONT_SIZES.base }}>
               Let's personalize your experience
             </Text>
           </View>
@@ -269,8 +273,11 @@ const UserOnboardingScreen: React.FC = () => {
                   <TouchableOpacity
                     key={type.id}
                     onPress={() => setFoodType(type.id as any)}
-                    className="rounded-full px-4 py-3 flex-row items-center flex-1"
+                    className="rounded-full flex-row items-center flex-1"
                     style={{
+                      paddingHorizontal: SPACING.lg,
+                      paddingVertical: SPACING.md,
+                      minHeight: TOUCH_TARGETS.comfortable,
                       backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
                       borderWidth: 1,
                       borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
@@ -462,8 +469,10 @@ const UserOnboardingScreen: React.FC = () => {
           <TouchableOpacity
             onPress={handleContinue}
             disabled={isLoading}
-            className="bg-orange-400 rounded-full py-4 items-center mb-8"
+            className="bg-orange-400 rounded-full items-center mb-8"
             style={{
+              paddingVertical: SPACING.lg,
+              minHeight: TOUCH_TARGETS.large,
               backgroundColor: isLoading ? '#CCCCCC' : '#F56B4C',
               shadowColor: '#F56B4C',
               shadowOffset: { width: 0, height: 4 },
@@ -475,7 +484,7 @@ const UserOnboardingScreen: React.FC = () => {
             {isLoading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-white font-bold text-base">
+              <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>
                 Continue to App →
               </Text>
             )}

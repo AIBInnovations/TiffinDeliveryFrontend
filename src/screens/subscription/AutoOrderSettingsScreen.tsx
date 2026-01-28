@@ -10,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
   Image,
-  Dimensions,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,21 +24,9 @@ import {
   validateAutoOrderEnable,
 } from '../../utils/autoOrderUtils';
 import apiService from '../../services/api.service';
-
-// Get screen dimensions
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Responsive sizing helpers
-const isSmallScreen = SCREEN_WIDTH < 375;
-const isMediumScreen = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414;
-const scale = SCREEN_WIDTH / 375; // Base scale on iPhone SE size
-
-const responsiveSize = (size: number) => Math.round(size * scale);
-const responsiveFontSize = (size: number) => {
-  if (isSmallScreen) return Math.round(size * 0.9);
-  if (isMediumScreen) return size;
-  return Math.round(size * 1.05);
-};
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<any, 'AutoOrderSettings'>;
 
@@ -47,6 +34,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { subscriptionId } = route.params || {};
   const { subscriptions, updateAutoOrderSettings, pauseAutoOrdering, resumeAutoOrdering, usableVouchers } = useSubscription();
   const { addresses, getMainAddress } = useAddress();
+  const { isSmallDevice, width, height } = useResponsive();
 
   // Find the subscription
   const subscription = subscriptions.find(s => s._id === subscriptionId);
@@ -286,21 +274,27 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 items-center justify-center"
+            style={{
+              minWidth: TOUCH_TARGETS.minimum,
+              minHeight: TOUCH_TARGETS.minimum,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <Image
               source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: 34, height: 34 }}
+              style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
               resizeMode="contain"
             />
           </TouchableOpacity>
           <Text
-            className="text-xl font-bold text-white flex-1 text-center"
+            className="font-bold text-white flex-1 text-center"
+            style={{ fontSize: isSmallDevice ? FONT_SIZES.h3 : FONT_SIZES.h2 }}
             numberOfLines={1}
           >
             Auto-Order Settings
           </Text>
-          <View style={{ width: 34 }} />
+          <View style={{ width: SPACING.iconLg }} />
         </View>
       </View>
 
@@ -308,8 +302,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         className="flex-1 bg-gray-50"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: 100,
-          paddingTop: 20
+          paddingBottom: SPACING['4xl'] * 2,
+          paddingTop: SPACING.lg
         }}
       >
         {/* Hero Status Card with Toggle */}
@@ -478,13 +472,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => handleMealTypeSelect('LUNCH')}
             disabled={isLoading}
             activeOpacity={0.7}
-            style={{ marginBottom: responsiveSize(12) }}
+            style={{ marginBottom: SPACING.md, minHeight: TOUCH_TARGETS.large }}
           >
             <View
               style={{
                 backgroundColor: 'white',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(20),
+                borderRadius: SPACING.lg,
+                padding: isSmallDevice ? SPACING.md : SPACING.lg,
                 borderWidth: 2,
                 borderColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
                 shadowColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#000',
@@ -498,30 +492,30 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {/* Icon */}
                 <View
                   style={{
-                    width: responsiveSize(56),
-                    height: responsiveSize(56),
-                    borderRadius: responsiveSize(16),
+                    width: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
+                    height: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
+                    borderRadius: SPACING.lg,
                     backgroundColor: selectedMealType === 'LUNCH' ? '#FFF7ED' : '#F9FAFB',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: responsiveSize(16)
+                    marginRight: SPACING.lg
                   }}
                 >
                   <MaterialCommunityIcons
                     name="white-balance-sunny"
-                    size={responsiveFontSize(28)}
+                    size={SPACING.iconXl}
                     color={selectedMealType === 'LUNCH' ? '#F97316' : '#9CA3AF'}
                   />
                 </View>
 
                 {/* Content */}
-                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                <View className="flex-1" style={{ marginRight: SPACING.sm }}>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(18),
+                      fontSize: FONT_SIZES.h4,
                       fontWeight: 'bold',
                       color: '#111827',
-                      marginBottom: responsiveSize(4)
+                      marginBottom: SPACING.xs
                     }}
                     numberOfLines={1}
                   >
@@ -529,7 +523,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   </Text>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(12),
+                      fontSize: FONT_SIZES.xs,
                       color: '#4B5563'
                     }}
                     numberOfLines={1}
@@ -541,8 +535,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {/* Radio Button */}
                 <View
                   style={{
-                    width: responsiveSize(28),
-                    height: responsiveSize(28),
+                    width: SPACING.xl,
+                    height: SPACING.xl,
                     borderRadius: 999,
                     backgroundColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
                     alignItems: 'center',
@@ -552,8 +546,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   {selectedMealType === 'LUNCH' && (
                     <View
                       style={{
-                        width: responsiveSize(12),
-                        height: responsiveSize(12),
+                        width: SPACING.sm,
+                        height: SPACING.sm,
                         borderRadius: 999,
                         backgroundColor: 'white'
                       }}
@@ -569,13 +563,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => handleMealTypeSelect('DINNER')}
             disabled={isLoading}
             activeOpacity={0.7}
-            style={{ marginBottom: responsiveSize(12) }}
+            style={{ marginBottom: SPACING.md, minHeight: TOUCH_TARGETS.large }}
           >
             <View
               style={{
                 backgroundColor: 'white',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(20),
+                borderRadius: SPACING.lg,
+                padding: isSmallDevice ? SPACING.md : SPACING.lg,
                 borderWidth: 2,
                 borderColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#E5E7EB',
                 shadowColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#000',
@@ -589,30 +583,30 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {/* Icon */}
                 <View
                   style={{
-                    width: responsiveSize(56),
-                    height: responsiveSize(56),
-                    borderRadius: responsiveSize(16),
+                    width: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
+                    height: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
+                    borderRadius: SPACING.lg,
                     backgroundColor: selectedMealType === 'DINNER' ? '#EDE9FE' : '#F9FAFB',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: responsiveSize(16)
+                    marginRight: SPACING.lg
                   }}
                 >
                   <MaterialCommunityIcons
                     name="moon-waning-crescent"
-                    size={responsiveFontSize(28)}
+                    size={SPACING.iconXl}
                     color={selectedMealType === 'DINNER' ? '#8B5CF6' : '#9CA3AF'}
                   />
                 </View>
 
                 {/* Content */}
-                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                <View className="flex-1" style={{ marginRight: SPACING.sm }}>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(18),
+                      fontSize: FONT_SIZES.h4,
                       fontWeight: 'bold',
                       color: '#111827',
-                      marginBottom: responsiveSize(4)
+                      marginBottom: SPACING.xs
                     }}
                     numberOfLines={1}
                   >
@@ -620,7 +614,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   </Text>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(12),
+                      fontSize: FONT_SIZES.xs,
                       color: '#4B5563'
                     }}
                     numberOfLines={1}
@@ -632,8 +626,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {/* Radio Button */}
                 <View
                   style={{
-                    width: responsiveSize(28),
-                    height: responsiveSize(28),
+                    width: SPACING.xl,
+                    height: SPACING.xl,
                     borderRadius: 999,
                     backgroundColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#E5E7EB',
                     alignItems: 'center',
@@ -643,8 +637,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   {selectedMealType === 'DINNER' && (
                     <View
                       style={{
-                        width: responsiveSize(12),
-                        height: responsiveSize(12),
+                        width: SPACING.sm,
+                        height: SPACING.sm,
                         borderRadius: 999,
                         backgroundColor: 'white'
                       }}
@@ -660,12 +654,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => handleMealTypeSelect('BOTH')}
             disabled={isLoading}
             activeOpacity={0.7}
+            style={{ minHeight: TOUCH_TARGETS.large }}
           >
             <View
               style={{
                 backgroundColor: 'white',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(20),
+                borderRadius: SPACING.lg,
+                padding: isSmallDevice ? SPACING.md : SPACING.lg,
                 borderWidth: 2,
                 borderColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#E5E7EB',
                 shadowColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#000',
@@ -679,30 +674,30 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {/* Icon */}
                 <View
                   style={{
-                    width: responsiveSize(56),
-                    height: responsiveSize(56),
-                    borderRadius: responsiveSize(16),
+                    width: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
+                    height: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
+                    borderRadius: SPACING.lg,
                     backgroundColor: selectedMealType === 'BOTH' ? '#FEF3C7' : '#F9FAFB',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: responsiveSize(16)
+                    marginRight: SPACING.lg
                   }}
                 >
                   <MaterialCommunityIcons
                     name="food"
-                    size={responsiveFontSize(28)}
+                    size={SPACING.iconXl}
                     color={selectedMealType === 'BOTH' ? '#D97706' : '#9CA3AF'}
                   />
                 </View>
 
                 {/* Content */}
-                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
+                <View className="flex-1" style={{ marginRight: SPACING.sm }}>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(18),
+                      fontSize: FONT_SIZES.h4,
                       fontWeight: 'bold',
                       color: '#111827',
-                      marginBottom: responsiveSize(4)
+                      marginBottom: SPACING.xs
                     }}
                     numberOfLines={1}
                   >
@@ -710,7 +705,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   </Text>
                   <Text
                     style={{
-                      fontSize: responsiveFontSize(12),
+                      fontSize: FONT_SIZES.xs,
                       color: '#4B5563'
                     }}
                     numberOfLines={1}
@@ -722,8 +717,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 {/* Radio Button */}
                 <View
                   style={{
-                    width: responsiveSize(28),
-                    height: responsiveSize(28),
+                    width: SPACING.xl,
+                    height: SPACING.xl,
                     borderRadius: 999,
                     backgroundColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#E5E7EB',
                     alignItems: 'center',
@@ -733,8 +728,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   {selectedMealType === 'BOTH' && (
                     <View
                       style={{
-                        width: responsiveSize(12),
-                        height: responsiveSize(12),
+                        width: SPACING.sm,
+                        height: SPACING.sm,
                         borderRadius: 999,
                         backgroundColor: 'white'
                       }}
@@ -747,8 +742,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               {selectedMealType === 'BOTH' && (
                 <View
                   style={{
-                    marginTop: responsiveSize(12),
-                    paddingTop: responsiveSize(12),
+                    marginTop: SPACING.md,
+                    paddingTop: SPACING.md,
                     borderTopWidth: 1,
                     borderTopColor: '#FED7AA'
                   }}
@@ -758,13 +753,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                       style={{
                         backgroundColor: '#FFEDD5',
                         borderRadius: 999,
-                        paddingHorizontal: responsiveSize(12),
-                        paddingVertical: responsiveSize(4)
+                        paddingHorizontal: SPACING.md,
+                        paddingVertical: SPACING.xs
                       }}
                     >
                       <Text
                         style={{
-                          fontSize: responsiveFontSize(12),
+                          fontSize: FONT_SIZES.xs,
                           fontWeight: '600',
                           color: '#EA580C'
                         }}
@@ -1589,28 +1584,31 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: FONT_SIZES.h3,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: SPACING.md,
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.base,
     color: '#6B7280',
-    marginBottom: 24,
+    marginBottom: SPACING.xl,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: FONT_SIZES.base * 1.4,
   },
   modalButton: {
     backgroundColor: '#F56B4C',
-    paddingVertical: 14,
+    minHeight: TOUCH_TARGETS.comfortable,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     borderRadius: 25,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.base,
     fontWeight: 'bold',
     color: 'white',
   },
@@ -1620,7 +1618,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   modalButtonTextSecondary: {
-    fontSize: 15,
+    fontSize: FONT_SIZES.base,
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -1636,8 +1634,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: SPACING.lg,
+    padding: SPACING.xl,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1646,8 +1644,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: SPACING.md,
+    fontSize: FONT_SIZES.base,
     color: '#6B7280',
   },
 });

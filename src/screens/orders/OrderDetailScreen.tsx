@@ -20,6 +20,9 @@ import apiService, { Order, OrderStatus, KitchenSummary } from '../../services/a
 import CancelOrderModal from '../../components/CancelOrderModal';
 import RateOrderModal from '../../components/RateOrderModal';
 import { getMealCutoffTime } from '../../utils/timeUtils';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES, LINE_HEIGHTS } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'OrderDetail'>;
 
@@ -112,6 +115,7 @@ const formatDateTime = (dateString: string): string => {
 const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { orderId } = route.params;
   const { showAlert } = useAlert();
+  const { isSmallDevice } = useResponsive();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -314,7 +318,9 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
         <ActivityIndicator size="large" color="#F56B4C" />
-        <Text className="text-base text-gray-500 mt-4">Loading order details...</Text>
+        <Text className="text-gray-500 mt-4" style={{ fontSize: FONT_SIZES.base }}>
+          Loading order details...
+        </Text>
       </SafeAreaView>
     );
   }
@@ -323,7 +329,7 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   if (error || !order) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-5">
-        <Text className="text-base text-gray-500 mb-4 text-center">
+        <Text className="text-gray-500 mb-4 text-center" style={{ fontSize: FONT_SIZES.base }}>
           {error || 'Order not found'}
         </Text>
         <TouchableOpacity
@@ -331,13 +337,18 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             setLoading(true);
             fetchOrder();
           }}
-          className="rounded-full px-6 py-3 mb-4"
-          style={{ backgroundColor: '#F56B4C' }}
+          className="rounded-full px-6 mb-4"
+          style={{ backgroundColor: '#F56B4C', minHeight: TOUCH_TARGETS.comfortable }}
         >
-          <Text className="text-white font-semibold">Retry</Text>
+          <Text className="text-white font-semibold" style={{ fontSize: FONT_SIZES.base }}>
+            Retry
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-gray-500">Go Back</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ minHeight: TOUCH_TARGETS.minimum }}
+        >
+          <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.base }}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -350,18 +361,19 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor="white" />
 
       {/* Header */}
-      <View className="bg-white px-5 py-4 flex-row items-center border-b border-gray-100">
+      <View className="bg-white flex-row items-center border-b border-gray-100" style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, paddingVertical: SPACING.md }}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+          className="rounded-full bg-orange-400 items-center justify-center"
+          style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
         >
           <Image
             source={require('../../assets/icons/arrow.png')}
-            style={{ width: 32, height: 32 }}
+            style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
             resizeMode="contain"
           />
         </TouchableOpacity>
-        <Text className="flex-1 text-center text-xl font-bold text-gray-900 mr-10">
+        <Text className="flex-1 text-center font-bold text-gray-900 mr-10" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
           Order Details
         </Text>
       </View>
@@ -378,39 +390,39 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       >
         {/* Order Header */}
-        <View className="bg-white px-5 py-4 mb-2">
+        <View className="bg-white mb-2" style={{ padding: isSmallDevice ? SPACING.lg : SPACING.xl }}>
           <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-lg font-bold text-gray-900">
+            <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.h4 }}>
               #{order.orderNumber}
             </Text>
             <View
-              className="px-3 py-1 rounded-full"
-              style={{ backgroundColor: `${getStatusColor(order.status)}20` }}
+              className="rounded-full"
+              style={{ backgroundColor: `${getStatusColor(order.status)}20`, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm }}
             >
               <Text
-                className="text-sm font-semibold"
-                style={{ color: getStatusColor(order.status) }}
+                className="font-semibold"
+                style={{ color: getStatusColor(order.status), fontSize: FONT_SIZES.sm }}
               >
                 {getStatusText(order.status)}
               </Text>
             </View>
           </View>
-          <Text className="text-sm text-gray-500">
+          <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.sm }}>
             Placed on {formatDateTime(order.placedAt)}
           </Text>
 
           {/* Rating Display */}
           {order.rating && (
             <View className="flex-row items-center mt-3">
-              <Text className="text-sm text-gray-600 mr-2">Your Rating:</Text>
+              <Text className="text-gray-600 mr-2" style={{ fontSize: FONT_SIZES.sm }}>Your Rating:</Text>
               <View className="flex-row">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Image
                     key={star}
                     source={require('../../assets/icons/star.png')}
                     style={{
-                      width: 16,
-                      height: 16,
+                      width: SPACING.iconSm,
+                      height: SPACING.iconSm,
                       tintColor: star <= order.rating!.stars ? '#F59E0B' : '#D1D5DB',
                       marginRight: 2,
                     }}
@@ -447,15 +459,15 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Kitchen Info */}
         {kitchen && (
-          <View className="bg-white px-5 py-4 mb-2">
-            <Text className="text-lg font-bold text-gray-900 mb-3">Kitchen</Text>
+          <View className="bg-white mb-2" style={{ padding: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+            <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.h4 }}>Kitchen</Text>
             <View>
-              <Text className="text-base font-semibold text-gray-900">
+              <Text className="font-semibold text-gray-900" style={{ fontSize: FONT_SIZES.base }}>
                 {kitchen.name}
               </Text>
               {kitchen.phone && (
-                <TouchableOpacity onPress={handleCallKitchen}>
-                  <Text className="text-sm mt-1" style={{ color: '#F56B4C' }}>
+                <TouchableOpacity onPress={handleCallKitchen} style={{ minHeight: TOUCH_TARGETS.minimum }}>
+                  <Text className="mt-1" style={{ color: '#F56B4C', fontSize: FONT_SIZES.sm }}>
                     Tap to call
                   </Text>
                 </TouchableOpacity>
@@ -465,8 +477,8 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         )}
 
         {/* Items Section */}
-        <View className="bg-white px-5 py-4 mb-2">
-          <Text className="text-lg font-bold text-gray-900 mb-3">Items</Text>
+        <View className="bg-white mb-2" style={{ padding: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+          <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.h4 }}>Items</Text>
 
           {order.items.map((item, index) => (
             <View key={index} className="mb-3">
@@ -507,8 +519,8 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         {/* Pricing Breakdown */}
-        <View className="bg-white px-5 py-4 mb-2">
-          <Text className="text-lg font-bold text-gray-900 mb-3">Payment Details</Text>
+        <View className="bg-white mb-2" style={{ padding: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+          <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.h4 }}>Payment Details</Text>
 
           <View className="flex-row justify-between mb-2">
             <Text className="text-sm text-gray-600">Subtotal</Text>
@@ -569,8 +581,8 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         {/* Delivery Address */}
-        <View className="bg-white px-5 py-4 mb-2">
-          <Text className="text-lg font-bold text-gray-900 mb-3">Delivery Address</Text>
+        <View className="bg-white mb-2" style={{ padding: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+          <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.h4 }}>Delivery Address</Text>
 
           <Text className="text-sm font-semibold text-gray-900">
             {order.deliveryAddress.contactName}
@@ -617,15 +629,15 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         )}
 
         {/* Action Buttons */}
-        <View className="px-5 py-4 mb-8">
+        <View style={{ padding: isSmallDevice ? SPACING.lg : SPACING.xl, marginBottom: SPACING['2xl'] }}>
           {/* Track Order - for active orders */}
           {isActiveOrder && (
             <TouchableOpacity
               onPress={handleTrackOrder}
-              className="rounded-full py-4 items-center mb-3"
-              style={{ backgroundColor: '#F56B4C' }}
+              className="rounded-full items-center mb-3"
+              style={{ backgroundColor: '#F56B4C', minHeight: TOUCH_TARGETS.comfortable }}
             >
-              <Text className="text-white font-bold text-base">Track Order</Text>
+              <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>Track Order</Text>
             </TouchableOpacity>
           )}
 
@@ -633,10 +645,10 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           {order.canCancel && (
             <TouchableOpacity
               onPress={() => setShowCancelModal(true)}
-              className="rounded-full py-4 items-center mb-3"
-              style={{ borderWidth: 2, borderColor: '#EF4444' }}
+              className="rounded-full items-center mb-3"
+              style={{ borderWidth: 2, borderColor: '#EF4444', minHeight: TOUCH_TARGETS.comfortable }}
             >
-              <Text className="font-bold text-base" style={{ color: '#EF4444' }}>
+              <Text className="font-bold" style={{ color: '#EF4444', fontSize: FONT_SIZES.base }}>
                 Cancel Order
               </Text>
             </TouchableOpacity>
@@ -646,10 +658,10 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           {order.canRate && !order.rating && (
             <TouchableOpacity
               onPress={() => setShowRateModal(true)}
-              className="rounded-full py-4 items-center mb-3"
-              style={{ backgroundColor: '#F59E0B' }}
+              className="rounded-full items-center mb-3"
+              style={{ backgroundColor: '#F59E0B', minHeight: TOUCH_TARGETS.comfortable }}
             >
-              <Text className="text-white font-bold text-base">Rate Order</Text>
+              <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>Rate Order</Text>
             </TouchableOpacity>
           )}
 
@@ -657,15 +669,15 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           {order.status === 'DELIVERED' && (
             <TouchableOpacity
               onPress={() => showAlert('Coming Soon', 'Reorder functionality will be available soon!', undefined, 'default')}
-              className="rounded-full py-4 items-center flex-row justify-center"
-              style={{ backgroundColor: '#FFF5F2' }}
+              className="rounded-full items-center flex-row justify-center"
+              style={{ backgroundColor: '#FFF5F2', minHeight: TOUCH_TARGETS.comfortable }}
             >
               <Image
                 source={require('../../assets/icons/reorder2.png')}
-                style={{ width: 20, height: 20, tintColor: '#F56B4C', marginRight: 8 }}
+                style={{ width: SPACING.iconSm, height: SPACING.iconSm, tintColor: '#F56B4C', marginRight: 8 }}
                 resizeMode="contain"
               />
-              <Text className="font-bold text-base" style={{ color: '#F56B4C' }}>
+              <Text className="font-bold" style={{ color: '#F56B4C', fontSize: FONT_SIZES.base }}>
                 Reorder
               </Text>
             </TouchableOpacity>

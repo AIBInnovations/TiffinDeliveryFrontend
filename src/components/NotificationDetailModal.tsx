@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NotificationData } from '../context/NotificationContext';
 import { NotificationType, AutoOrderFailureCategory } from '../constants/notificationTypes';
 
@@ -45,46 +47,46 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
     switch (type) {
       // Order status notifications
       case NotificationType.ORDER_ACCEPTED:
-        return { emoji: '✅', color: '#10B981' };
+        return { iconName: 'checkmark-circle', iconType: 'Ionicons', color: '#10B981' };
       case NotificationType.ORDER_PREPARING:
-        return { emoji: '👨‍🍳', color: '#F59E0B' };
+        return { iconName: 'chef-hat', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case NotificationType.ORDER_READY:
-        return { emoji: '🍱', color: '#10B981' };
+        return { iconName: 'food', iconType: 'MaterialCommunityIcons', color: '#10B981' };
       case NotificationType.ORDER_PICKED_UP:
       case NotificationType.ORDER_OUT_FOR_DELIVERY:
-        return { emoji: '🚗', color: '#3B82F6' };
+        return { iconName: 'car', iconType: 'MaterialCommunityIcons', color: '#3B82F6' };
       case NotificationType.ORDER_DELIVERED:
-        return { emoji: '✅', color: '#10B981' };
+        return { iconName: 'checkmark-circle', iconType: 'Ionicons', color: '#10B981' };
       case NotificationType.ORDER_CANCELLED:
       case NotificationType.ORDER_REJECTED:
-        return { emoji: '❌', color: '#EF4444' };
+        return { iconName: 'close-circle', iconType: 'Ionicons', color: '#EF4444' };
 
       // Auto-order notifications
       case NotificationType.AUTO_ORDER_SUCCESS:
-        return { emoji: '✅', color: '#10B981' };
+        return { iconName: 'checkmark-circle', iconType: 'Ionicons', color: '#10B981' };
       case NotificationType.AUTO_ORDER_FAILED:
-        return { emoji: '⚠️', color: '#EF4444' };
+        return { iconName: 'warning', iconType: 'Ionicons', color: '#EF4444' };
 
       // Subscription notifications
       case NotificationType.VOUCHER_EXPIRY_REMINDER:
-        return { emoji: '🎟️', color: '#F59E0B' };
+        return { iconName: 'ticket', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case NotificationType.SUBSCRIPTION_CREATED:
-        return { emoji: '🎉', color: '#8B5CF6' };
+        return { iconName: 'party-popper', iconType: 'MaterialCommunityIcons', color: '#8B5CF6' };
 
       // General notifications
       case NotificationType.MENU_UPDATE:
-        return { emoji: '👨‍🍳', color: '#3B82F6' };
+        return { iconName: 'chef-hat', iconType: 'MaterialCommunityIcons', color: '#3B82F6' };
       case NotificationType.PROMOTIONAL:
-        return { emoji: '🎁', color: '#F59E0B' };
+        return { iconName: 'gift', iconType: 'MaterialCommunityIcons', color: '#F59E0B' };
       case NotificationType.ADMIN_PUSH:
-        return { emoji: '🔔', color: '#8B5CF6' };
+        return { iconName: 'notifications', iconType: 'Ionicons', color: '#8B5CF6' };
 
       // Legacy
       case NotificationType.ORDER_STATUS_CHANGE:
-        return { emoji: '📦', color: '#10B981' };
+        return { iconName: 'package-variant', iconType: 'MaterialCommunityIcons', color: '#10B981' };
 
       default:
-        return { emoji: '📬', color: '#6B7280' };
+        return { iconName: 'notifications', iconType: 'Ionicons', color: '#6B7280' };
     }
   };
 
@@ -258,8 +260,10 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
     }
   };
 
-  const { emoji, color } = getNotificationIcon(notification.type);
+  const { iconName, iconType, color } = getNotificationIcon(notification.type);
   const actionButton = getActionButton();
+
+  const IconComponent = iconType === 'Ionicons' ? Ionicons : MaterialCommunityIcons;
 
   return (
     <Modal
@@ -280,7 +284,7 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.closeIcon}>✕</Text>
+              <Ionicons name="close" size={24} color="#9CA3AF" />
             </TouchableOpacity>
 
             <ScrollView
@@ -294,7 +298,7 @@ const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
                   { backgroundColor: `${color}20` },
                 ]}
               >
-                <Text style={styles.icon}>{emoji}</Text>
+                <IconComponent name={iconName} size={36} color={color} />
               </View>
 
               {/* Title */}
@@ -388,11 +392,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 4,
   },
-  closeIcon: {
-    fontSize: 24,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
   scrollContent: {
     paddingTop: 16,
   },
@@ -404,9 +403,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     marginBottom: 16,
-  },
-  icon: {
-    fontSize: 36,
   },
   title: {
     fontSize: 22,

@@ -142,16 +142,24 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   // Fetch unread count for badge
   const fetchUnreadCount = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      console.log('[NotificationContext] fetchUnreadCount: User not authenticated');
+      return;
+    }
 
+    console.log('[NotificationContext] Fetching unread notification count...');
     try {
       const response = await apiService.getUnreadNotificationCount();
+      console.log('[NotificationContext] Unread count response:', JSON.stringify(response, null, 2));
 
       if (response.success && response.data) {
+        console.log('[NotificationContext] Setting unreadCount to:', response.data.count);
         setUnreadCount(response.data.count);
+      } else {
+        console.warn('[NotificationContext] Invalid response for unread count:', response);
       }
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      console.error('[NotificationContext] Error fetching unread count:', error);
     }
   }, [isAuthenticated]);
 

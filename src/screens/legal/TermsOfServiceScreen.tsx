@@ -10,10 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING } from '../../constants/spacing';
+import { FONT_SIZES, LINE_HEIGHTS } from '../../constants/typography';
 
 type Props = AuthScreenProps<'Login'>;
 
 const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
+  const { verticalSpacingFactor } = useResponsive();
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -62,15 +67,18 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
       {/* Content */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{
+          paddingHorizontal: SPACING.screenHorizontal,
+          paddingVertical: SPACING.screenVertical * verticalSpacingFactor,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <Text
           style={{
-            fontSize: 14,
+            fontSize: FONT_SIZES.sm,
             color: '#6B7280',
             marginBottom: 20,
-            lineHeight: 22,
+            lineHeight: FONT_SIZES.sm * LINE_HEIGHTS.relaxed,
           }}
         >
           Last Updated: January 26, 2026
@@ -78,7 +86,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -88,10 +96,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           By accessing and using Tiffsy's food delivery service, you accept and agree to be bound by the terms and provisions of this agreement. If you do not agree to these terms, please do not use our service.
@@ -99,7 +107,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -109,10 +117,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           Tiffsy provides a platform for ordering and delivering home-cooked meals, tiffin services, and subscription-based meal plans. We connect you with quality food providers who prepare fresh, hygienic meals delivered to your doorstep.
@@ -120,7 +128,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -130,20 +138,20 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 10,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           As a user of Tiffsy, you agree to:
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
             paddingLeft: 20,
           }}
         >
@@ -156,7 +164,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -166,10 +174,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           All orders are subject to availability and confirmation. Prices are subject to change without notice. Payment must be made through our approved payment methods. Subscription plans are billed according to the selected frequency.
@@ -177,7 +185,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -187,10 +195,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           Orders can be cancelled before the cutoff time specified for each meal window. Refunds will be processed according to our refund policy. Subscription cancellations must be requested at least 24 hours before the next billing cycle.
@@ -198,7 +206,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -208,10 +216,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           Vouchers are non-transferable and must be used within the validity period. Vouchers can only be applied to eligible orders and cannot be combined with other promotions unless specified.
@@ -219,7 +227,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -229,10 +237,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We strive to deliver within the estimated time frame, but delivery times are not guaranteed. Delays may occur due to unforeseen circumstances. Please ensure someone is available at the delivery address to receive the order.
@@ -240,7 +248,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -250,10 +258,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           Tiffsy shall not be liable for any indirect, incidental, special, or consequential damages arising from the use of our service. Our total liability shall not exceed the amount paid for the specific order in question.
@@ -261,7 +269,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -271,10 +279,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We reserve the right to modify these terms at any time. Users will be notified of significant changes via email or in-app notification. Continued use of the service after changes constitutes acceptance of the new terms.
@@ -282,7 +290,7 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -292,10 +300,10 @@ const TermsOfServiceScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 40,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           If you have any questions about these Terms of Service, please contact us at:{'\n\n'}

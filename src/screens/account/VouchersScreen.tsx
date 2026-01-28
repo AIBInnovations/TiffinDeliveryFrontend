@@ -15,6 +15,9 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { Voucher, VoucherStatus } from '../../services/api.service';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'Vouchers'>;
 
@@ -38,6 +41,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
     fetchVouchers,
     clearError,
   } = useSubscription();
+  const { isSmallDevice } = useResponsive();
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL');
   const [refreshing, setRefreshing] = useState(false);
@@ -211,9 +215,14 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
       {activeFilter === 'AVAILABLE' && (
         <TouchableOpacity
           onPress={() => navigation.navigate('MealPlans')}
-          className="mt-4 bg-orange-400 rounded-full px-6 py-3"
+          className="mt-4 bg-orange-400 rounded-full"
+          style={{
+            paddingHorizontal: SPACING.xl,
+            paddingVertical: SPACING.md,
+            minHeight: TOUCH_TARGETS.comfortable,
+          }}
         >
-          <Text className="text-white font-semibold">View Meal Plans</Text>
+          <Text className="text-white font-semibold" style={{ fontSize: FONT_SIZES.base }}>View Meal Plans</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -249,17 +258,22 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
           {/* Back Button */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 items-center justify-center"
+            style={{
+              minWidth: TOUCH_TARGETS.minimum,
+              minHeight: TOUCH_TARGETS.minimum,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <Image
               source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: 34, height: 34 }}
+              style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
               resizeMode="contain"
             />
           </TouchableOpacity>
 
           {/* Title */}
-          <Text className="text-white text-xl font-bold">
+          <Text className="text-white font-bold" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
             My Vouchers
           </Text>
 
@@ -271,17 +285,18 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
               alignItems: 'center',
               backgroundColor: 'white',
               borderRadius: 20,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
-              gap: 6,
+              paddingVertical: SPACING.sm,
+              paddingHorizontal: SPACING.md,
+              gap: SPACING.sm,
+              minHeight: TOUCH_TARGETS.minimum,
             }}
           >
             <Image
               source={require('../../assets/icons/voucher5.png')}
-              style={{ width: 24, height: 24 }}
+              style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+            <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -357,14 +372,18 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity
             key={tab.id}
             onPress={() => setActiveFilter(tab.id)}
-            className="mr-2 rounded-full px-4 py-2"
+            className="mr-2 rounded-full"
             style={{
+              paddingHorizontal: SPACING.lg,
+              paddingVertical: SPACING.sm,
+              minHeight: TOUCH_TARGETS.minimum,
               backgroundColor: activeFilter === tab.id ? '#F56B4C' : '#F3F4F6',
             }}
           >
             <Text
-              className="text-sm font-medium"
+              className="font-medium"
               style={{
+                fontSize: FONT_SIZES.base,
                 color: activeFilter === tab.id ? 'white' : '#6B7280',
               }}
             >

@@ -16,6 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
+import { useResponsive } from '../../hooks/useResponsive';
+import { TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = AuthScreenProps<'Login'>;
 
@@ -28,6 +31,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const { loginWithPhone } = useUser();
   const { showAlert } = useAlert();
+  const { height } = useResponsive();
 
   // Load saved phone number on mount
   useEffect(() => {
@@ -150,7 +154,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 source={require('../../assets/images/login/pana.png')}
                 style={{
                   width: 200,
-                  height: 170,
+                  height: height * 0.28,
                 }}
                 resizeMode="contain"
               />
@@ -215,6 +219,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 paddingHorizontal: 15,
                 paddingVertical: 4,
                 marginBottom: 12,
+                minHeight: TOUCH_TARGETS.comfortable,
               }}
             >
               {/* Country / code */}
@@ -317,6 +322,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 4,
+                minHeight: TOUCH_TARGETS.comfortable,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
@@ -328,7 +334,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text
-                  style={{ color: 'white', fontSize: 16, fontWeight: '600' }}
+                  style={{ color: 'white', fontSize: FONT_SIZES.base, fontWeight: '600' }}
                 >
                   Get OTP
                 </Text>

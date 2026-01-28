@@ -18,6 +18,9 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useAddress, Address } from '../../context/AddressContext';
 import { useAlert } from '../../context/AlertContext';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'Address'>;
 
@@ -68,6 +71,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
     isGettingLocation,
   } = useAddress();
   const { showAlert } = useAlert();
+  const { isSmallDevice } = useResponsive();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -511,13 +515,13 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
       <TouchableOpacity
         onPress={isEdit ? handleUpdateAddress : handleAddAddress}
         disabled={isSubmitting}
-        className="rounded-full py-4 items-center justify-center mt-2 mb-4"
-        style={{ backgroundColor: isSubmitting ? '#CCCCCC' : '#F56B4C' }}
+        className="rounded-full items-center justify-center mt-2 mb-4"
+        style={{ backgroundColor: isSubmitting ? '#CCCCCC' : '#F56B4C', minHeight: TOUCH_TARGETS.large }}
       >
         {isSubmitting ? (
           <ActivityIndicator color="white" />
         ) : (
-          <Text className="text-white font-bold text-base">
+          <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>
             {isEdit ? 'Update Address' : 'Save Address'}
           </Text>
         )}
@@ -536,21 +540,22 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
         }
       >
         {/* Header */}
-        <View className="px-5 pt-4 pb-6">
+        <View style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, paddingTop: SPACING.md, paddingBottom: SPACING['2xl'] }}>
           <View className="flex-row items-center mb-2">
             <TouchableOpacity
               onPress={() => navigation.goBack()}
-              className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center mr-4"
+              className="rounded-full bg-orange-400 items-center justify-center mr-4"
+              style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
             >
               <Image
                 source={require('../../assets/icons/backarrow2.png')}
-                style={{ width: 32, height: 30 }}
+                style={{ width: SPACING.iconLg, height: SPACING.iconLg - 2 }}
                 resizeMode="contain"
               />
             </TouchableOpacity>
             <View className="flex-1" style={{ marginLeft: 55 }}>
-              <Text className="text-2xl font-bold text-gray-900">My Addresses</Text>
-              <Text className="text-sm text-gray-500 mt-1">
+              <Text className="font-bold text-gray-900" style={{ fontSize: isSmallDevice ? FONT_SIZES.h2 : FONT_SIZES.h1 }}>My Addresses</Text>
+              <Text className="text-gray-500 mt-1" style={{ fontSize: FONT_SIZES.sm }}>
                 {isLoadingAddresses
                   ? 'Loading...'
                   : searchQuery

@@ -21,6 +21,9 @@ import CancelOrderModal from '../../components/CancelOrderModal';
 import RateOrderModal from '../../components/RateOrderModal';
 import { getMealCutoffTime } from '../../utils/timeUtils';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'OrderTracking'>;
 
@@ -93,6 +96,7 @@ const isOutForDeliveryStatus = (status: OrderStatus): boolean => {
 const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const { orderId } = route.params;
   const { showAlert } = useAlert();
+  const { isSmallDevice, width, height } = useResponsive();
 
   const [tracking, setTracking] = useState<OrderTrackingData | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
@@ -350,7 +354,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
         <ActivityIndicator size="large" color="#F56B4C" />
-        <Text className="text-base text-gray-500 mt-4">Loading tracking info...</Text>
+        <Text className="text-gray-500 mt-4" style={{ fontSize: FONT_SIZES.base }}>Loading tracking info...</Text>
       </SafeAreaView>
     );
   }
@@ -359,16 +363,16 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   if (error) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-5">
-        <Text className="text-base text-gray-500 mb-4 text-center">{error}</Text>
+        <Text className="text-gray-500 mb-4 text-center" style={{ fontSize: FONT_SIZES.base }}>{error}</Text>
         <TouchableOpacity
           onPress={() => {
             setLoading(true);
             fetchTracking();
           }}
-          className="rounded-full px-6 py-3"
-          style={{ backgroundColor: '#F56B4C' }}
+          className="rounded-full px-6"
+          style={{ backgroundColor: '#F56B4C', minHeight: TOUCH_TARGETS.comfortable }}
         >
-          <Text className="text-white font-semibold">Retry</Text>
+          <Text className="text-white font-semibold" style={{ fontSize: FONT_SIZES.base }}>Retry</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -380,19 +384,20 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View className="px-5 py-4 flex-row items-center" style={{ backgroundColor: 'rgba(237, 239, 241, 1)' }}>
+        <View className="flex-row items-center" style={{ backgroundColor: 'rgba(237, 239, 241, 1)', paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, paddingVertical: SPACING.md }}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 rounded-full bg-orange-400 items-center justify-center"
+            className="rounded-full bg-orange-400 items-center justify-center"
+            style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
           >
             <Image
               source={require('../../assets/icons/arrow.png')}
-              style={{ width: 32, height: 32 }}
+              style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
               resizeMode="contain"
             />
           </TouchableOpacity>
 
-          <Text className="flex-1 text-center text-xl font-bold text-gray-900 mr-10">
+          <Text className="flex-1 text-center font-bold text-gray-900 mr-10" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
             Order Tracking
           </Text>
         </View>
@@ -401,7 +406,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
         <View className="items-center py-2" style={{ backgroundColor: 'rgba(237, 239, 241, 1)' }}>
           <Image
             source={require('../../assets/images/trackorder/tracking2.png')}
-            style={{ width: 280, height: 200 }}
+            style={{ width: width * 0.7, height: height * 0.22 }}
             resizeMode="contain"
           />
         </View>
@@ -547,22 +552,24 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
               <View className="flex-row">
                 <TouchableOpacity
                   onPress={handleMessageDelivery}
-                  className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center mr-2"
+                  className="rounded-full bg-orange-50 items-center justify-center mr-2"
+                  style={{ minWidth: TOUCH_TARGETS.comfortable, minHeight: TOUCH_TARGETS.comfortable }}
                 >
                   <Image
                     source={require('../../assets/icons/mail2.png')}
-                    style={{ width: 32, height: 32 }}
+                    style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={handleCallDelivery}
-                  className="w-12 h-12 rounded-full bg-orange-50 items-center justify-center"
+                  className="rounded-full bg-orange-50 items-center justify-center"
+                  style={{ minWidth: TOUCH_TARGETS.comfortable, minHeight: TOUCH_TARGETS.comfortable }}
                 >
                   <Image
                     source={require('../../assets/icons/call3.png')}
-                    style={{ width: 32, height: 32 }}
+                    style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
@@ -758,18 +765,18 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
         )}
 
         {/* View Receipt Button */}
-        <View className="px-5 mb-3">
+        <View style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, marginBottom: SPACING.md }}>
           <TouchableOpacity
             onPress={handleViewReceipt}
-            className="rounded-full py-4 flex-row items-center justify-center"
-            style={{ backgroundColor: 'rgba(255, 245, 242, 1)' }}
+            className="rounded-full flex-row items-center justify-center"
+            style={{ backgroundColor: 'rgba(255, 245, 242, 1)', minHeight: TOUCH_TARGETS.comfortable }}
           >
             <Image
               source={require('../../assets/icons/reciept.png')}
-              style={{ width: 20, height: 20, marginRight: 8 }}
+              style={{ width: SPACING.iconSm, height: SPACING.iconSm, marginRight: 8 }}
               resizeMode="contain"
             />
-            <Text className="font-bold text-base" style={{ color: 'rgba(245, 107, 76, 1)' }}>
+            <Text className="font-bold" style={{ color: 'rgba(245, 107, 76, 1)', fontSize: FONT_SIZES.base }}>
               View Receipt
             </Text>
           </TouchableOpacity>
@@ -777,19 +784,20 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Cancel Order Button - Only show if order can be cancelled */}
         {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (order?.canCancel !== false) && (
-          <View className="px-5 mb-4">
+          <View style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, marginBottom: SPACING.md }}>
             <TouchableOpacity
               onPress={handleCancelOrder}
               disabled={isCancelling}
-              className="rounded-full py-4 items-center"
+              className="rounded-full items-center"
               style={{
                 backgroundColor: isCancelling ? '#FCA5A5' : 'rgba(245, 107, 76, 1)',
+                minHeight: TOUCH_TARGETS.comfortable,
               }}
             >
               {isCancelling ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-bold text-base">Cancel Order</Text>
+                <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>Cancel Order</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -797,13 +805,14 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Rate Order Button - Only show for delivered orders that haven't been rated */}
         {tracking?.status === 'DELIVERED' && !order?.rating && (order?.canRate !== false) && (
-          <View className="px-5 mb-4">
+          <View style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, marginBottom: SPACING.md }}>
             <TouchableOpacity
               onPress={handleRateOrder}
               disabled={isRating}
-              className="rounded-full py-4 items-center"
+              className="rounded-full items-center"
               style={{
                 backgroundColor: isRating ? '#FDE68A' : '#F59E0B',
+                minHeight: TOUCH_TARGETS.comfortable,
               }}
             >
               {isRating ? (
@@ -812,10 +821,10 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View className="flex-row items-center">
                   <Image
                     source={require('../../assets/icons/star.png')}
-                    style={{ width: 20, height: 20, tintColor: 'white', marginRight: 8 }}
+                    style={{ width: SPACING.iconSm, height: SPACING.iconSm, tintColor: 'white', marginRight: 8 }}
                     resizeMode="contain"
                   />
-                  <Text className="text-white font-bold text-base">Rate Your Order</Text>
+                  <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>Rate Your Order</Text>
                 </View>
               )}
             </TouchableOpacity>

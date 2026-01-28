@@ -14,6 +14,8 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useCart } from '../../context/CartContext';
 import OrderSuccessModal from '../../components/OrderSuccessModal';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 
 type Props = StackScreenProps<MainTabParamList, 'Payment'>;
 
@@ -28,6 +30,7 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
   const { cartItems } = useCart();
   const [selectedPayment, setSelectedPayment] = useState<string>('upi');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const { isSmallDevice } = useResponsive();
 
   const paymentMethods: PaymentMethod[] = [
     {
@@ -140,11 +143,15 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               key={method.id}
               onPress={() => setSelectedPayment(method.id)}
-              className={`flex-row items-center p-4 rounded-2xl mb-3 border-2 ${
+              className={`flex-row items-center rounded-2xl mb-3 border-2 ${
                 selectedPayment === method.id
                   ? 'bg-orange-50 border-orange-400'
                   : 'bg-gray-50 border-gray-200'
               }`}
+              style={{
+                padding: isSmallDevice ? SPACING.md : SPACING.lg,
+                minHeight: TOUCH_TARGETS.large
+              }}
             >
               {/* Payment Icon */}
               <View className="w-12 h-12 rounded-full bg-white items-center justify-center mr-4">
@@ -211,8 +218,9 @@ const PaymentScreen: React.FC<Props> = ({ navigation }) => {
           <Text className="text-white text-sm opacity-90">Total</Text>
         </View>
         <TouchableOpacity
-          className="bg-white rounded-full px-8 py-3 flex-row items-center"
+          className="bg-white rounded-full px-8 flex-row items-center"
           onPress={handlePayment}
+          style={{ minHeight: TOUCH_TARGETS.comfortable, paddingVertical: SPACING.md }}
         >
           <Text className="text-orange-400 font-bold text-base mr-2">Checkout</Text>
           <Text className="text-orange-400 font-bold">�</Text>

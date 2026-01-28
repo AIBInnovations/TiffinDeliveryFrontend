@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export interface InfoModalProps {
   visible: boolean;
@@ -25,16 +26,18 @@ const InfoModal: React.FC<InfoModalProps> = ({
   type = 'info',
   onClose,
 }) => {
-  const getIconColor = () => {
+  const getIconConfig = () => {
     switch (type) {
       case 'success':
-        return '#10B981';
+        return { name: 'checkmark', color: '#10B981' };
       case 'error':
-        return '#EF4444';
+        return { name: 'close', color: '#EF4444' };
       default:
-        return '#F56B4C';
+        return { name: 'information', color: '#F56B4C' };
     }
   };
+
+  const iconConfig = getIconConfig();
 
   return (
     <Modal
@@ -48,11 +51,9 @@ const InfoModal: React.FC<InfoModalProps> = ({
           {/* Modal Content */}
           <View style={styles.content}>
             {/* Icon */}
-            <View style={[styles.iconContainer, { backgroundColor: getIconColor() + '20' }]}>
-              <View style={[styles.icon, { backgroundColor: getIconColor() }]}>
-                <Text style={styles.iconText}>
-                  {type === 'success' ? '✓' : type === 'error' ? '✕' : 'i'}
-                </Text>
+            <View style={[styles.iconContainer, { backgroundColor: iconConfig.color + '20' }]}>
+              <View style={[styles.icon, { backgroundColor: iconConfig.color }]}>
+                <Ionicons name={iconConfig.name} size={32} color="white" />
               </View>
             </View>
 
@@ -64,7 +65,7 @@ const InfoModal: React.FC<InfoModalProps> = ({
 
             {/* Button */}
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: getIconColor() }]}
+              style={[styles.button, { backgroundColor: iconConfig.color }]}
               onPress={onClose}
               activeOpacity={0.7}
             >
@@ -113,11 +114,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  iconText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
   },
   title: {
     fontSize: 22,

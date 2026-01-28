@@ -11,12 +11,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'OnDemand'>;
 
 const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('meals');
   const { usableVouchers } = useSubscription();
+  const { isSmallDevice } = useResponsive();
 
   console.log('[OnDemandScreen] Screen rendered');
 
@@ -54,7 +58,10 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Image
               source={require('../../assets/icons/Tiffsy.png')}
-              style={{ width: 58, height: 35 }}
+              style={{
+                width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45,
+                height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875,
+              }}
               resizeMode="contain"
             />
           </View>
@@ -75,14 +82,15 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
               paddingVertical: 6,
               paddingHorizontal: 10,
               gap: 6,
+              minHeight: TOUCH_TARGETS.minimum,
             }}
           >
             <Image
               source={require('../../assets/icons/voucher5.png')}
-              style={{ width: 24, height: 24 }}
+              style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+            <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -96,13 +104,24 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
         <View className="items-center px-8">
           <Image
             source={require('../../assets/icons/kitchen.png')}
-            style={{ width: 80, height: 80, tintColor: '#F56B4C', marginBottom: 24 }}
+            style={{
+              width: isSmallDevice ? SPACING['4xl'] * 1.5 : SPACING['4xl'] * 2,
+              height: isSmallDevice ? SPACING['4xl'] * 1.5 : SPACING['4xl'] * 2,
+              tintColor: '#F56B4C',
+              marginBottom: SPACING['2xl'],
+            }}
             resizeMode="contain"
           />
-          <Text className="text-3xl font-bold text-gray-900 mb-4">
+          <Text
+            className="font-bold text-gray-900 mb-4"
+            style={{ fontSize: isSmallDevice ? FONT_SIZES.h2 : FONT_SIZES.h1 }}
+          >
             Coming Soon
           </Text>
-          <Text className="text-base text-gray-500 text-center leading-6">
+          <Text
+            className="text-gray-500 text-center"
+            style={{ fontSize: FONT_SIZES.base, lineHeight: FONT_SIZES.base * 1.5 }}
+          >
             We're working hard to bring you on-demand meal ordering. Stay tuned for updates!
           </Text>
         </View>
@@ -144,20 +163,22 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
             paddingHorizontal: activeTab === 'home' ? 16 : 8,
             marginLeft: -8,
             marginRight: 4,
+            minHeight: TOUCH_TARGETS.minimum,
+            minWidth: TOUCH_TARGETS.minimum,
           }}
         >
           <Image
             source={require('../../assets/icons/house.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'home' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'home' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base, fontWeight: '600' }}>
               Home
             </Text>
           )}
@@ -176,20 +197,22 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
             paddingVertical: 8,
             paddingHorizontal: activeTab === 'orders' ? 16 : 8,
             marginHorizontal: 4,
+            minHeight: TOUCH_TARGETS.minimum,
+            minWidth: TOUCH_TARGETS.minimum,
           }}
         >
           <Image
             source={require('../../assets/icons/cart3.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'orders' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'orders' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base, fontWeight: '600' }}>
               Orders
             </Text>
           )}
@@ -205,20 +228,22 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
             paddingVertical: 8,
             paddingHorizontal: activeTab === 'meals' ? 16 : 8,
             marginHorizontal: 4,
+            minHeight: TOUCH_TARGETS.minimum,
+            minWidth: TOUCH_TARGETS.minimum,
           }}
         >
           <Image
             source={require('../../assets/icons/kitchen.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'meals' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'meals' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base, fontWeight: '600' }}>
               On-Demand
             </Text>
           )}
@@ -237,20 +262,22 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
             paddingVertical: 8,
             paddingHorizontal: activeTab === 'profile' ? 16 : 8,
             marginHorizontal: 4,
+            minHeight: TOUCH_TARGETS.minimum,
+            minWidth: TOUCH_TARGETS.minimum,
           }}
         >
           <Image
             source={require('../../assets/icons/profile2.png')}
             style={{
-              width: 24,
-              height: 24,
+              width: SPACING.iconSize,
+              height: SPACING.iconSize,
               tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
               marginRight: activeTab === 'profile' ? 6 : 0,
             }}
             resizeMode="contain"
           />
           {activeTab === 'profile' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base, fontWeight: '600' }}>
               Profile
             </Text>
           )}

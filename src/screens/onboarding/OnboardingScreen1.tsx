@@ -3,10 +3,14 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StatusBar, Animated, Easing, ImageBackground, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OnboardingScreenProps } from '../../types/navigation';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = OnboardingScreenProps<'OnboardingScreen1'>;
 
 const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
+  const { isSmallDevice, width } = useResponsive();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
@@ -63,9 +67,9 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
           <Text
             style={{
               color: 'white',
-              fontSize: 38,
+              fontSize: FONT_SIZES['3xl'],
               fontWeight: 'bold',
-              lineHeight: 44,
+              lineHeight: FONT_SIZES['3xl'] * 1.2,
               marginTop: 0,
             }}
           >
@@ -136,19 +140,20 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
             onPressOut={handlePressOut}
             onPress={handleNext}
             activeOpacity={1}
-            style={{ marginTop: 20 }}
+            style={{ marginTop: SPACING.lg }}
           >
             <Animated.View
               style={{
                 backgroundColor: 'white',
                 borderRadius: 50,
-                paddingLeft: 30,
-                paddingRight: 8,
-                paddingVertical: 8,
+                paddingLeft: SPACING['2xl'],
+                paddingRight: SPACING.sm,
+                paddingVertical: SPACING.sm,
+                minHeight: TOUCH_TARGETS.large,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                width: 320,
+                width: isSmallDevice ? width * 0.8 : 320,
                 marginBottom: 0,
                 alignSelf: 'center',
                 transform: [{ scale: scaleAnim }],
@@ -162,11 +167,11 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
               <Text
                 style={{
                   color: '#F56B4C',
-                  fontSize: 18,
+                  fontSize: FONT_SIZES.h4,
                   fontWeight: '600',
                   flex: 1,
                   textAlign: 'center',
-                  marginRight: 10,
+                  marginRight: SPACING.sm,
                 }}
               >
                 Next
@@ -174,9 +179,9 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
               <View
                 style={{
                   backgroundColor: '#F56B4C',
-                  borderRadius: 20,
-                  width: 40,
-                  height: 40,
+                  borderRadius: SPACING.iconXl / 2,
+                  width: SPACING.iconXl + 4,
+                  height: SPACING.iconXl + 4,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -184,8 +189,8 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
                 <Image
                   source={require('../../assets/icons/right.png')}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: SPACING.iconLg,
+                    height: SPACING.iconLg,
                   }}
                   resizeMode="contain"
                 />
@@ -194,7 +199,7 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Bottom nav & bar (same as before) */}
+        {/* Bottom nav & bar */}
         <View
           style={{
             position: 'absolute',
@@ -203,14 +208,29 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
             right: 0,
             flexDirection: 'row',
             justifyContent: 'space-between',
-            paddingHorizontal: 30,
+            paddingHorizontal: SPACING['2xl'],
           }}
         >
-          <TouchableOpacity style={{ padding: 10 }}>
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '500' }}>Back</Text>
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: SPACING.md,
+              paddingVertical: SPACING.sm,
+              minHeight: TOUCH_TARGETS.minimum,
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: FONT_SIZES.base, fontWeight: '500' }}>Back</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ padding: 10 }} onPress={handleSkip}>
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '500' }}>Skip</Text>
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: SPACING.md,
+              paddingVertical: SPACING.sm,
+              minHeight: TOUCH_TARGETS.minimum,
+              justifyContent: 'center',
+            }}
+            onPress={handleSkip}
+          >
+            <Text style={{ color: 'white', fontSize: FONT_SIZES.base, fontWeight: '500' }}>Skip</Text>
           </TouchableOpacity>
         </View>
 

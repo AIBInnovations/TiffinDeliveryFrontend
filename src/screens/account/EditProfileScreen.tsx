@@ -18,6 +18,9 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { MainTabParamList } from '../../types/navigation';
 import { useUser } from '../../context/UserContext';
 import apiService from '../../services/api.service';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'EditProfile'>;
 
@@ -32,6 +35,7 @@ const DIETARY_OPTIONS = [
 
 const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, refreshUser } = useUser();
+  const { isSmallDevice } = useResponsive();
 
   // Form state
   const [name, setName] = useState('');
@@ -264,7 +268,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
         <ActivityIndicator size="large" color="#F56B4C" />
-        <Text className="mt-4 text-gray-600">Loading profile...</Text>
+        <Text className="mt-4 text-gray-600" style={{ fontSize: FONT_SIZES.base }}>Loading profile...</Text>
       </SafeAreaView>
     );
   }
@@ -287,21 +291,22 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
           resizeMode="contain"
         />
 
-        <View className="flex-row items-center px-5 pt-4">
+        <View className="flex-row items-center pt-4" style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl }}>
           {/* Back Button */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            className="w-10 h-10 items-center justify-center"
+            className="items-center justify-center"
+            style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
           >
             <Image
               source={require('../../assets/icons/backarrow.png')}
-              style={{ width: 32, height: 32 }}
+              style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
               resizeMode="contain"
             />
           </TouchableOpacity>
 
           {/* Title */}
-          <Text className="flex-1 text-white text-xl font-bold text-center mr-10">
+          <Text className="flex-1 text-white font-bold text-center mr-10" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
             Edit Profile
           </Text>
         </View>
@@ -313,27 +318,27 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* Profile Picture Section */}
-        <View className="items-center mt-6 mb-6">
+        <View className="items-center mb-6" style={{ marginTop: SPACING['2xl'] }}>
           <TouchableOpacity
             onPress={handleImagePicker}
             disabled={isUploadingImage}
             className="relative"
           >
             {isUploadingImage ? (
-              <View className="w-28 h-28 rounded-full bg-gray-200 items-center justify-center">
+              <View className="rounded-full bg-gray-200 items-center justify-center" style={{ width: isSmallDevice ? 96 : 112, height: isSmallDevice ? 96 : 112 }}>
                 <ActivityIndicator size="large" color="#F56B4C" />
               </View>
             ) : profileImage ? (
               <Image
                 source={{ uri: profileImage }}
-                style={{ width: 112, height: 112, borderRadius: 56 }}
+                style={{ width: isSmallDevice ? 96 : 112, height: isSmallDevice ? 96 : 112, borderRadius: isSmallDevice ? 48 : 56 }}
                 resizeMode="cover"
               />
             ) : (
-              <View className="w-28 h-28 rounded-full bg-gray-200 items-center justify-center">
+              <View className="rounded-full bg-gray-200 items-center justify-center" style={{ width: isSmallDevice ? 96 : 112, height: isSmallDevice ? 96 : 112 }}>
                 <Image
                   source={require('../../assets/images/myaccount/user2.png')}
-                  style={{ width: 80, height: 80, borderRadius: 40 }}
+                  style={{ width: isSmallDevice ? 64 : 80, height: isSmallDevice ? 64 : 80, borderRadius: isSmallDevice ? 32 : 40 }}
                   resizeMode="cover"
                 />
               </View>
@@ -341,45 +346,48 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Edit Icon Overlay */}
             <View
-              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-orange-400 items-center justify-center"
+              className="absolute bottom-0 right-0 rounded-full bg-orange-400 items-center justify-center"
               style={{
+                width: SPACING.iconLg + 4,
+                height: SPACING.iconLg + 4,
                 borderWidth: 3,
                 borderColor: 'white',
               }}
             >
               <Image
                 source={require('../../assets/icons/edit2.png')}
-                style={{ width: 18, height: 18, tintColor: 'white' }}
+                style={{ width: SPACING.iconSm, height: SPACING.iconSm, tintColor: 'white' }}
                 resizeMode="contain"
               />
             </View>
           </TouchableOpacity>
 
-          <Text className="text-sm text-gray-500 mt-2">Tap to change photo</Text>
+          <Text className="text-gray-500 mt-2" style={{ fontSize: FONT_SIZES.sm }}>Tap to change photo</Text>
         </View>
 
         {/* Form Fields */}
-        <View className="px-5">
+        <View style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl }}>
           {/* Name Input */}
           <View className="mb-4">
-            <Text className="text-sm font-semibold text-gray-700 mb-2">Name *</Text>
+            <Text className="font-semibold text-gray-700 mb-2" style={{ fontSize: FONT_SIZES.sm }}>Name *</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Enter your name"
               placeholderTextColor="#9CA3AF"
-              className={`bg-gray-50 rounded-xl px-4 py-3 text-gray-900 ${
+              className={`bg-gray-50 rounded-xl text-gray-900 ${
                 errors.name ? 'border-2 border-red-500' : 'border border-gray-200'
               }`}
+              style={{ paddingHorizontal: SPACING.md, minHeight: TOUCH_TARGETS.comfortable, fontSize: FONT_SIZES.base }}
             />
             {errors.name && (
-              <Text className="text-red-500 text-sm mt-1">{errors.name}</Text>
+              <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.sm }}>{errors.name}</Text>
             )}
           </View>
 
           {/* Email Input */}
           <View className="mb-4">
-            <Text className="text-sm font-semibold text-gray-700 mb-2">Email</Text>
+            <Text className="font-semibold text-gray-700 mb-2" style={{ fontSize: FONT_SIZES.sm }}>Email</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
@@ -387,12 +395,13 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
               placeholderTextColor="#9CA3AF"
               keyboardType="email-address"
               autoCapitalize="none"
-              className={`bg-gray-50 rounded-xl px-4 py-3 text-gray-900 ${
+              className={`bg-gray-50 rounded-xl text-gray-900 ${
                 errors.email ? 'border-2 border-red-500' : 'border border-gray-200'
               }`}
+              style={{ paddingHorizontal: SPACING.md, minHeight: TOUCH_TARGETS.comfortable, fontSize: FONT_SIZES.base }}
             />
             {errors.email && (
-              <Text className="text-red-500 text-sm mt-1">{errors.email}</Text>
+              <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.sm }}>{errors.email}</Text>
             )}
           </View>
 
@@ -417,7 +426,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Dietary Preferences */}
           <View className="mb-6">
-            <Text className="text-sm font-semibold text-gray-700 mb-3">Dietary Preferences</Text>
+            <Text className="font-semibold text-gray-700 mb-3" style={{ fontSize: FONT_SIZES.sm }}>Dietary Preferences</Text>
             <View className="flex-row flex-wrap">
               {DIETARY_OPTIONS.map((option) => {
                 const isSelected = dietaryPreferences.includes(option.id);
@@ -425,18 +434,23 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity
                     key={option.id}
                     onPress={() => toggleDietaryPreference(option.id)}
-                    className={`rounded-full px-4 py-2 mr-2 mb-2 ${
+                    className={`rounded-full mr-2 mb-2 ${
                       isSelected ? 'bg-orange-400' : 'bg-gray-100'
                     }`}
                     style={{
                       borderWidth: isSelected ? 0 : 1,
                       borderColor: '#E5E7EB',
+                      paddingHorizontal: SPACING.md,
+                      minHeight: TOUCH_TARGETS.minimum,
+                      justifyContent: 'center',
+                      alignItems: 'center',
                     }}
                   >
                     <Text
-                      className={`text-sm font-medium ${
+                      className={`font-medium ${
                         isSelected ? 'text-white' : 'text-gray-700'
                       }`}
+                      style={{ fontSize: FONT_SIZES.sm }}
                     >
                       {option.label}
                     </Text>
@@ -449,19 +463,20 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
       </ScrollView>
 
       {/* Save Button */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white px-5 py-4 border-t border-gray-100">
+      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100" style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, paddingVertical: SPACING.md }}>
         <TouchableOpacity
           onPress={handleSave}
           disabled={isSaving}
-          className="bg-orange-400 rounded-full py-4 items-center"
+          className="bg-orange-400 rounded-full items-center"
           style={{
             opacity: isSaving ? 0.7 : 1,
+            minHeight: TOUCH_TARGETS.large,
           }}
         >
           {isSaving ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-bold text-lg">Save Changes</Text>
+            <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.h4 }}>Save Changes</Text>
           )}
         </TouchableOpacity>
       </View>

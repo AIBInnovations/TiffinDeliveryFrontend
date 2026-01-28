@@ -14,6 +14,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAddress } from '../../context/AddressContext';
 import { useUser } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import { FONT_SIZES } from '../../constants/typography';
 
 const ADDRESS_LABELS = ['Home', 'Office', 'Other'];
 
@@ -21,6 +24,7 @@ const AddressSetupScreen: React.FC = () => {
   const { checkServiceability, createAddressOnServer } = useAddress();
   const { setNeedsAddressSetup, user, logout } = useUser();
   const { showAlert } = useAlert();
+  const { isSmallDevice } = useResponsive();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -147,15 +151,15 @@ const AddressSetupScreen: React.FC = () => {
         <TouchableOpacity
           onPress={handleBackPress}
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
+            minWidth: TOUCH_TARGETS.minimum,
+            minHeight: TOUCH_TARGETS.minimum,
+            borderRadius: TOUCH_TARGETS.minimum / 2,
             backgroundColor: '#F3F4F6',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#374151" />
+          <MaterialCommunityIcons name="arrow-left" size={SPACING.iconSize} color="#374151" />
         </TouchableOpacity>
       </View>
 
@@ -167,17 +171,17 @@ const AddressSetupScreen: React.FC = () => {
           <View className="px-5 py-6">
             {/* Header */}
             <View className="mb-6">
-              <Text className="text-2xl font-bold text-gray-800 mb-1">
+              <Text className="font-bold text-gray-800 mb-1" style={{ fontSize: isSmallDevice ? FONT_SIZES.h3 : FONT_SIZES.h2 }}>
                 Add Delivery Address
               </Text>
-              <Text className="text-gray-500">
+              <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.base }}>
                 We'll check if we deliver to your area
               </Text>
             </View>
 
             {/* Address Label */}
             <View className="mb-5">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Save As
               </Text>
               <View className="flex-row gap-2">
@@ -185,15 +189,23 @@ const AddressSetupScreen: React.FC = () => {
                   <TouchableOpacity
                     key={label}
                     onPress={() => updateFormField('label', label)}
-                    className="rounded-full px-4 py-2"
+                    className="rounded-full"
                     style={{
+                      paddingHorizontal: SPACING.lg,
+                      paddingVertical: SPACING.sm,
+                      minHeight: TOUCH_TARGETS.minimum,
                       backgroundColor: addressForm.label === label ? '#F56B4C' : '#F3F4F6',
                       borderWidth: 1,
                       borderColor: addressForm.label === label ? '#F56B4C' : '#E5E7EB',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
                     <Text
-                      style={{ color: addressForm.label === label ? '#FFFFFF' : '#374151' }}
+                      style={{
+                        color: addressForm.label === label ? '#FFFFFF' : '#374151',
+                        fontSize: FONT_SIZES.base,
+                      }}
                       className="font-medium"
                     >
                       {label}
@@ -205,12 +217,16 @@ const AddressSetupScreen: React.FC = () => {
 
             {/* Pincode */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Pincode <Text className="text-red-500">*</Text>
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3 text-base"
+                className="bg-gray-50 rounded-xl"
                 style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  fontSize: FONT_SIZES.base,
                   borderWidth: 1,
                   borderColor: errors.pincode ? '#EF4444' : addressForm.pincode.length === 6 ? '#10B981' : '#E5E7EB',
                 }}
@@ -222,18 +238,22 @@ const AddressSetupScreen: React.FC = () => {
                 maxLength={6}
               />
               {errors.pincode && (
-                <Text className="text-red-500 text-xs mt-1">{errors.pincode}</Text>
+                <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.pincode}</Text>
               )}
             </View>
 
             {/* Address Line 1 */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Flat / House / Building <Text className="text-red-500">*</Text>
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3"
+                className="bg-gray-50 rounded-xl"
                 style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  fontSize: FONT_SIZES.base,
                   borderWidth: 1,
                   borderColor: errors.addressLine1 ? '#EF4444' : '#E5E7EB',
                 }}
@@ -243,18 +263,25 @@ const AddressSetupScreen: React.FC = () => {
                 onChangeText={(text) => updateFormField('addressLine1', text)}
               />
               {errors.addressLine1 && (
-                <Text className="text-red-500 text-xs mt-1">{errors.addressLine1}</Text>
+                <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.addressLine1}</Text>
               )}
             </View>
 
             {/* Address Line 2 */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Street / Area
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3"
-                style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+                className="bg-gray-50 rounded-xl"
+                style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  fontSize: FONT_SIZES.base,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                }}
                 placeholder="e.g., Lane 5, MG Road"
                 placeholderTextColor="#9CA3AF"
                 value={addressForm.addressLine2}
@@ -264,12 +291,19 @@ const AddressSetupScreen: React.FC = () => {
 
             {/* Landmark */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Landmark
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3"
-                style={{ borderWidth: 1, borderColor: '#E5E7EB' }}
+                className="bg-gray-50 rounded-xl"
+                style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  fontSize: FONT_SIZES.base,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                }}
                 placeholder="e.g., Near Central Mall"
                 placeholderTextColor="#9CA3AF"
                 value={addressForm.landmark}
@@ -279,12 +313,16 @@ const AddressSetupScreen: React.FC = () => {
 
             {/* Locality */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Locality <Text className="text-red-500">*</Text>
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3"
+                className="bg-gray-50 rounded-xl"
                 style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  fontSize: FONT_SIZES.base,
                   borderWidth: 1,
                   borderColor: errors.locality ? '#EF4444' : '#E5E7EB',
                 }}
@@ -294,19 +332,23 @@ const AddressSetupScreen: React.FC = () => {
                 onChangeText={(text) => updateFormField('locality', text)}
               />
               {errors.locality && (
-                <Text className="text-red-500 text-xs mt-1">{errors.locality}</Text>
+                <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.locality}</Text>
               )}
             </View>
 
             {/* City and State */}
             <View className="flex-row gap-3 mb-4">
               <View className="flex-1">
-                <Text className="text-gray-700 font-semibold mb-2">
+                <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                   City <Text className="text-red-500">*</Text>
                 </Text>
                 <TextInput
-                  className="bg-gray-50 rounded-xl px-4 py-3"
+                  className="bg-gray-50 rounded-xl"
                   style={{
+                    paddingHorizontal: SPACING.lg,
+                    paddingVertical: SPACING.md,
+                    minHeight: TOUCH_TARGETS.comfortable,
+                    fontSize: FONT_SIZES.base,
                     borderWidth: 1,
                     borderColor: errors.city ? '#EF4444' : '#E5E7EB',
                   }}
@@ -316,16 +358,20 @@ const AddressSetupScreen: React.FC = () => {
                   onChangeText={(text) => updateFormField('city', text)}
                 />
                 {errors.city && (
-                  <Text className="text-red-500 text-xs mt-1">{errors.city}</Text>
+                  <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.city}</Text>
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-gray-700 font-semibold mb-2">
+                <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                   State <Text className="text-red-500">*</Text>
                 </Text>
                 <TextInput
-                  className="bg-gray-50 rounded-xl px-4 py-3"
+                  className="bg-gray-50 rounded-xl"
                   style={{
+                    paddingHorizontal: SPACING.lg,
+                    paddingVertical: SPACING.md,
+                    minHeight: TOUCH_TARGETS.comfortable,
+                    fontSize: FONT_SIZES.base,
                     borderWidth: 1,
                     borderColor: errors.state ? '#EF4444' : '#E5E7EB',
                   }}
@@ -335,19 +381,23 @@ const AddressSetupScreen: React.FC = () => {
                   onChangeText={(text) => updateFormField('state', text)}
                 />
                 {errors.state && (
-                  <Text className="text-red-500 text-xs mt-1">{errors.state}</Text>
+                  <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.state}</Text>
                 )}
               </View>
             </View>
 
             {/* Contact Name */}
             <View className="mb-4">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Contact Name <Text className="text-red-500">*</Text>
               </Text>
               <TextInput
-                className="bg-gray-50 rounded-xl px-4 py-3"
+                className="bg-gray-50 rounded-xl"
                 style={{
+                  paddingHorizontal: SPACING.lg,
+                  paddingVertical: SPACING.md,
+                  minHeight: TOUCH_TARGETS.comfortable,
+                  fontSize: FONT_SIZES.base,
                   borderWidth: 1,
                   borderColor: errors.contactName ? '#EF4444' : '#E5E7EB',
                 }}
@@ -358,22 +408,34 @@ const AddressSetupScreen: React.FC = () => {
                 autoCapitalize="words"
               />
               {errors.contactName && (
-                <Text className="text-red-500 text-xs mt-1">{errors.contactName}</Text>
+                <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.contactName}</Text>
               )}
             </View>
 
             {/* Contact Phone */}
             <View className="mb-6">
-              <Text className="text-gray-700 font-semibold mb-2">
+              <Text className="text-gray-700 font-semibold mb-2" style={{ fontSize: FONT_SIZES.base }}>
                 Contact Phone <Text className="text-red-500">*</Text>
               </Text>
               <View className="flex-row items-center">
-                <View className="bg-gray-100 rounded-l-xl px-3 py-3 border border-r-0 border-gray-200">
-                  <Text className="text-gray-600 font-medium">+91</Text>
+                <View
+                  className="bg-gray-100 rounded-l-xl border border-r-0 border-gray-200"
+                  style={{
+                    paddingHorizontal: SPACING.md,
+                    paddingVertical: SPACING.md,
+                    minHeight: TOUCH_TARGETS.comfortable,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text className="text-gray-600 font-medium" style={{ fontSize: FONT_SIZES.base }}>+91</Text>
                 </View>
                 <TextInput
-                  className="flex-1 bg-gray-50 rounded-r-xl px-4 py-3"
+                  className="flex-1 bg-gray-50 rounded-r-xl"
                   style={{
+                    paddingHorizontal: SPACING.lg,
+                    paddingVertical: SPACING.md,
+                    minHeight: TOUCH_TARGETS.comfortable,
+                    fontSize: FONT_SIZES.base,
                     borderWidth: 1,
                     borderLeftWidth: 0,
                     borderColor: errors.contactPhone ? '#EF4444' : '#E5E7EB',
@@ -387,7 +449,7 @@ const AddressSetupScreen: React.FC = () => {
                 />
               </View>
               {errors.contactPhone && (
-                <Text className="text-red-500 text-xs mt-1">{errors.contactPhone}</Text>
+                <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.contactPhone}</Text>
               )}
             </View>
 
@@ -395,15 +457,18 @@ const AddressSetupScreen: React.FC = () => {
             <TouchableOpacity
               onPress={handleSubmitAddress}
               disabled={isSubmitting}
-              className="rounded-full py-4 items-center mb-4"
+              className="rounded-full items-center mb-4"
               style={{
+                paddingVertical: SPACING.lg,
+                minHeight: TOUCH_TARGETS.large,
                 backgroundColor: isSubmitting ? '#CCCCCC' : '#F56B4C',
+                justifyContent: 'center',
               }}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-white font-bold text-base">
+                <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.base }}>
                   Save Address & Continue
                 </Text>
               )}

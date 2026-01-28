@@ -10,10 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '../../types/navigation';
+import { useResponsive } from '../../hooks/useResponsive';
+import { SPACING } from '../../constants/spacing';
+import { FONT_SIZES, LINE_HEIGHTS } from '../../constants/typography';
 
 type Props = AuthScreenProps<'Login'>;
 
 const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
+  const { verticalSpacingFactor } = useResponsive();
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -62,15 +67,18 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
       {/* Content */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{
+          paddingHorizontal: SPACING.screenHorizontal,
+          paddingVertical: SPACING.screenVertical * verticalSpacingFactor,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <Text
           style={{
-            fontSize: 14,
+            fontSize: FONT_SIZES.sm,
             color: '#6B7280',
             marginBottom: 20,
-            lineHeight: 22,
+            lineHeight: FONT_SIZES.sm * LINE_HEIGHTS.relaxed,
           }}
         >
           Last Updated: January 26, 2026
@@ -78,10 +86,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 24,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           At Tiffsy, we are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, and safeguard your data.
@@ -89,7 +97,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -99,20 +107,20 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 10,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We collect the following types of information:
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
             paddingLeft: 20,
           }}
         >
@@ -126,7 +134,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -136,20 +144,20 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 10,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We use your information to:
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
             paddingLeft: 20,
           }}
         >
@@ -164,7 +172,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -174,10 +182,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We do not sell your personal information. We may share your information with:{'\n\n'}
@@ -190,7 +198,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -200,10 +208,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We implement industry-standard security measures to protect your data, including encryption, secure servers, and regular security audits. However, no method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.
@@ -211,7 +219,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -221,10 +229,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We retain your personal information for as long as necessary to provide our services, comply with legal obligations, resolve disputes, and enforce our agreements. You can request deletion of your account and data at any time.
@@ -232,7 +240,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -242,10 +250,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           You have the right to:{'\n\n'}
@@ -259,7 +267,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -269,10 +277,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We use cookies and similar technologies to enhance your experience, analyze usage patterns, and personalize content. You can control cookie settings through your device settings.
@@ -280,7 +288,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -290,10 +298,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           Our service is not intended for users under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.
@@ -301,7 +309,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -311,10 +319,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 20,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           We may update this Privacy Policy from time to time. We will notify you of significant changes via email or in-app notification. Please review this policy periodically for updates.
@@ -322,7 +330,7 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
 
         <Text
           style={{
-            fontSize: 18,
+            fontSize: FONT_SIZES.h4,
             fontWeight: '700',
             color: '#111827',
             marginBottom: 12,
@@ -332,10 +340,10 @@ const PrivacyPolicyScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
         <Text
           style={{
-            fontSize: 15,
+            fontSize: FONT_SIZES.base,
             color: '#374151',
             marginBottom: 40,
-            lineHeight: 24,
+            lineHeight: FONT_SIZES.base * LINE_HEIGHTS.relaxed,
           }}
         >
           If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:{'\n\n'}

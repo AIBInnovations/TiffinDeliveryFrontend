@@ -19,6 +19,8 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   const navigation = useNavigation<NavigationProp>();
   const { unreadCount } = useNotifications();
 
+  console.log('[NotificationBell] Current unreadCount:', unreadCount);
+
   const handlePress = () => {
     navigation.navigate('Notifications');
   };
