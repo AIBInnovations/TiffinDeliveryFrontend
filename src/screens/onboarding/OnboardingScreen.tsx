@@ -8,7 +8,6 @@ import {
   Animated,
   Easing,
   ImageBackground,
-  Image,
   useWindowDimensions,
   Platform,
   FlatList,
@@ -62,7 +61,6 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   // Responsive scaling factors
   const isSmallDevice = SCREEN_HEIGHT < 700;
   const scale = Math.min(SCREEN_WIDTH / 375, 1.2);
-  const verticalScale = Math.min(SCREEN_HEIGHT / 812, 1.1);
 
   const [currentPage, setCurrentPage] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -136,23 +134,13 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleBack = () => {
-    if (currentPage > 0) {
-      flatListRef.current?.scrollToIndex({
-        index: currentPage - 1,
-        animated: true,
-      });
-    }
-  };
-
   const handleSkip = () => {
     navigation.navigate('Auth');
   };
 
   // Responsive styles
-  const imageSize = isSmallDevice ? SCREEN_WIDTH * 0.5 : SCREEN_WIDTH * 0.6;
+  const imageSize = isSmallDevice ? SCREEN_WIDTH * 0.55 : SCREEN_WIDTH * 0.65;
   const buttonWidth = Math.min(SCREEN_WIDTH * 0.85, 320);
-  const buttonIconSize = Math.round(36 * scale);
   const contentPadding = Math.round(24 * scale);
 
   const renderPageItem = ({ item, index }: { item: PageContent; index: number }) => {
@@ -203,9 +191,9 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
           <Text
             style={{
               color: 'white',
-              fontSize: Math.round(32 * scale),
+              fontSize: Math.round(35 * scale),
               fontWeight: 'bold',
-              lineHeight: Math.round(38 * scale),
+              lineHeight: Math.round(42 * scale),
             }}
           >
             {item.title}
@@ -216,9 +204,9 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
             <Text
               style={{
                 color: 'rgba(255,255,255,0.85)',
-                fontSize: Math.round(13 * scale),
+                fontSize: Math.round(14 * scale),
                 marginTop: 10,
-                lineHeight: Math.round(18 * scale),
+                lineHeight: Math.round(20 * scale),
               }}
             >
               {item.subtitle}
@@ -262,6 +250,27 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView className="flex-1 bg-orange-400" edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
 
+      {/* Skip Button - Top Right */}
+      <View style={{
+        position: 'absolute',
+        top: insets.top + 16,
+        right: contentPadding,
+        zIndex: 10,
+      }}>
+        <TouchableOpacity
+          style={{ padding: 10 }}
+          onPress={handleSkip}
+        >
+          <Text style={{
+            color: 'white',
+            fontSize: Math.round(15 * scale),
+            fontWeight: '600'
+          }}>
+            Skip
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={{ flex: 1 }}>
         {/* FlatList for swipeable pages */}
         <FlatList
@@ -279,24 +288,29 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Pagination Dots - Fixed Position */}
         <View style={{
-          flexDirection: 'row',
-          justifyContent: 'center',
           paddingVertical: isSmallDevice ? 10 : 15,
+          alignItems: 'center',
         }}>
-          {pages.map((_, dotIndex) => (
-            <View
-              key={dotIndex}
-              style={{
-                width: currentPage === dotIndex ? 18 : 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: currentPage === dotIndex
-                  ? 'white'
-                  : 'rgba(255,255,255,0.5)',
-                marginHorizontal: 4,
-              }}
-            />
-          ))}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            {pages.map((_, dotIndex) => (
+              <View
+                key={dotIndex}
+                style={{
+                  width: currentPage === dotIndex ? 18 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: currentPage === dotIndex
+                    ? 'white'
+                    : 'rgba(255,255,255,0.5)',
+                  marginHorizontal: 4,
+                }}
+              />
+            ))}
+          </View>
         </View>
 
         {/* Fixed Bottom Section - Button + Navigation */}
@@ -317,12 +331,11 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
               style={{
                 backgroundColor: 'white',
                 borderRadius: 50,
-                paddingLeft: 24,
-                paddingRight: 6,
-                paddingVertical: 6,
+                paddingHorizontal: 24,
+                paddingVertical: 12,
                 flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'center',
                 width: buttonWidth,
                 alignSelf: 'center',
                 transform: [{ scale: scaleAnim }],
@@ -338,68 +351,14 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
                   color: '#F56B4C',
                   fontSize: Math.round(16 * scale),
                   fontWeight: '600',
-                  flex: 1,
                   textAlign: 'center',
-                  marginRight: 8,
                 }}
               >
                 {currentPage === pages.length - 1 ? 'Get Started' : 'Next'}
               </Text>
-              <View
-                style={{
-                  backgroundColor: '#F56B4C',
-                  borderRadius: buttonIconSize / 2,
-                  width: buttonIconSize,
-                  height: buttonIconSize,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Image
-                  source={require('../../assets/icons/right.png')}
-                  style={{
-                    width: buttonIconSize * 0.65,
-                    height: buttonIconSize * 0.65,
-                  }}
-                  resizeMode="contain"
-                />
-              </View>
             </Animated.View>
           </TouchableOpacity>
 
-          {/* Back & Skip Navigation */}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginTop: isSmallDevice ? 12 : 16,
-              paddingHorizontal: 6,
-            }}
-          >
-            <TouchableOpacity
-              style={{ padding: 10 }}
-              onPress={handleBack}
-              disabled={currentPage === 0}
-            >
-              <Text style={{
-                color: 'white',
-                fontSize: Math.round(15 * scale),
-                fontWeight: '500',
-                opacity: currentPage === 0 ? 0.5 : 1,
-              }}>
-                Back
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ padding: 10 }} onPress={handleSkip}>
-              <Text style={{
-                color: 'white',
-                fontSize: Math.round(15 * scale),
-                fontWeight: '500'
-              }}>
-                Skip
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </SafeAreaView>

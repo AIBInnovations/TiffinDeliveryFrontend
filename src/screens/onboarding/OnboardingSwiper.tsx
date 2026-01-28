@@ -136,15 +136,6 @@ const OnboardingSwiper: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleBack = () => {
-    if (currentIndex > 0) {
-      flatListRef.current?.scrollToIndex({
-        index: currentIndex - 1,
-        animated: true,
-      });
-    }
-  };
-
   const handleSkip = () => {
     navigation.navigate('Auth');
   };
@@ -157,12 +148,21 @@ const OnboardingSwiper: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderDots = () => (
-    <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: currentIndex === 0 ? 40 : currentIndex === 1 ? 10 : 25 }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: currentIndex === 0 ? 40 : currentIndex === 1 ? 10 : 25,
+        alignSelf: 'center',
+        width: '100%',
+      }}
+    >
       {SLIDES.map((_, index) => (
         <View
           key={index}
           style={{
-            width: index === currentIndex ? 18 : 8,
+            width: index === currentIndex ? 20 : 8,
             height: 8,
             borderRadius: 4,
             backgroundColor:
@@ -178,6 +178,31 @@ const OnboardingSwiper: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView className="flex-1 bg-orange-400">
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
       <View className="flex-1">
+        {/* Skip button - top right */}
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: SPACING.lg,
+            right: SPACING['2xl'],
+            paddingHorizontal: SPACING.md,
+            paddingVertical: SPACING.sm,
+            minHeight: TOUCH_TARGETS.minimum,
+            justifyContent: 'center',
+            zIndex: 10,
+          }}
+          onPress={handleSkip}
+        >
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: FONT_SIZES.base,
+              fontWeight: '600'
+            }}
+          >
+            Skip
+          </Text>
+        </TouchableOpacity>
+
         <FlatList
           ref={flatListRef}
           data={SLIDES}
@@ -196,27 +221,27 @@ const OnboardingSwiper: React.FC<Props> = ({ navigation }) => {
           )}
         />
 
-        {/* Next button */}
-        <View className="px-10" style={{ position: 'absolute', bottom: 140, left: 0, right: 0 }}>
+        {/* Next/Get Started button */}
+        <View style={{ position: 'absolute', bottom: 60, left: 0, right: 0, alignItems: 'center' }}>
           <TouchableOpacity
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             onPress={handleNext}
             activeOpacity={1}
+            style={{ width: isSmallDevice ? width * 0.8 : 320 }}
           >
             <Animated.View
               style={{
                 backgroundColor: 'white',
                 borderRadius: 50,
-                paddingLeft: SPACING['2xl'],
-                paddingRight: SPACING.sm,
-                paddingVertical: SPACING.sm,
+                paddingVertical: SPACING.md,
+                paddingLeft: currentIndex < SLIDES.length - 1 ? SPACING.lg : SPACING.lg,
+                paddingRight: currentIndex < SLIDES.length - 1 ? SPACING.sm : SPACING.lg,
                 minHeight: TOUCH_TARGETS.large,
                 flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                width: isSmallDevice ? width * 0.8 : 320,
-                alignSelf: 'center',
+                justifyContent: 'center',
+                position: 'relative',
                 transform: [{ scale: scaleAnim }],
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 4 },
@@ -225,85 +250,43 @@ const OnboardingSwiper: React.FC<Props> = ({ navigation }) => {
                 elevation: 8,
               }}
             >
-              <Text
-                style={{
-                  color: '#F56B4C',
-                  fontSize: FONT_SIZES.h4,
-                  fontWeight: '600',
-                  flex: 1,
-                  textAlign: 'center',
-                  marginRight: SPACING.sm,
-                }}
-              >
-                Next
-              </Text>
-              <View
-                style={{
-                  backgroundColor: '#F56B4C',
-                  borderRadius: SPACING.iconXl / 2,
-                  width: SPACING.iconXl + 4,
-                  height: SPACING.iconXl + 4,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Image
-                  source={require('../../assets/icons/right.png')}
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text
                   style={{
-                    width: SPACING.iconLg,
-                    height: SPACING.iconLg,
+                    color: '#F56B4C',
+                    fontSize: FONT_SIZES.h4,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    letterSpacing: 0.5,
                   }}
-                  resizeMode="contain"
-                />
+                >
+                  {currentIndex === SLIDES.length - 1 ? 'GET STARTED' : 'NEXT'}
+                </Text>
               </View>
+              {currentIndex < SLIDES.length - 1 && (
+                <View
+                  style={{
+                    backgroundColor: '#F56B4C',
+                    borderRadius: SPACING.iconXl / 2,
+                    width: SPACING.iconXl + 4,
+                    height: SPACING.iconXl + 4,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'absolute',
+                    right: SPACING.sm,
+                  }}
+                >
+                  <Image
+                    source={require('../../assets/icons/right.png')}
+                    style={{
+                      width: SPACING.iconLg,
+                      height: SPACING.iconLg,
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
             </Animated.View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom nav & bar */}
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 40,
-            left: 0,
-            right: 0,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            paddingHorizontal: SPACING['2xl'],
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: SPACING.md,
-              paddingVertical: SPACING.sm,
-              minHeight: TOUCH_TARGETS.minimum,
-              justifyContent: 'center',
-            }}
-            onPress={handleBack}
-            disabled={currentIndex === 0}
-          >
-            <Text
-              style={{
-                color: currentIndex === 0 ? 'rgba(255,255,255,0.5)' : 'white',
-                fontSize: FONT_SIZES.base,
-                fontWeight: '500',
-              }}
-            >
-              Back
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: SPACING.md,
-              paddingVertical: SPACING.sm,
-              minHeight: TOUCH_TARGETS.minimum,
-              justifyContent: 'center',
-            }}
-            onPress={handleSkip}
-          >
-            <Text style={{ color: 'white', fontSize: FONT_SIZES.base, fontWeight: '500' }}>
-              Skip
-            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -368,9 +351,9 @@ const OnboardingSlideItem: React.FC<SlideItemProps> = ({ item, index, renderDots
 
   return (
     <View
-      style={{ width: SCREEN_WIDTH, paddingHorizontal: 40 }}
+      style={{ width: SCREEN_WIDTH, paddingHorizontal: 40, flex: 1 }}
     >
-      <View className="flex-1 justify-center" style={{ width: '100%' }}>
+      <View className="flex-1" style={{ justifyContent: 'center', alignItems: 'flex-start', width: '100%' }}>
         {/* Background Image */}
         <ImageBackground
           source={item.backgroundImage}
@@ -387,6 +370,7 @@ const OnboardingSlideItem: React.FC<SlideItemProps> = ({ item, index, renderDots
             fontWeight: 'bold',
             lineHeight: FONT_SIZES['3xl'] * 1.2,
             marginTop: index === 1 ? SPACING['3xl'] : 0,
+            textAlign: 'left',
           }}
         >
           {item.title}
@@ -400,7 +384,7 @@ const OnboardingSlideItem: React.FC<SlideItemProps> = ({ item, index, renderDots
               fontSize: FONT_SIZES.sm,
               marginTop: SPACING.sm,
               lineHeight: FONT_SIZES.sm * 1.4,
-              paddingHorizontal: 0,
+              textAlign: 'left',
             }}
           >
             {item.description}
@@ -411,6 +395,7 @@ const OnboardingSlideItem: React.FC<SlideItemProps> = ({ item, index, renderDots
         <View
           style={{
             alignItems: 'center',
+            width: '100%',
             marginTop: index === 0 ? 40 : index === 1 ? 10 : 20,
             marginBottom: 0,
           }}
