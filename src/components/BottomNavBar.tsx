@@ -56,6 +56,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
           shadowOpacity: 0.15,
           shadowRadius: 12,
           elevation: 8,
+          zIndex: 1000,
         }}
       >
         {/* Home Icon */}

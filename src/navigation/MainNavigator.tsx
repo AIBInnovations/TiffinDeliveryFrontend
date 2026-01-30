@@ -58,38 +58,40 @@ const NavBarWrapper = () => {
 
 const MainNavigatorContent = () => {
   return (
-    <View style={{ flex: 1, position: 'relative' }}>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          cardStyle: { backgroundColor: '#FFFFFF' },
-          animationEnabled: true,
-        }}
-      >
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="YourOrders" component={YourOrdersScreen} />
-        <Stack.Screen name="OnDemand" component={OnDemandScreen} />
-        <Stack.Screen name="Account" component={AccountScreen} />
-        <Stack.Screen name="Address" component={AddressScreen} />
-        <Stack.Screen name="Cart" component={CartScreen} />
-        <Stack.Screen name="Payment" component={PaymentScreen} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-        <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
-        <Stack.Screen name="About" component={AboutScreen} />
-        <Stack.Screen name="OurJourney" component={OurJourneyScreen} />
-        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
-        <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
-        <Stack.Screen name="MealPlans" component={MealPlansScreen} />
-        <Stack.Screen name="BulkOrders" component={BulkOrdersScreen} />
-        <Stack.Screen name="Vouchers" component={VouchersScreen} />
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="AutoOrderSettings" component={AutoOrderSettingsScreen} />
-        <Stack.Screen name="SkipMealCalendar" component={SkipMealCalendarScreen} />
-        <Stack.Screen name="AutoOrderFailure" component={AutoOrderFailureScreen} />
-      </Stack.Navigator>
-
-      {/* Render NavBarWrapper inside the navigator context */}
-      <NavBarWrapper />
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, zIndex: 1 }}>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            cardStyle: { backgroundColor: '#FFFFFF' },
+            animationEnabled: true,
+          }}
+        >
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="YourOrders" component={YourOrdersScreen} />
+          <Stack.Screen name="OnDemand" component={OnDemandScreen} />
+          <Stack.Screen name="Account" component={AccountScreen} />
+          <Stack.Screen name="Address" component={AddressScreen} />
+          <Stack.Screen name="Cart" component={CartScreen} />
+          <Stack.Screen name="Payment" component={PaymentScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+          <Stack.Screen name="About" component={AboutScreen} />
+          <Stack.Screen name="OurJourney" component={OurJourneyScreen} />
+          <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+          <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+          <Stack.Screen name="MealPlans" component={MealPlansScreen} />
+          <Stack.Screen name="BulkOrders" component={BulkOrdersScreen} />
+          <Stack.Screen name="Vouchers" component={VouchersScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="AutoOrderSettings" component={AutoOrderSettingsScreen} />
+          <Stack.Screen name="SkipMealCalendar" component={SkipMealCalendarScreen} />
+          <Stack.Screen name="AutoOrderFailure" component={AutoOrderFailureScreen} />
+        </Stack.Navigator>
+      </View>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, zIndex: 1000, pointerEvents: 'box-none' }}>
+        <NavBarWrapper />
+      </View>
     </View>
   );
 };
