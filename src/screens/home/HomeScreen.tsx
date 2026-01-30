@@ -11,6 +11,7 @@ import {
   ImageSourcePropType,
   ActivityIndicator,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -70,7 +71,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [showCartModal, setShowCartModal] = useState(false);
   const [mealQuantity, setMealQuantity] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('home');
   const [refreshing, setRefreshing] = useState(false);
 
   // Menu state
@@ -128,12 +128,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  // Reset activeTab to 'home' when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      setActiveTab('home');
-    }, [])
-  );
 
   // Initialize meal tab based on current time and show modal if outside window
   useEffect(() => {
@@ -175,6 +169,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   // Fetch menu using new flow: address → kitchens → menu
   const fetchMenu = async () => {
+    console.log('[HomeScreen] === FETCH MENU STARTED ===');
     setIsLoadingMenu(true);
     setMenuError(null);
     setRequiresAddress(false);
@@ -183,27 +178,52 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const mainAddress = getMainAddress();
       const addressId = selectedAddressId || mainAddress?.id;
 
+      console.log('[HomeScreen] Address info:', {
+        mainAddress: mainAddress ? { id: mainAddress.id, locality: mainAddress.locality } : null,
+        selectedAddressId,
+        finalAddressId: addressId,
+        currentLocation: currentLocation ? { pincode: currentLocation.pincode } : null,
+      });
+
       let kitchensResponse;
 
       // If no address but location is available, use pincode to get kitchens
       if (!addressId && currentLocation?.pincode) {
         console.log('[HomeScreen] No address, using location pincode:', currentLocation.pincode);
 
-        // Step 1a: Get zone by pincode
-        const zoneResponse = await apiService.getZoneByPincode(currentLocation.pincode);
+        try {
+          // Step 1a: Get zone by pincode
+          console.log('[HomeScreen] Calling getZoneByPincode...');
+          const zoneResponse = await apiService.getZoneByPincode(currentLocation.pincode);
+          console.log('[HomeScreen] Zone response:', JSON.stringify(zoneResponse, null, 2));
 
-        if (!zoneResponse.data?.zone?._id) {
-          setMenuError('No kitchens available for your location. Please add a delivery address.');
-          setRequiresAddress(true);
-          setIsLoadingMenu(false);
-          return;
+          if (!zoneResponse.data) {
+            setMenuError('No kitchens available for your location. Please add a delivery address.');
+            setRequiresAddress(true);
+            setIsLoadingMenu(false);
+            return;
+          }
+
+          // Access zone data - handle both nested and flat response structures
+          const zoneData = (zoneResponse.data as any).zone || zoneResponse.data;
+          const zoneId = zoneData._id;
+
+          if (!zoneId) {
+            setMenuError('No kitchens available for your location. Please add a delivery address.');
+            setRequiresAddress(true);
+            setIsLoadingMenu(false);
+            return;
+          }
+
+          console.log('[HomeScreen] Zone found:', zoneId);
+
+          // Step 1b: Get kitchens for the zone
+          console.log('[HomeScreen] Calling getKitchensForZone...');
+          kitchensResponse = await apiService.getKitchensForZone(zoneId, 'MEAL_MENU');
+        } catch (error: any) {
+          console.error('[HomeScreen] Error in zone/kitchen lookup:', error);
+          throw error;
         }
-
-        const zoneId = zoneResponse.data.zone._id;
-        console.log('[HomeScreen] Zone found:', zoneId);
-
-        // Step 1b: Get kitchens for the zone
-        kitchensResponse = await apiService.getKitchensForZone(zoneId, 'MEAL_MENU');
       } else if (!addressId) {
         // If no address and no location, user needs to add one
         setRequiresAddress(true);
@@ -211,7 +231,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         return;
       } else {
         // Step 1: Get kitchens for the address
-        kitchensResponse = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
+        console.log('[HomeScreen] Calling getAddressKitchens with addressId:', addressId);
+        try {
+          kitchensResponse = await apiService.getAddressKitchens(addressId, 'MEAL_MENU');
+        } catch (error: any) {
+          console.error('[HomeScreen] Error in getAddressKitchens:', error);
+          throw error;
+        }
       }
 
       console.log('[HomeScreen] Raw kitchens response:', JSON.stringify(kitchensResponse, null, 2));
@@ -280,10 +306,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       // Set kitchen in cart context
       setKitchenId(selectedKitchen._id);
       // Set delivery address in cart context
-      setDeliveryAddressId(addressId);
+      setDeliveryAddressId(addressId || null);
 
       // Step 2: Get menu for the kitchen
-      const menuResponse = await apiService.getKitchenMenu(selectedKitchen._id, 'MEAL_MENU');
+      console.log('[HomeScreen] Calling getKitchenMenu for kitchen:', selectedKitchen._id);
+      let menuResponse;
+      try {
+        menuResponse = await apiService.getKitchenMenu(selectedKitchen._id, 'MEAL_MENU');
+        console.log('[HomeScreen] Menu response:', JSON.stringify(menuResponse, null, 2));
+      } catch (error: any) {
+        console.error('[HomeScreen] Error in getKitchenMenu:', error);
+        throw error;
+      }
 
       if (menuResponse.data) {
         const { lunch, dinner } = menuResponse.data.mealMenu;
@@ -312,7 +346,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             quantity: addon.description || '1 serving',
             price: addon.price,
             selected: false,
-            count: 1,
+            count: 0,
           }));
           setAddOns(apiAddons);
         } else {
@@ -321,8 +355,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
       }
     } catch (error: any) {
-      console.error('Error fetching menu:', error);
-      setMenuError(error.message || 'Failed to load menu');
+      console.error('[HomeScreen] Error fetching menu:', error);
+      console.error('[HomeScreen] Error type:', typeof error);
+      console.error('[HomeScreen] Error details:', {
+        message: error.message,
+        data: error.data,
+        response: error.response?.data,
+        stack: error.stack,
+      });
+
+      // Extract meaningful error message
+      let errorMessage = 'Failed to load menu';
+
+      // Handle different error formats
+      if (error.data?.message) {
+        errorMessage = error.data.message;
+      } else if (error.message === 'Network Error') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message === 'timeout of 10000ms exceeded') {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      console.log('[HomeScreen] Final error message:', errorMessage);
+      setMenuError(errorMessage);
       setAddOns([]);
     } finally {
       setIsLoadingMenu(false);
@@ -411,7 +468,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               quantity: addon.description || '1 serving',
               price: addon.price,
               selected: !!cartAddon,
-              count: cartAddon?.quantity || 1,
+              count: cartAddon?.quantity || 0,
             };
           });
           setAddOns(restoredAddons);
@@ -424,7 +481,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         setMealQuantity(1);
         setShowCartModal(false);
 
-        // Reset addons to unselected state
+        // Reset addons to unselected state with count 0
         if (currentMealItem.addonIds && currentMealItem.addonIds.length > 0) {
           const defaultAddons = currentMealItem.addonIds.map((addon: AddonItem) => ({
             id: addon._id,
@@ -433,7 +490,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             quantity: addon.description || '1 serving',
             price: addon.price,
             selected: false,
-            count: 1,
+            count: 0,
           }));
           setAddOns(defaultAddons);
         }
@@ -460,7 +517,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             quantity: addon.description || '1 serving',
             price: addon.price,
             selected: !!cartAddon,
-            count: cartAddon?.quantity || 1,
+            count: cartAddon?.quantity || 0,
           };
         });
         setAddOns(apiAddons);
@@ -535,9 +592,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setMenuType('MEAL_MENU');
     setMealWindow(mealWindowValue);
 
-    // Build addons array - only include addons with valid MongoDB ObjectIds
+    // Build addons array - only include addons with valid MongoDB ObjectIds and count > 0
     const selectedAddons = updatedAddOns
-      .filter(item => item.selected && isValidObjectId(item.id))
+      .filter(item => item.selected && item.count > 0 && isValidObjectId(item.id))
       .map(item => ({
         addonId: item.id,
         name: item.name,
@@ -575,9 +632,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const toggleAddOn = (id: string) => {
     // Calculate the new addons state
-    const updatedAddOns = addOns.map(item =>
-      item.id === id ? { ...item, selected: !item.selected } : item
-    );
+    const updatedAddOns = addOns.map(item => {
+      if (item.id === id) {
+        // When selecting, set count to 1
+        // When deselecting, reset count to 0
+        return {
+          ...item,
+          selected: !item.selected,
+          count: !item.selected ? 1 : 0
+        };
+      }
+      return item;
+    });
 
     // Update local state
     setAddOns(updatedAddOns);
@@ -595,7 +661,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const updateQuantity = (id: string, increment: boolean) => {
     const updatedAddOns = addOns.map(item => {
       if (item.id === id) {
-        const newCount = increment ? item.count + 1 : Math.max(1, item.count - 1);
+        const newCount = increment ? item.count + 1 : Math.max(0, item.count - 1);
+
+        // If count goes to 0, deselect the addon
+        if (newCount === 0) {
+          return { ...item, count: 0, selected: false };
+        }
+
         return { ...item, count: newCount };
       }
       return item;
@@ -625,9 +697,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setMenuType('MEAL_MENU');
     setMealWindow(mealWindow);
 
-    // Build addons array for the meal item
+    // Build addons array for the meal item - only include items with count > 0
     const selectedAddons = addOns
-      .filter(item => item.selected)
+      .filter(item => item.selected && item.count > 0)
       .map(item => ({
         addonId: item.id,
         name: item.name,
@@ -724,12 +796,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Decorative Background Elements */}
           <Image
             source={require('../../assets/images/homepage/halfcircle.png')}
-            style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
+            style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380, borderRadius: 150 }}
             resizeMode="contain"
           />
           <Image
             source={require('../../assets/images/homepage/halfline.png')}
-            style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
+            style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150, borderRadius: 20 }}
             resizeMode="contain"
           />
 
@@ -742,7 +814,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   source={require('../../assets/icons/Tiffsy.png')}
                   style={{
                     width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45,
-                    height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875
+                    height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875,
+                    borderRadius: 8,
                   }}
                   resizeMode="contain"
                 />
@@ -798,6 +871,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     paddingVertical: SPACING.xs + 1,
                     paddingHorizontal: SPACING.sm,
                     gap: 4,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 3,
                   }}
                 >
                   <Image
@@ -814,7 +892,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
             {/* Search Bar */}
-            <View className="mx-5 bg-white rounded-full flex-row items-center px-4" style={{ height: SPACING['2xl'] + SPACING.lg }}>
+            <View
+              className="mx-5 bg-white rounded-full flex-row items-center px-4"
+              style={{
+                height: SPACING['2xl'] + SPACING.lg,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
               <Image
                 source={require('../../assets/icons/search2.png')}
                 style={{ width: SPACING.iconSm, height: SPACING.iconSm }}
@@ -848,28 +936,75 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         {showAutoOrderNotification && subscriptions.find(
           sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused
         ) && (
-          <View className="mx-4 mb-3 mt-3">
+          <View style={{
+            marginHorizontal: SPACING.lg,
+            marginBottom: SPACING.md,
+            marginTop: SPACING.md,
+            zIndex: 10,
+            position: 'relative',
+          }}>
             <View
-              className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-3 flex-row items-center"
               style={{
-                backgroundColor: '#F3E8FF',
-                borderWidth: 1,
-                borderColor: '#E9D5FF',
-                shadowColor: '#8B5CF6',
+                backgroundColor: '#FFF5F2',
+                borderRadius: SPACING.lg,
+                padding: SPACING.lg,
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderLeftWidth: 4,
+                borderLeftColor: '#F56B4C',
+                shadowColor: '#F56B4C',
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
+                shadowOpacity: 0.08,
                 shadowRadius: 8,
-                elevation: 3,
+                elevation: 5,
               }}
             >
-              <View className="w-9 h-9 rounded-full items-center justify-center mr-2.5" style={{ backgroundColor: '#8B5CF6' }}>
-                <Text className="text-white text-lg">⚡</Text>
+              {/* Icon Container */}
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#F56B4C',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: SPACING.md,
+                }}
+              >
+                <Text style={{ fontSize: 20 }}>⚡</Text>
               </View>
-              <View className="flex-1">
-                <Text className="text-base font-bold text-gray-900 mb-0.5">
-                  Auto-Order Active
-                </Text>
-                <Text className="text-sm text-gray-700">
+
+              {/* Content */}
+              <View style={{ flex: 1, paddingRight: SPACING.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                  <View
+                    style={{
+                      backgroundColor: '#10B981',
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      marginRight: 6,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: FONT_SIZES.base,
+                      fontWeight: '700',
+                      color: '#1F2937',
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    Auto-Order Active
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: FONT_SIZES.sm,
+                    color: '#6B7280',
+                    lineHeight: FONT_SIZES.sm * 1.4,
+                    marginTop: 2,
+                  }}
+                >
                   {(() => {
                     const sub = subscriptions.find(s => s.status === 'ACTIVE' && s.autoOrderingEnabled && !s.isPaused);
                     if (!sub) return 'Your meals will be automatically ordered';
@@ -920,29 +1055,38 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   })()}
                 </Text>
               </View>
+
+              {/* Close Button */}
               <TouchableOpacity
                 onPress={() => setShowAutoOrderNotification(false)}
-                className="w-8 h-8 items-center justify-center"
+                style={{
+                  width: 32,
+                  height: 32,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 16,
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text className="text-gray-400 text-xl">×</Text>
+                <Text style={{ color: '#9CA3AF', fontSize: 24, fontWeight: '300' }}>×</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {/* White Container with Meal Options and Image */}
-        <View className="mb-6" style={{ position: 'relative', overflow: 'hidden', marginTop: -30 }}>
+        <View className="mb-6" style={{ position: 'relative', overflow: 'visible', marginTop: -30 }}>
           {/* Background Image */}
           <Image
             source={require('../../assets/images/homepage/homebackground.png')}
             style={{
               position: 'absolute',
-              top: 0,
+              top: -200,
               left: 0,
               right: 0,
               bottom: 0,
               width: '100%',
-              height: '100%',
+              height: '150%',
               opacity: 0.17,
             }}
             resizeMode="cover"
@@ -960,6 +1104,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   style={{
                     width: selectedMeal === 'lunch' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
                     height: selectedMeal === 'lunch' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
+                    borderRadius: 12,
                   }}
                   resizeMode="contain"
                 />
@@ -991,6 +1136,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   style={{
                     width: selectedMeal === 'dinner' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
                     height: selectedMeal === 'dinner' ? SPACING.iconXl * 2 : SPACING.iconXl * 1.6,
+                    borderRadius: 12,
                   }}
                   resizeMode="contain"
                 />
@@ -1244,34 +1390,106 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   </View>
 
-                  {/* Quantity Controls and Checkbox */}
+                  {/* Quantity Controls and Add Button */}
                   <View className="flex-row items-center">
-                    {item.selected ? (
-                      <View className="flex-row items-center">
-                        <TouchableOpacity
-                          onPress={() => updateQuantity(item.id, false)}
-                          className="rounded-full border-2 border-orange-400 items-center justify-center"
-                          style={{ width: SPACING.lg + 12, height: SPACING.lg + 12 }}
+                    <Animated.View
+                      style={{
+                        opacity: item.selected ? 1 : 0,
+                        transform: [
+                          {
+                            scale: item.selected ? 1 : 0.8,
+                          },
+                        ],
+                      }}
+                    >
+                      {item.selected && (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: '#FFF5F2',
+                            borderRadius: 18,
+                            paddingVertical: 8,
+                            paddingHorizontal: 8,
+                            borderWidth: 1,
+                            borderColor: '#F56B4C',
+                            minWidth: 60,
+                          }}
                         >
-                          <Text className="text-orange-400 font-bold">−</Text>
-                        </TouchableOpacity>
-                        <Text className="mx-3 font-semibold" style={{ fontSize: FONT_SIZES.base }}>{item.count}</Text>
-                        <TouchableOpacity
-                          onPress={() => updateQuantity(item.id, true)}
-                          className="rounded-full border-2 border-orange-400 items-center justify-center"
-                          style={{ width: SPACING.lg + 12, height: SPACING.lg + 12 }}
-                        >
-                          <Text className="text-orange-400 font-bold">+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => toggleAddOn(item.id)}
-                        className="rounded border-2 items-center justify-center border-gray-300"
-                        style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
+                          <TouchableOpacity
+                            onPress={() => updateQuantity(item.id, false)}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 10,
+                              backgroundColor: 'white',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderWidth: 1,
+                              borderColor: '#F56B4C',
+                            }}
+                          >
+                            <Text style={{ color: '#F56B4C', fontSize: 14, fontWeight: '600' }}>−</Text>
+                          </TouchableOpacity>
+                          <Text
+                            style={{
+                              marginHorizontal: 8,
+                              fontWeight: '600',
+                              fontSize: FONT_SIZES.sm,
+                              color: '#F56B4C',
+                              minWidth: 12,
+                              textAlign: 'center',
+                            }}
+                          >
+                            {item.count}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => updateQuantity(item.id, true)}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 10,
+                              backgroundColor: '#F56B4C',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>+</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </Animated.View>
+                    {!item.selected && (
+                      <Animated.View
+                        style={{
+                          opacity: !item.selected ? 1 : 0,
+                          transform: [
+                            {
+                              scale: !item.selected ? 1 : 0.8,
+                            },
+                          ],
+                        }}
                       >
-                        <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.xs }}>✓</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => toggleAddOn(item.id)}
+                          style={{
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            borderRadius: 18,
+                            backgroundColor: '#F56B4C',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            shadowColor: '#F56B4C',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 4,
+                            elevation: 3,
+                            minWidth: 60,
+                          }}
+                        >
+                          <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600' }}>Add</Text>
+                        </TouchableOpacity>
+                      </Animated.View>
                     )}
                   </View>
                 </View>
@@ -1356,167 +1574,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         nextMealWindowTime={mealWindowInfo.nextMealWindowTime}
         onClose={handleMealWindowModalClose}
       />
-
-      {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: SPACING['4xl'] + SPACING['3xl'] - 2, backgroundColor: 'white' }} />
-
-      {/* Bottom Navigation Bar */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: SPACING.xs + 6,
-          left: SPACING.lg + 4,
-          right: SPACING.lg + 4,
-          backgroundColor: 'white',
-          borderRadius: 50,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingVertical: SPACING.xs + 2,
-          paddingLeft: SPACING.lg + 4,
-          paddingRight: SPACING['3xl'] - 2,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 8,
-        }}
-      >
-        {/* Home Icon */}
-        <TouchableOpacity
-          onPress={() => setActiveTab('home')}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: SPACING.xl + 5,
-            paddingVertical: SPACING.sm,
-            paddingHorizontal: activeTab === 'home' ? SPACING.lg : SPACING.sm,
-            marginLeft: -SPACING.sm,
-            marginRight: 4,
-            minWidth: 44,
-            minHeight: 44,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/house.png')}
-            style={{
-              width: SPACING.iconSize,
-              height: SPACING.iconSize,
-              tintColor: activeTab === 'home' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'home' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'home' && (
-            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
-              Home
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Orders Section */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab('orders');
-            navigation.navigate('YourOrders');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: SPACING.xl + 5,
-            paddingVertical: SPACING.sm,
-            paddingHorizontal: activeTab === 'orders' ? SPACING.lg : SPACING.sm,
-            marginHorizontal: 4,
-            minWidth: 44,
-            minHeight: 44,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/cart3.png')}
-            style={{
-              width: SPACING.iconSize,
-              height: SPACING.iconSize,
-              tintColor: activeTab === 'orders' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'orders' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'orders' && (
-            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
-              Orders
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* On-Demand Icon */}
-        <TouchableOpacity
-          onPress={() => {
-            console.log('[HomeScreen] On-Demand button pressed, navigating to OnDemand');
-            setActiveTab('meals');
-            navigation.navigate('OnDemand');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: SPACING.xl + 5,
-            paddingVertical: SPACING.sm,
-            paddingHorizontal: activeTab === 'meals' ? SPACING.lg : SPACING.sm,
-            marginHorizontal: 4,
-            minWidth: 44,
-            minHeight: 44,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/kitchen.png')}
-            style={{
-              width: SPACING.iconSize,
-              height: SPACING.iconSize,
-              tintColor: activeTab === 'meals' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'meals' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'meals' && (
-            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
-              On-Demand
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Profile Button */}
-        <TouchableOpacity
-          onPress={() => {
-            setActiveTab('profile');
-            navigation.navigate('Account');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: activeTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: SPACING.xl + 5,
-            paddingVertical: SPACING.sm,
-            paddingHorizontal: activeTab === 'profile' ? SPACING.lg : SPACING.sm,
-            marginHorizontal: 4,
-            minWidth: 44,
-            minHeight: 44,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/profile2.png')}
-            style={{
-              width: SPACING.iconSize,
-              height: SPACING.iconSize,
-              tintColor: activeTab === 'profile' ? '#F56B4C' : '#9CA3AF',
-              marginRight: activeTab === 'profile' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {activeTab === 'profile' && (
-            <Text style={{ color: '#F56B4C', fontSize: FONT_SIZES.base - 1, fontWeight: '600' }}>
-              Profile
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };

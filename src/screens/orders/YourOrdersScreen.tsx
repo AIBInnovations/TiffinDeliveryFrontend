@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
@@ -110,9 +110,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const { usableVouchers } = useSubscription();
   const { showAlert } = useAlert();
   const { isSmallDevice } = useResponsive();
+  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<'Current' | 'History' | 'Auto'>('Current');
-  const [navActiveTab, setNavActiveTab] = useState<'home' | 'orders' | 'meals' | 'profile'>('orders');
 
   // Current orders state
   const [currentOrders, setCurrentOrders] = useState<Order[]>([]);
@@ -892,158 +892,6 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         {/* Bottom Spacing for Navigation Bar */}
         <View style={{ height: 100 }} />
       </ScrollView>
-
-      {/* White background for bottom safe area */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'white' }} />
-
-      {/* Bottom Navigation Bar */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 20,
-          right: 20,
-          backgroundColor: 'white',
-          borderRadius: 50,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingVertical: 6,
-          paddingLeft: 20,
-          paddingRight: 30,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 8,
-        }}
-      >
-        {/* Home Icon */}
-        <TouchableOpacity
-          onPress={() => {
-            setNavActiveTab('home');
-            navigation.navigate('Home');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: navActiveTab === 'home' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: navActiveTab === 'home' ? 16 : 8,
-            marginLeft: -8,
-            marginRight: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/house.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: navActiveTab === 'home' ? '#F56B4C' : '#9CA3AF',
-              marginRight: navActiveTab === 'home' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {navActiveTab === 'home' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Home
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Orders Section */}
-        <TouchableOpacity
-          onPress={() => setNavActiveTab('orders')}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: navActiveTab === 'orders' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: navActiveTab === 'orders' ? 16 : 8,
-            marginHorizontal: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/cart3.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: navActiveTab === 'orders' ? '#F56B4C' : '#9CA3AF',
-              marginRight: navActiveTab === 'orders' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {navActiveTab === 'orders' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Orders
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* On-Demand Icon */}
-        <TouchableOpacity
-          onPress={() => {
-            setNavActiveTab('meals');
-            navigation.navigate('OnDemand');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: navActiveTab === 'meals' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: navActiveTab === 'meals' ? 16 : 8,
-            marginHorizontal: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/kitchen.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: navActiveTab === 'meals' ? '#F56B4C' : '#9CA3AF',
-              marginRight: navActiveTab === 'meals' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {navActiveTab === 'meals' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              On-Demand
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Profile Button */}
-        <TouchableOpacity
-          onPress={() => {
-            setNavActiveTab('profile');
-            navigation.navigate('Account');
-          }}
-          className="flex-row items-center justify-center"
-          style={{
-            backgroundColor: navActiveTab === 'profile' ? 'rgba(255, 245, 242, 1)' : 'transparent',
-            borderRadius: 25,
-            paddingVertical: 8,
-            paddingHorizontal: navActiveTab === 'profile' ? 16 : 8,
-            marginHorizontal: 4,
-          }}
-        >
-          <Image
-            source={require('../../assets/icons/profile2.png')}
-            style={{
-              width: 24,
-              height: 24,
-              tintColor: navActiveTab === 'profile' ? '#F56B4C' : '#9CA3AF',
-              marginRight: navActiveTab === 'profile' ? 6 : 0,
-            }}
-            resizeMode="contain"
-          />
-          {navActiveTab === 'profile' && (
-            <Text style={{ color: '#F56B4C', fontSize: 15, fontWeight: '600' }}>
-              Profile
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
 
       {/* Cancel Order Modal */}
       <CancelOrderModal
