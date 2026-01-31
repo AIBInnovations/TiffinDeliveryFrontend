@@ -34,7 +34,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { subscriptionId } = route.params || {};
   const { subscriptions, updateAutoOrderSettings, pauseAutoOrdering, resumeAutoOrdering, usableVouchers } = useSubscription();
   const { addresses, getMainAddress } = useAddress();
-  const { isSmallDevice, width, height } = useResponsive();
+  const { isSmallDevice, width, height, scale, fontScale } = useResponsive();
+
+  // Responsive size functions
+  const responsiveSize = (size: number) => size * scale;
+  const responsiveFontSize = (size: number) => size * fontScale;
 
   // Find the subscription
   const subscription = subscriptions.find(s => s._id === subscriptionId);

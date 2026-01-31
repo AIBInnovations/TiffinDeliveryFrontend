@@ -739,7 +739,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const updateMealQuantity = (increment: boolean) => {
-    const newQuantity = increment ? mealQuantity + 1 : Math.max(1, mealQuantity - 1);
+    const newQuantity = increment ? mealQuantity + 1 : Math.max(0, mealQuantity - 1);
 
     // Update local state
     setMealQuantity(newQuantity);
@@ -749,6 +749,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const mealItem = getCurrentMealItem();
       if (mealItem?._id && isValidObjectId(mealItem._id)) {
         updateCartItemQuantity(mealItem._id, newQuantity);
+
+        // If quantity reaches 0, hide cart modal and reset state
+        if (newQuantity === 0) {
+          setShowCartModal(false);
+          setMealQuantity(1);
+          setAddOns(addOns.map(addon => ({ ...addon, selected: false, count: 0 })));
+        }
       }
     }
   };
@@ -799,18 +806,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }
       >
         {/* Header */}
-        <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+        <View className="bg-orange-400 pb-6" style={{ position: 'relative', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, zIndex: 10, elevation: 10 }}>
           {/* Decorative Background Elements */}
-          <Image
-            source={require('../../assets/images/homepage/halfcircle.png')}
-            style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380, borderRadius: 150 }}
-            resizeMode="contain"
-          />
-          <Image
-            source={require('../../assets/images/homepage/halfline.png')}
-            style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150, borderRadius: 20 }}
-            resizeMode="contain"
-          />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }} pointerEvents="none">
+            <Image
+              source={require('../../assets/images/homepage/halfcircle.png')}
+              style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
+              resizeMode="contain"
+            />
+            <Image
+              source={require('../../assets/images/homepage/halfline.png')}
+              style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
+              resizeMode="contain"
+            />
+          </View>
 
           <View className="px-5 pt-4 pb-6">
             {/* Top Row: Logo, Location, Actions */}
@@ -1088,7 +1097,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             source={require('../../assets/images/homepage/homebackground.png')}
             style={{
               position: 'absolute',
-              top: -200,
+              top: -100,
               left: 0,
               right: 0,
               bottom: 0,
