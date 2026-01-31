@@ -1,5 +1,5 @@
 // src/screens/orders/OrderTrackingScreen.tsx
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -104,6 +105,8 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickupNotes, setPickupNotes] = useState('');
+  const [savedNotes, setSavedNotes] = useState<string[]>([]);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRateModal, setShowRateModal] = useState(false);
@@ -111,6 +114,22 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load saved notes from AsyncStorage on mount
+  useEffect(() => {
+    const loadSavedNotes = async () => {
+      try {
+        const storageKey = `@order_notes_${orderId}`;
+        const storedNotes = await AsyncStorage.getItem(storageKey);
+        if (storedNotes) {
+          setSavedNotes(JSON.parse(storedNotes));
+        }
+      } catch (error) {
+        console.error('[OrderTracking] Error loading saved notes:', error);
+      }
+    };
+    loadSavedNotes();
+  }, [orderId]);
 
   // Fetch tracking data
   const fetchTracking = async () => {
@@ -336,6 +355,35 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleViewReceipt = () => {
     // TODO: Implement receipt view/download
     showAlert('Coming Soon', 'Receipt download will be available soon!', undefined, 'default');
+  };
+
+  const handleSavePickupNotes = async () => {
+    if (!pickupNotes.trim()) {
+      showAlert('Empty Notes', 'Please enter pickup notes before saving', undefined, 'warning');
+      return;
+    }
+
+    try {
+      setIsSavingNotes(true);
+      // TODO: Add API call to save pickup notes
+      // await apiService.updateOrderNotes(orderId, pickupNotes);
+
+      // Add the note to saved notes list
+      const updatedNotes = [...savedNotes, pickupNotes.trim()];
+      setSavedNotes(updatedNotes);
+
+      // Save to AsyncStorage
+      const storageKey = `@order_notes_${orderId}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updatedNotes));
+
+      showAlert('Notes Saved', 'Your pickup notes have been saved successfully', undefined, 'success');
+      // Clear the input field after successful save
+      setPickupNotes('');
+    } catch (err: any) {
+      showAlert('Error', err.message || 'Failed to save pickup notes', undefined, 'error');
+    } finally {
+      setIsSavingNotes(false);
+    }
   };
 
   // Current step in progress tracker
@@ -580,21 +628,66 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Pickup Notes */}
           {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (
             <View
-              className="flex-row items-center rounded-full px-4 mb-6"
-              style={{ height: 48, backgroundColor: 'rgba(241, 241, 241, 1)' }}
+              className="flex-row items-center rounded-full mb-6"
+              style={{ height: 48, backgroundColor: 'rgba(241, 241, 241, 1)', paddingHorizontal: 16 }}
+              pointerEvents="box-none"
             >
               <TextInput
                 placeholder="Any Pickup Notes?"
                 placeholderTextColor="rgba(143, 143, 143, 1)"
                 value={pickupNotes}
                 onChangeText={setPickupNotes}
-                className="flex-1 text-sm text-gray-900"
+                style={{
+                  flex: 1,
+                  fontSize: 14,
+                  color: '#111827',
+                  paddingRight: 8,
+                }}
+                multiline={false}
+                returnKeyType="done"
               />
-              <Image
-                source={require('../../assets/icons/pen2.png')}
-                style={{ width: 20, height: 20 }}
-                resizeMode="contain"
-              />
+              <TouchableOpacity
+                onPress={handleSavePickupNotes}
+                disabled={isSavingNotes}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#F56B4C',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  gap: 4,
+                }}
+              >
+                {isSavingNotes ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Image
+                      source={require('../../assets/icons/pen2.png')}
+                      style={{ width: 16, height: 16, tintColor: 'white' }}
+                      resizeMode="contain"
+                    />
+                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>Add</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Saved Pickup Notes */}
+          {savedNotes.length > 0 && !isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (
+            <View className="px-5">
+              <Text className="text-sm font-semibold text-gray-700 mb-2">Pickup Notes:</Text>
+              {savedNotes.map((note, index) => (
+                <View
+                  key={index}
+                  className="bg-orange-50 rounded-lg px-4 py-3 mb-2"
+                  style={{ borderLeftWidth: 3, borderLeftColor: '#F56B4C' }}
+                >
+                  <Text className="text-sm text-gray-800">{note}</Text>
+                </View>
+              ))}
             </View>
           )}
 
@@ -757,7 +850,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Total Amount */}
             <View className="flex-row justify-between">
               <Text className="text-lg font-bold text-gray-900">Total Amount:</Text>
-              <Text className="text-lg font-bold" style={{ color: '#FB923C' }}>
+              <Text className="text-lg font-bold" style={{ color: '#F56B4C' }}>
                 ₹{order.amountPaid.toFixed(2)}
               </Text>
             </View>
@@ -788,7 +881,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               onPress={handleCancelOrder}
               disabled={isCancelling}
-              className="rounded-full items-center"
+              className="rounded-full items-center justify-center"
               style={{
                 backgroundColor: isCancelling ? '#FCA5A5' : 'rgba(245, 107, 76, 1)',
                 minHeight: TOUCH_TARGETS.comfortable,
@@ -859,33 +952,36 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
         {tracking?.timeline && tracking.timeline.length > 0 && (
           <View className="bg-white px-5 py-5 mb-8">
             <Text className="text-lg font-bold text-gray-900 mb-4">Order Timeline</Text>
-            {tracking.timeline.map((event, index) => (
-              <View key={index} className="flex-row mb-3">
-                <View className="items-center mr-3">
-                  <View
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor: index === 0 ? '#F56B4C' : '#D1D5DB',
-                    }}
-                  />
-                  {index < tracking.timeline.length - 1 && (
+            {tracking.timeline.map((event, index) => {
+              const isCurrentStatus = event.status === tracking.status;
+              return (
+                <View key={index} className="flex-row mb-3">
+                  <View className="items-center mr-3">
                     <View
+                      className="w-3 h-3 rounded-full"
                       style={{
-                        width: 2,
-                        height: 30,
-                        backgroundColor: '#D1D5DB',
+                        backgroundColor: isCurrentStatus ? '#F56B4C' : '#D1D5DB',
                       }}
                     />
-                  )}
+                    {index < tracking.timeline.length - 1 && (
+                      <View
+                        style={{
+                          width: 2,
+                          height: 30,
+                          backgroundColor: '#D1D5DB',
+                        }}
+                      />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-gray-900">
+                      {event.message || event.status}
+                    </Text>
+                    <Text className="text-xs text-gray-500">{formatTime(event.timestamp)}</Text>
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900">
-                    {event.message || event.status}
-                  </Text>
-                  <Text className="text-xs text-gray-500">{formatTime(event.timestamp)}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>

@@ -467,7 +467,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity
           onPress={handleSave}
           disabled={isSaving}
-          className="bg-orange-400 rounded-full items-center"
+          className="bg-orange-400 rounded-full items-center justify-center"
           style={{
             opacity: isSaving ? 0.7 : 1,
             minHeight: TOUCH_TARGETS.large,

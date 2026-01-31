@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -80,6 +81,9 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
   // Voucher auto-apply state
   const [hasAutoApplied, setHasAutoApplied] = useState(false);
+
+  // Order summary expand/collapse state
+  const [isOrderSummaryExpanded, setIsOrderSummaryExpanded] = useState(false);
 
   // Refresh voucher data when screen comes into focus
   useFocusEffect(
@@ -1054,8 +1058,6 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        <Text className="text-lg font-bold text-gray-900 mb-2">Order Summary</Text>
-
         {isCalculating ? (
           <View className="items-center py-4">
             <ActivityIndicator size="small" color="#F56B4C" />
@@ -1074,41 +1076,120 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           <>
-            {/* Subtotal */}
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-sm text-gray-600">Subtotal:</Text>
-              <Text className="text-sm text-gray-900">₹{subtotal.toFixed(2)}</Text>
+            {/* To Pay Header - Always Visible */}
+            <View className="flex-row justify-between items-center mb-3">
+              <View className="flex-row items-center">
+                <Text className="text-base font-semibold text-gray-900">To Pay</Text>
+                <TouchableOpacity
+                  onPress={() => setIsOrderSummaryExpanded(!isOrderSummaryExpanded)}
+                  activeOpacity={0.7}
+                  style={{ marginLeft: 6 }}
+                >
+                  <MaterialCommunityIcons
+                    name="information-outline"
+                    size={16}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
+              </View>
+              <View className="flex-row items-center">
+                {totalDiscount > 0 && (
+                  <Text className="text-sm text-gray-400 mr-2" style={{ textDecorationLine: 'line-through' }}>
+                    ₹{(subtotal + totalCharges).toFixed(2)}
+                  </Text>
+                )}
+                <Text className="text-lg font-bold text-gray-900">₹{amountToPay.toFixed(2)}</Text>
+              </View>
             </View>
 
-            {/* Delivery & Charges */}
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-sm text-gray-600">Delivery & Charges:</Text>
-              <Text className="text-sm text-gray-900">₹{totalCharges.toFixed(2)}</Text>
-            </View>
+            {/* Expandable Breakdown Section */}
+            {isOrderSummaryExpanded && (
+              <View style={{ marginBottom: 12 }}>
+                {/* Total Saving */}
+                {totalDiscount > 0 && (
+                  <View className="items-end mb-3">
+                    <Text className="text-sm font-semibold" style={{ color: '#10B981' }}>
+                      Total Saving: ₹{totalDiscount.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
 
-            {/* Voucher Discount */}
-            {voucherDiscount > 0 && (
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-sm text-green-600">Voucher Discount:</Text>
-                <Text className="text-sm text-green-600 font-semibold">- ₹{voucherDiscount.toFixed(2)}</Text>
+                {/* Sub Total */}
+                <View className="flex-row justify-between mb-2">
+                  <Text className="text-sm text-gray-900">Sub Total</Text>
+                  <Text className="text-sm text-gray-900">₹ {subtotal.toFixed(0)}</Text>
+                </View>
+
+                {/* Discount */}
+                {totalDiscount > 0 && (
+                  <View className="flex-row justify-between mb-2">
+                    <Text className="text-sm" style={{ color: '#10B981' }}>Discount</Text>
+                    <Text className="text-sm" style={{ color: '#10B981' }}>(-)₹ {Math.round(totalDiscount)}</Text>
+                  </View>
+                )}
+
+                <View className="border-t border-gray-200 my-2" style={{ borderStyle: 'dashed' }} />
+
+                {/* Delivery Charges */}
+                {charges.deliveryFee > 0 && (
+                  <View className="flex-row justify-between mb-2">
+                    <View className="flex-row items-center">
+                      <Text className="text-sm text-gray-900">Delivery Charges</Text>
+                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                    </View>
+                    <Text className="text-sm text-gray-900">₹{charges.deliveryFee.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                {/* Packaging Charges */}
+                {charges.packagingFee > 0 && (
+                  <View className="flex-row justify-between mb-2">
+                    <View className="flex-row items-center">
+                      <Text className="text-sm text-gray-900">Packaging Charges</Text>
+                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                    </View>
+                    <Text className="text-sm text-gray-900">₹{charges.packagingFee.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                {/* Platform Charges */}
+                {charges.serviceFee > 0 && (
+                  <View className="flex-row justify-between mb-2">
+                    <View className="flex-row items-center">
+                      <Text className="text-sm text-gray-900">Platform Charges</Text>
+                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                    </View>
+                    <Text className="text-sm text-gray-900">₹{charges.serviceFee.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                {/* Applicable Taxes */}
+                {charges.taxAmount > 0 && (
+                  <View className="flex-row justify-between mb-3">
+                    <View className="flex-row items-center">
+                      <Text className="text-sm text-gray-900">Applicable Taxes</Text>
+                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                    </View>
+                    <Text className="text-sm text-gray-900">₹ {charges.taxAmount.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                {/* TO PAY - Bottom */}
+                <View className="border-t border-gray-300 pt-2 mt-1">
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-base font-bold text-gray-900">TO PAY</Text>
+                    <View className="flex-row items-center">
+                      {totalDiscount > 0 && (
+                        <Text className="text-sm text-gray-400 mr-2" style={{ textDecorationLine: 'line-through' }}>
+                          ₹ {(subtotal + totalCharges).toFixed(2)}
+                        </Text>
+                      )}
+                      <Text className="text-lg font-bold text-gray-900">₹{amountToPay.toFixed(2)}</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
             )}
-
-            {/* Coupon Discount */}
-            {couponDiscount > 0 && (
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-sm text-green-600">Coupon Discount:</Text>
-                <Text className="text-sm text-green-600 font-semibold">- ₹{couponDiscount.toFixed(2)}</Text>
-              </View>
-            )}
-
-            <View className="border-b border-gray-200 my-2" />
-
-            {/* Total Amount */}
-            <View className="flex-row justify-between mb-3">
-              <Text className="text-base font-bold text-gray-900">To Pay:</Text>
-              <Text className="text-base font-bold text-orange-400">₹{amountToPay.toFixed(2)}</Text>
-            </View>
           </>
         )}
 

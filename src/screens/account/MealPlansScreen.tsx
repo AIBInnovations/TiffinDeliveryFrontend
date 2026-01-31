@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -327,7 +328,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             borderTopRightRadius: 33,
             marginTop: -40,
             alignSelf: 'center',
-            paddingHorizontal: 16,
+            paddingHorizontal: 40,
             paddingTop: 24,
             paddingBottom: 24,
           }}
@@ -401,7 +402,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             width: 412,
             backgroundColor: '#FFFFFF',
             alignSelf: 'center',
-            paddingHorizontal: 16,
+            paddingHorizontal: 40,
             paddingTop: 14,
             paddingBottom: 16,
           }}
@@ -448,7 +449,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   onPress={() => !isGuest && handleSubscribe(plan)}
                   activeOpacity={0.8}
                   style={{
-                    width: 380,
+                    width: 330,
                     height: 160,
                     borderRadius: 42,
                     borderWidth: 1,
@@ -617,7 +618,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
             backgroundColor: '#FFFFFF',
             alignSelf: 'center',
             borderRadius: 33,
-            paddingHorizontal: 16,
+            paddingHorizontal: 40,
             paddingVertical: 20,
           }}
         >
