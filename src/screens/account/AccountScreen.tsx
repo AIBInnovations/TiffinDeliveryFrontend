@@ -142,20 +142,26 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   // Show loading state while fetching subscriptions
   if (loading && !isGuest) {
     return (
-      <SafeAreaView className="flex-1 bg-white">
+      <View style={{ flex: 1, backgroundColor: 'white' }}>
         <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+        {/* Status bar background */}
+        <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
         {/* Header with orange background */}
-        <View className="bg-orange-400 pb-4" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
-          <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
-            <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10 }}>
+        <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+          <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
+            <View style={{ width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45 }}>
               <Image
                 source={require('../../assets/icons/Tiffsy.png')}
-                style={{ width: 58, height: 35 }}
+                style={{
+                  width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45,
+                  height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875,
+                  borderRadius: 8,
+                }}
                 resizeMode="contain"
               />
             </View>
             <Text className="text-white text-xl font-bold">My Profile</Text>
-            <View style={{ width: 58 }} />
+            <View style={{ width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45 }} />
           </View>
         </View>
         {/* Loading indicator */}
@@ -163,7 +169,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           <ActivityIndicator size="large" color="#F56B4C" />
           <Text className="mt-4 text-gray-600">Loading profile...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -393,11 +399,14 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-400">
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 70 }}>
+      {/* Status bar background */}
+      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+
+      <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header */}
-        <View className="bg-orange-400 pb-4" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+        <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
           <Image
             source={require('../../assets/images/homepage/halfcircle.png')}
@@ -410,12 +419,16 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             resizeMode="contain"
           />
 
-          <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+          <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
             {/* Logo */}
-            <View className="w-12 h-12 items-center justify-center" style={{ marginLeft: 10 }}>
+            <View style={{ width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45 }}>
               <Image
                 source={require('../../assets/icons/Tiffsy.png')}
-                style={{ width: 58, height: 35 }}
+                style={{
+                  width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45,
+                  height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875,
+                  borderRadius: 8,
+                }}
                 resizeMode="contain"
               />
             </View>
@@ -425,29 +438,31 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               My Profile
             </Text>
 
-            {/* Right Section with Voucher */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              {/* Voucher Button */}
-              <TouchableOpacity
-                onPress={() => navigation.navigate('MealPlans')}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: 'white',
-                  borderRadius: 20,
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                  gap: 6,
-                }}
-              >
-                <Image
-                  source={require('../../assets/icons/voucher5.png')}
-                  style={{ width: 24, height: 24 }}
-                  resizeMode="contain"
-                />
-                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Voucher Button */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MealPlans')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                borderRadius: SPACING.lg,
+                paddingVertical: SPACING.xs + 1,
+                paddingHorizontal: SPACING.sm,
+                gap: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
+              <Image
+                source={require('../../assets/icons/voucher5.png')}
+                style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1248,7 +1263,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

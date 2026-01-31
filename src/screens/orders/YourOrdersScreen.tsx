@@ -671,11 +671,14 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-400">
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
 
+      {/* Status bar background */}
+      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+
       {/* Header and Tabs Container */}
-      <View style={{ backgroundColor: 'rgba(245, 107, 76, 1)', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, position: 'relative', overflow: 'hidden' }}>
+      <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
         {/* Decorative Background Elements */}
         <Image
           source={require('../../assets/images/homepage/halfcircle.png')}
@@ -731,11 +734,11 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Tabs */}
-        <View className="px-5 pt-4 pb-6">
+        <View className="px-5 mt-4">
           <View className="flex-row bg-gray-100 rounded-full p-1">
             <TouchableOpacity
               onPress={() => setActiveTab('Current')}
-              className={`flex-1 py-3 rounded-full ${
+              className={`flex-1 rounded-full ${
                 activeTab === 'Current' ? 'bg-white' : 'bg-transparent'
               }`}
               style={{
@@ -744,7 +747,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: activeTab === 'Current' ? 0.1 : 0,
                 shadowRadius: 2,
                 elevation: activeTab === 'Current' ? 2 : 0,
-                minHeight: 48,
+                minHeight: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
               <Text
@@ -759,7 +764,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               onPress={() => setActiveTab('History')}
-              className={`flex-1 py-3 rounded-full ${
+              className={`flex-1 rounded-full ${
                 activeTab === 'History' ? 'bg-white' : 'bg-transparent'
               }`}
               style={{
@@ -768,7 +773,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: activeTab === 'History' ? 0.1 : 0,
                 shadowRadius: 2,
                 elevation: activeTab === 'History' ? 2 : 0,
-                minHeight: 48,
+                minHeight: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
               <Text
@@ -783,7 +790,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               onPress={() => setActiveTab('Auto')}
-              className={`flex-1 py-3 rounded-full ${
+              className={`flex-1 rounded-full ${
                 activeTab === 'Auto' ? 'bg-white' : 'bg-transparent'
               }`}
               style={{
@@ -792,7 +799,9 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: activeTab === 'Auto' ? 0.1 : 0,
                 shadowRadius: 2,
                 elevation: activeTab === 'Auto' ? 2 : 0,
-                minHeight: 48,
+                minHeight: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
               <Text
@@ -909,7 +918,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         mealWindow={selectedOrderForCancel?.mealWindow}
         cutoffTime={selectedOrderForCancel?.mealWindow ? getMealCutoffTime(kitchenOperatingHours, selectedOrderForCancel.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -229,12 +229,18 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-400">
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+
+      {/* Status bar background */}
+      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+
+      {/* Orange background for pull-to-refresh/bounce area */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FB923C', zIndex: -1 }} />
 
       {/* Header */}
       <View
-        className="bg-orange-400 pb-16"
+        className="bg-orange-400 pb-6"
         style={{
           position: 'relative',
           overflow: 'hidden',
@@ -245,64 +251,71 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
         {/* Decorative Background Elements */}
         <Image
           source={require('../../assets/images/homepage/halfcircle.png')}
-          style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
+          style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380, borderRadius: 150 }}
           resizeMode="contain"
         />
         <Image
           source={require('../../assets/images/homepage/halfline.png')}
-          style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
+          style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150, borderRadius: 20 }}
           resizeMode="contain"
         />
 
-        <View className="flex-row items-center justify-between px-5 pt-4">
-          {/* Back Button */}
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{
-              minWidth: TOUCH_TARGETS.minimum,
-              minHeight: TOUCH_TARGETS.minimum,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Image
-              source={require('../../assets/icons/backarrow3.png')}
-              style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+        <View className="px-5 pt-4 pb-4">
+          <View className="flex-row items-center justify-between">
+            {/* Back Button */}
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={{
+                minWidth: TOUCH_TARGETS.minimum,
+                minHeight: TOUCH_TARGETS.minimum,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Image
+                source={require('../../assets/icons/backarrow3.png')}
+                style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
 
-          {/* Title */}
-          <Text className="text-white font-bold" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
-            My Vouchers
-          </Text>
+            {/* Title */}
+            <Text className="text-white font-bold" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>
+              My Vouchers
+            </Text>
 
-          {/* Voucher Button */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('MealPlans')}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: 'white',
-              borderRadius: 20,
-              paddingVertical: SPACING.sm,
-              paddingHorizontal: SPACING.md,
-              gap: SPACING.sm,
-              minHeight: TOUCH_TARGETS.minimum,
-            }}
-          >
-            <Image
-              source={require('../../assets/icons/voucher5.png')}
-              style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
-              resizeMode="contain"
-            />
-            <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
-          </TouchableOpacity>
+            {/* Voucher Button */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MealPlans')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                borderRadius: SPACING.lg,
+                paddingVertical: SPACING.xs + 1,
+                paddingHorizontal: SPACING.sm,
+                gap: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+                minHeight: TOUCH_TARGETS.minimum,
+              }}
+            >
+              <Image
+                source={require('../../assets/icons/voucher5.png')}
+                style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       {/* Content Area */}
-      <View className="flex-1 bg-gray-50" style={{ marginTop: -20, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+      <View className="flex-1 bg-gray-50">
         {/* Summary Cards */}
         <View className="flex-row px-5 pt-6 pb-4">
         {/* Available */}
@@ -440,7 +453,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
         />
       )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

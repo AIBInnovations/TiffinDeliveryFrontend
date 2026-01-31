@@ -25,12 +25,15 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
   console.log('[OnDemandScreen] Screen rendered');
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-400">
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+
+      {/* Status bar background */}
+      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
 
       {/* Header */}
       <View
-        className="bg-orange-400 pb-16"
+        className="bg-orange-400 pb-6"
         style={{
           position: 'relative',
           overflow: 'hidden',
@@ -50,17 +53,15 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
           resizeMode="contain"
         />
 
-        <View className="flex-row items-center justify-between px-5 pt-4">
+        <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
           {/* Logo */}
-          <View
-            className="w-12 h-12 items-center justify-center"
-            style={{ marginLeft: 10 }}
-          >
+          <View style={{ width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45 }}>
             <Image
               source={require('../../assets/icons/Tiffsy.png')}
               style={{
                 width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45,
                 height: isSmallDevice ? SPACING.iconXl * 0.7 : SPACING.iconXl * 0.875,
+                borderRadius: 8,
               }}
               resizeMode="contain"
             />
@@ -78,27 +79,31 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
               flexDirection: 'row',
               alignItems: 'center',
               backgroundColor: 'white',
-              borderRadius: 20,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
-              gap: 6,
-              minHeight: TOUCH_TARGETS.minimum,
+              borderRadius: SPACING.lg,
+              paddingVertical: SPACING.xs + 1,
+              paddingHorizontal: SPACING.sm,
+              gap: 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
             }}
           >
             <Image
               source={require('../../assets/icons/voucher5.png')}
-              style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
+              style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+            <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Content Area */}
       <View
-        className="flex-1 bg-gray-50 items-center justify-center"
-        style={{ marginTop: -20, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+        className="flex-1 bg-white items-center justify-center"
+        style={{ paddingBottom: insets.bottom + 100 }}
       >
         {/* Coming Soon Content */}
         <View className="items-center px-8">
@@ -126,7 +131,7 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

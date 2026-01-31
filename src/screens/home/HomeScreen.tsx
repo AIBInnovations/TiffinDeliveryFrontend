@@ -781,18 +781,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-400">
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
       <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
 
+      {/* Status bar background */}
+      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+
+      {/* Orange background for pull-to-refresh/bounce area */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FB923C', zIndex: -1 }} />
+
       <ScrollView
-        className="flex-1 bg-white"
+        className="flex-1"
         showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: 'transparent' }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F56B4C']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F56B4C']} tintColor="#FFFFFF" />
         }
       >
         {/* Header */}
-        <View className="bg-orange-400 pb-8" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+        <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           {/* Decorative Background Elements */}
           <Image
             source={require('../../assets/images/homepage/halfcircle.png')}
@@ -1574,7 +1581,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         nextMealWindowTime={mealWindowInfo.nextMealWindowTime}
         onClose={handleMealWindowModalClose}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 

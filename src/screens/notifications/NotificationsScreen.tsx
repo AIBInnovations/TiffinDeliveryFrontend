@@ -324,11 +324,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: FONT_SIZES.h3,
-    fontWeight: 'bold',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
     color: '#1F2937',
     flex: 1,
-    textAlign: 'center',
+    textAlign: 'left',
+    marginLeft: SPACING.sm,
   },
   markAllButton: {
     paddingHorizontal: SPACING.sm,

@@ -10,6 +10,7 @@ import UserOnboardingScreen from '../screens/auth/UserOnboardingScreen';
 import AddressSetupScreen from '../screens/auth/AddressSetupScreen';
 import { RootStackParamList } from '../types/navigation';
 import { useUser } from '../context/UserContext';
+import { navigationRef } from './navigationRef';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -52,6 +53,7 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       theme={{
         dark: false,
         colors: {

@@ -66,11 +66,16 @@ const OnboardingScreen1: React.FC<Props> = ({ navigation }) => {
           {/* Text */}
           <Text
             style={{
-              color: 'white',
-              fontSize: FONT_SIZES['3xl'],
-              fontWeight: 'bold',
-              lineHeight: FONT_SIZES['3xl'] * 1.2,
-              marginTop: 0,
+              position: 'absolute',
+              top: 110,
+              left: 16,
+              width: 284,
+              height: 171,
+              color: '#FFFFFF',
+              fontSize: 48,
+              lineHeight: 57,
+              fontFamily: 'arbutusslab',
+              letterSpacing: 0,
             }}
           >
             Taste{'\n'}Tasty Meals{'\n'}Every Days
