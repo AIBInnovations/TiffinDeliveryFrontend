@@ -194,9 +194,9 @@ const AddressSetupScreen: React.FC = () => {
                       paddingHorizontal: SPACING.lg,
                       paddingVertical: SPACING.sm,
                       minHeight: TOUCH_TARGETS.minimum,
-                      backgroundColor: addressForm.label === label ? '#F56B4C' : '#F3F4F6',
+                      backgroundColor: addressForm.label === label ? '#ff8800' : '#F3F4F6',
                       borderWidth: 1,
-                      borderColor: addressForm.label === label ? '#F56B4C' : '#E5E7EB',
+                      borderColor: addressForm.label === label ? '#ff8800' : '#E5E7EB',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
@@ -461,7 +461,7 @@ const AddressSetupScreen: React.FC = () => {
               style={{
                 paddingVertical: SPACING.lg,
                 minHeight: TOUCH_TARGETS.large,
-                backgroundColor: isSubmitting ? '#CCCCCC' : '#F56B4C',
+                backgroundColor: isSubmitting ? '#CCCCCC' : '#ff8800',
                 justifyContent: 'center',
               }}
             >

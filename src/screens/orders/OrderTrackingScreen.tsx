@@ -401,7 +401,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#F56B4C" />
+        <ActivityIndicator size="large" color="#ff8800" />
         <Text className="text-gray-500 mt-4" style={{ fontSize: FONT_SIZES.base }}>Loading tracking info...</Text>
       </SafeAreaView>
     );
@@ -418,7 +418,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
             fetchTracking();
           }}
           className="rounded-full px-6"
-          style={{ backgroundColor: '#F56B4C', minHeight: TOUCH_TARGETS.comfortable }}
+          style={{ backgroundColor: '#ff8800', minHeight: TOUCH_TARGETS.comfortable }}
         >
           <Text className="text-white font-semibold" style={{ fontSize: FONT_SIZES.base }}>Retry</Text>
         </TouchableOpacity>
@@ -502,7 +502,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
                 <Text
                   className="text-xs font-semibold"
-                  style={{ color: currentStep >= 0 ? '#FB923C' : '#9CA3AF' }}
+                  style={{ color: currentStep >= 0 ? '#FDB766' : '#9CA3AF' }}
                 >
                   Preparing
                 </Text>
@@ -514,7 +514,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                   style={{
                     flex: 1,
                     height: 2,
-                    backgroundColor: currentStep >= 1 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
+                    backgroundColor: currentStep >= 1 ? 'rgba(255, 136, 0, 1)' : '#D1D5DB',
                   }}
                 />
               </View>
@@ -527,7 +527,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: currentStep >= 2 ? '#F56B4C' : '#9CA3AF',
+                    backgroundColor: currentStep >= 2 ? '#ff8800' : '#9CA3AF',
                   }}
                 >
                   <MaterialCommunityIcons
@@ -538,7 +538,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
                 <Text
                   className="text-xs font-semibold text-center"
-                  style={{ color: currentStep >= 2 ? '#FB923C' : '#9CA3AF' }}
+                  style={{ color: currentStep >= 2 ? '#FDB766' : '#9CA3AF' }}
                 >
                   Out For Delivery
                 </Text>
@@ -549,7 +549,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={{
                   flex: 1,
                   height: 2,
-                  backgroundColor: currentStep >= 2 ? 'rgba(245, 107, 76, 1)' : '#D1D5DB',
+                  backgroundColor: currentStep >= 2 ? 'rgba(255, 136, 0, 1)' : '#D1D5DB',
                   marginHorizontal: 4,
                   marginBottom: 24,
                 }}
@@ -563,7 +563,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: currentStep >= 3 ? '#F56B4C' : '#9CA3AF',
+                    backgroundColor: currentStep >= 3 ? '#ff8800' : '#9CA3AF',
                   }}
                 >
                   <MaterialCommunityIcons
@@ -574,7 +574,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
                 <Text
                   className="text-xs font-semibold"
-                  style={{ color: currentStep >= 3 ? '#FB923C' : '#9CA3AF' }}
+                  style={{ color: currentStep >= 3 ? '#FDB766' : '#9CA3AF' }}
                 >
                   Delivered
                 </Text>
@@ -652,7 +652,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#F56B4C',
+                  backgroundColor: '#ff8800',
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 20,
@@ -683,7 +683,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View
                   key={index}
                   className="bg-orange-50 rounded-lg px-4 py-3 mb-2"
-                  style={{ borderLeftWidth: 3, borderLeftColor: '#F56B4C' }}
+                  style={{ borderLeftWidth: 3, borderLeftColor: '#ff8800' }}
                 >
                   <Text className="text-sm text-gray-800">{note}</Text>
                 </View>
@@ -850,7 +850,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Total Amount */}
             <View className="flex-row justify-between">
               <Text className="text-lg font-bold text-gray-900">Total Amount:</Text>
-              <Text className="text-lg font-bold" style={{ color: '#F56B4C' }}>
+              <Text className="text-lg font-bold" style={{ color: '#ff8800' }}>
                 ₹{order.amountPaid.toFixed(2)}
               </Text>
             </View>
@@ -869,7 +869,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
               style={{ width: SPACING.iconSm, height: SPACING.iconSm, marginRight: 8 }}
               resizeMode="contain"
             />
-            <Text className="font-bold" style={{ color: 'rgba(245, 107, 76, 1)', fontSize: FONT_SIZES.base }}>
+            <Text className="font-bold" style={{ color: 'rgba(255, 136, 0, 1)', fontSize: FONT_SIZES.base }}>
               View Receipt
             </Text>
           </TouchableOpacity>
@@ -883,7 +883,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
               disabled={isCancelling}
               className="rounded-full items-center justify-center"
               style={{
-                backgroundColor: isCancelling ? '#FCA5A5' : 'rgba(245, 107, 76, 1)',
+                backgroundColor: isCancelling ? '#FCA5A5' : 'rgba(255, 136, 0, 1)',
                 minHeight: TOUCH_TARGETS.comfortable,
               }}
             >
@@ -960,7 +960,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                     <View
                       className="w-3 h-3 rounded-full"
                       style={{
-                        backgroundColor: isCurrentStatus ? '#F56B4C' : '#D1D5DB',
+                        backgroundColor: isCurrentStatus ? '#ff8800' : '#D1D5DB',
                       }}
                     />
                     {index < tracking.timeline.length - 1 && (

@@ -42,7 +42,7 @@ class NotificationChannelModule(reactContext: ReactApplicationContext) :
                 ).apply {
                     description = "Order status updates and delivery notifications"
                     enableLights(true)
-                    lightColor = android.graphics.Color.parseColor("#F56B4C") // Orange brand color
+                    lightColor = android.graphics.Color.parseColor("#ff8800") // Orange brand color
                     enableVibration(true)
                     vibrationPattern = longArrayOf(0, 300, 200, 300) // Custom vibration pattern
                     setSound(

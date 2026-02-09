@@ -143,9 +143,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   if (loading && !isGuest) {
     return (
       <View style={{ flex: 1, backgroundColor: 'white' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+        <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
         {/* Status bar background */}
-        <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+        <SafeAreaView style={{ backgroundColor: '#ff8800' }} edges={['top']} />
         {/* Header with orange background */}
         <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
@@ -166,7 +166,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
         </View>
         {/* Loading indicator */}
         <View className="flex-1 justify-center items-center bg-white">
-          <ActivityIndicator size="large" color="#F56B4C" />
+          <ActivityIndicator size="large" color="#ff8800" />
           <Text className="mt-4 text-gray-600">Loading profile...</Text>
         </View>
       </View>
@@ -400,9 +400,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#ff8800' }} edges={['top']} />
 
       <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header */}
@@ -461,7 +461,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#ff8800' }}>{usableVouchers}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -475,7 +475,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               borderRadius: 20,
               padding: 24,
               borderWidth: 2,
-              borderColor: '#F56B4C',
+              borderColor: '#ff8800',
             }}>
               <View className="items-center mb-4">
                 <Image
@@ -499,7 +499,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={handleGuestLogin}
                 className="bg-orange-400 rounded-full py-3 items-center shadow-lg"
                 style={{
-                  shadowColor: '#F56B4C',
+                  shadowColor: '#ff8800',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3,
                   shadowRadius: 8,
@@ -592,7 +592,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 }}
                 onPress={() => navigation.navigate('MealPlans')}
               >
-                <Text style={{ color: '#F56B4C', fontWeight: '600', fontSize: FONT_SIZES.sm }}>
+                <Text style={{ color: '#ff8800', fontWeight: '600', fontSize: FONT_SIZES.sm }}>
                   Buy More
                 </Text>
               </TouchableOpacity>
@@ -714,7 +714,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => navigation.navigate('Vouchers')}
               className="mt-2"
             >
-              <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+              <Text className="text-sm font-semibold" style={{ color: '#ff8800' }}>
                 View All Vouchers →
               </Text>
             </TouchableOpacity>
@@ -728,7 +728,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 className="flex-1 mr-2 bg-white rounded-full py-2.5 items-center"
                 style={{
                   borderWidth: 1.5,
-                  borderColor: activeSubFull?.isPaused ? '#10B981' : '#F56B4C',
+                  borderColor: activeSubFull?.isPaused ? '#10B981' : '#ff8800',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
@@ -738,9 +738,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 }}
               >
                 {isAutoOrderLoading ? (
-                  <ActivityIndicator size="small" color="#F56B4C" />
+                  <ActivityIndicator size="small" color="#ff8800" />
                 ) : (
-                  <Text className="font-semibold text-sm" style={{ color: activeSubFull?.isPaused ? '#10B981' : '#F56B4C' }}>
+                  <Text className="font-semibold text-sm" style={{ color: activeSubFull?.isPaused ? '#10B981' : '#ff8800' }}>
                     {activeSubFull?.isPaused ? 'Resume' : 'Pause'}
                   </Text>
                 )}
@@ -752,8 +752,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={!activeSubFull?.autoOrderingEnabled}
                 className="flex-1 ml-2 rounded-full py-2.5 items-center"
                 style={{
-                  backgroundColor: activeSubFull?.autoOrderingEnabled ? '#F56B4C' : '#D1D5DB',
-                  shadowColor: '#F56B4C',
+                  backgroundColor: activeSubFull?.autoOrderingEnabled ? '#ff8800' : '#D1D5DB',
+                  shadowColor: '#ff8800',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: activeSubFull?.autoOrderingEnabled ? 0.3 : 0.1,
                   shadowRadius: 4,
@@ -793,7 +793,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     <TouchableOpacity
                       onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
                     >
-                      <Text className="text-sm font-semibold" style={{ color: '#F56B4C' }}>
+                      <Text className="text-sm font-semibold" style={{ color: '#ff8800' }}>
                         Change →
                       </Text>
                     </TouchableOpacity>
@@ -928,11 +928,11 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             className="bg-white rounded-full items-center"
             style={{
               borderWidth: 2,
-              borderColor: '#F56B4C',
+              borderColor: '#ff8800',
               paddingVertical: SPACING.lg,
             }}
           >
-            <Text style={{ fontWeight: 'bold', fontSize: FONT_SIZES.lg, color: '#F56B4C' }}>
+            <Text style={{ fontWeight: 'bold', fontSize: FONT_SIZES.lg, color: '#ff8800' }}>
               Delete Account
             </Text>
           </TouchableOpacity>
@@ -1012,7 +1012,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     padding: 14,
                     marginBottom: 8,
                     borderWidth: 2,
-                    borderColor: pauseMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
+                    borderColor: pauseMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
                   }}
                 >
                   <View style={{
@@ -1020,8 +1020,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     height: 22,
                     borderRadius: 11,
                     borderWidth: 2,
-                    borderColor: pauseMealType === 'LUNCH' ? '#F56B4C' : '#D1D5DB',
-                    backgroundColor: pauseMealType === 'LUNCH' ? '#F56B4C' : 'white',
+                    borderColor: pauseMealType === 'LUNCH' ? '#ff8800' : '#D1D5DB',
+                    backgroundColor: pauseMealType === 'LUNCH' ? '#ff8800' : 'white',
                     marginRight: 10,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1200,7 +1200,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => setSkipMealWindow('LUNCH')}
                 className="flex-1 mr-2 rounded-full py-3 items-center"
                 style={{
-                  backgroundColor: skipMealWindow === 'LUNCH' ? '#F56B4C' : '#F3F4F6',
+                  backgroundColor: skipMealWindow === 'LUNCH' ? '#ff8800' : '#F3F4F6',
                 }}
               >
                 <Text
@@ -1214,7 +1214,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => setSkipMealWindow('DINNER')}
                 className="flex-1 ml-2 rounded-full py-3 items-center"
                 style={{
-                  backgroundColor: skipMealWindow === 'DINNER' ? '#F56B4C' : '#F3F4F6',
+                  backgroundColor: skipMealWindow === 'DINNER' ? '#ff8800' : '#F3F4F6',
                 }}
               >
                 <Text

@@ -97,8 +97,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   if (!subscription) {
     return (
       <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
-        <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-        <ActivityIndicator size="large" color="#F56B4C" />
+        <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
+        <ActivityIndicator size="large" color="#ff8800" />
         <Text className="mt-4 text-gray-600">Loading subscription...</Text>
       </SafeAreaView>
     );
@@ -266,7 +266,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} className="flex-1 bg-white">
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
       {/* Header */}
       <View
         className="bg-orange-400 px-5 py-4"
@@ -325,7 +325,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           <View
             className="p-5"
             style={{
-              backgroundColor: isEnabled ? '#F56B4C' : '#9CA3AF',
+              backgroundColor: isEnabled ? '#ff8800' : '#9CA3AF',
             }}
           >
             {/* Toggle Row */}
@@ -484,8 +484,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 borderRadius: SPACING.lg,
                 padding: isSmallDevice ? SPACING.md : SPACING.lg,
                 borderWidth: 2,
-                borderColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
-                shadowColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#000',
+                borderColor: selectedMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
+                shadowColor: selectedMealType === 'LUNCH' ? '#ff8800' : '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: selectedMealType === 'LUNCH' ? 0.2 : 0.08,
                 shadowRadius: 8,
@@ -542,7 +542,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     width: SPACING.xl,
                     height: SPACING.xl,
                     borderRadius: 999,
-                    backgroundColor: selectedMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
+                    backgroundColor: selectedMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
@@ -575,8 +575,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 borderRadius: SPACING.lg,
                 padding: isSmallDevice ? SPACING.md : SPACING.lg,
                 borderWidth: 2,
-                borderColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#E5E7EB',
-                shadowColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#000',
+                borderColor: selectedMealType === 'DINNER' ? '#ff8800' : '#E5E7EB',
+                shadowColor: selectedMealType === 'DINNER' ? '#ff8800' : '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: selectedMealType === 'DINNER' ? 0.2 : 0.08,
                 shadowRadius: 8,
@@ -633,7 +633,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     width: SPACING.xl,
                     height: SPACING.xl,
                     borderRadius: 999,
-                    backgroundColor: selectedMealType === 'DINNER' ? '#F56B4C' : '#E5E7EB',
+                    backgroundColor: selectedMealType === 'DINNER' ? '#ff8800' : '#E5E7EB',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
@@ -666,8 +666,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 borderRadius: SPACING.lg,
                 padding: isSmallDevice ? SPACING.md : SPACING.lg,
                 borderWidth: 2,
-                borderColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#E5E7EB',
-                shadowColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#000',
+                borderColor: selectedMealType === 'BOTH' ? '#ff8800' : '#E5E7EB',
+                shadowColor: selectedMealType === 'BOTH' ? '#ff8800' : '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: selectedMealType === 'BOTH' ? 0.2 : 0.08,
                 shadowRadius: 8,
@@ -724,7 +724,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     width: SPACING.xl,
                     height: SPACING.xl,
                     borderRadius: 999,
-                    backgroundColor: selectedMealType === 'BOTH' ? '#F56B4C' : '#E5E7EB',
+                    backgroundColor: selectedMealType === 'BOTH' ? '#ff8800' : '#E5E7EB',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
@@ -820,7 +820,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     style={{
                       width: responsiveSize(24),
                       height: responsiveSize(24),
-                      tintColor: '#F56B4C'
+                      tintColor: '#ff8800'
                     }}
                     resizeMode="contain"
                   />
@@ -883,7 +883,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                 borderWidth: 2,
                 borderStyle: 'dashed',
                 borderColor: '#FED7AA',
-                shadowColor: '#F56B4C',
+                shadowColor: '#ff8800',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
                 shadowRadius: 8,
@@ -907,7 +907,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     style={{
                       width: responsiveSize(28),
                       height: responsiveSize(28),
-                      tintColor: '#F56B4C'
+                      tintColor: '#ff8800'
                     }}
                     resizeMode="contain"
                   />
@@ -1316,13 +1316,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                       style={{
                         fontSize: responsiveFontSize(14),
                         fontWeight: '600',
-                        color: '#F56B4C',
+                        color: '#ff8800',
                         marginRight: responsiveSize(8)
                       }}
                     >
                       View All {subscription.skippedSlots.length} Skips
                     </Text>
-                    <Text style={{ color: '#F56B4C', fontSize: responsiveFontSize(16) }}>›</Text>
+                    <Text style={{ color: '#ff8800', fontSize: responsiveFontSize(16) }}>›</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -1369,7 +1369,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     padding: 16,
                     marginBottom: 10,
                     borderWidth: 2,
-                    borderColor: pauseMealType === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
+                    borderColor: pauseMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
                   }}
                 >
                   <View style={{
@@ -1377,8 +1377,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                     height: 24,
                     borderRadius: 12,
                     borderWidth: 2,
-                    borderColor: pauseMealType === 'LUNCH' ? '#F56B4C' : '#D1D5DB',
-                    backgroundColor: pauseMealType === 'LUNCH' ? '#F56B4C' : 'white',
+                    borderColor: pauseMealType === 'LUNCH' ? '#ff8800' : '#D1D5DB',
+                    backgroundColor: pauseMealType === 'LUNCH' ? '#ff8800' : 'white',
                     marginRight: 12,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1500,7 +1500,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#F56B4C" />
+            <ActivityIndicator size="large" color="#ff8800" />
             <Text style={styles.loadingText}>Updating...</Text>
           </View>
         </View>
@@ -1602,7 +1602,7 @@ const styles = StyleSheet.create({
     lineHeight: FONT_SIZES.base * 1.4,
   },
   modalButton: {
-    backgroundColor: '#F56B4C',
+    backgroundColor: '#ff8800',
     minHeight: TOUCH_TARGETS.comfortable,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,

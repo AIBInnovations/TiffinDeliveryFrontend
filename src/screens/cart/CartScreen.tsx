@@ -861,7 +861,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                     style={{
                       backgroundColor: 'white',
                       borderWidth: 1.5,
-                      borderColor: '#F56B4C',
+                      borderColor: '#ff8800',
                     }}
                   >
                     <Text className="text-red-500 font-bold text-lg">×</Text>
@@ -1035,7 +1035,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           <View
             className="rounded-2xl p-3 mb-3 flex-row items-center"
             style={{
-              backgroundColor: '#FFF5F2',
+              backgroundColor: '#FFF7ED',
               borderWidth: 1,
               borderColor: '#FFDED6',
             }}
@@ -1060,7 +1060,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
 
         {isCalculating ? (
           <View className="items-center py-4">
-            <ActivityIndicator size="small" color="#F56B4C" />
+            <ActivityIndicator size="small" color="#ff8800" />
             <Text className="text-gray-500 text-sm mt-2">Calculating...</Text>
           </View>
         ) : pricingError ? (
@@ -1224,7 +1224,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
             activeOpacity={0.8}
           >
             {isPlacingOrder ? (
-              <ActivityIndicator size="small" color="#F56B4C" />
+              <ActivityIndicator size="small" color="#ff8800" />
             ) : (
               <>
                 <Text className="text-orange-400 font-bold text-base mr-2">

@@ -135,7 +135,7 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                   style={{
                     fontSize: 16,
                     fontWeight: '600',
-                    color: '#F56B4C',
+                    color: '#ff8800',
                     textAlign: 'center',
                     marginBottom: 8,
                   }}
@@ -148,7 +148,7 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               {amountToPay !== undefined && amountToPay > 0 && (
                 <View
                   style={{
-                    backgroundColor: '#FFF5F2',
+                    backgroundColor: '#FFF7ED',
                     borderRadius: 12,
                     paddingVertical: 8,
                     paddingHorizontal: 16,
@@ -160,7 +160,7 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                     style={{
                       fontSize: 14,
                       fontWeight: '600',
-                      color: '#F56B4C',
+                      color: '#ff8800',
                       textAlign: 'center',
                     }}
                   >
@@ -187,13 +187,13 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               <TouchableOpacity
                 onPress={onGoHome}
                 style={{
-                  backgroundColor: 'rgba(245, 107, 76, 1)',
+                  backgroundColor: 'rgba(255, 136, 0, 1)',
                   borderRadius: 28,
                   paddingVertical: 14,
                   paddingHorizontal: 32,
                   alignItems: 'center',
                   marginBottom: 12,
-                  shadowColor: 'rgba(245, 107, 76, 1)',
+                  shadowColor: 'rgba(255, 136, 0, 1)',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3,
                   shadowRadius: 8,
@@ -216,7 +216,7 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                 onPress={onTrackOrder}
                 style={{
                   borderWidth: 2,
-                  borderColor: 'rgba(245, 107, 76, 1)',
+                  borderColor: 'rgba(255, 136, 0, 1)',
                   borderRadius: 28,
                   paddingVertical: 12,
                   paddingHorizontal: 32,
@@ -229,13 +229,13 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                   style={{
                     fontSize: 16,
                     fontWeight: '600',
-                    color: 'rgba(245, 107, 76, 1)',
+                    color: 'rgba(255, 136, 0, 1)',
                     marginRight: 4,
                   }}
                 >
                   Track your order
                 </Text>
-                <Text style={{ fontSize: 16, color: 'rgba(245, 107, 76, 1)' }}>→</Text>
+                <Text style={{ fontSize: 16, color: 'rgba(255, 136, 0, 1)' }}>→</Text>
               </TouchableOpacity>
             </Animated.View>
           </TouchableWithoutFeedback>

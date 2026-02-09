@@ -227,7 +227,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
         className="flex-1 bg-gray-50"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F56B4C']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ff8800']} />
         }
       >
         {/* Background Image - positioned to extend behind Purchase Vouchers */}
@@ -287,7 +287,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   style={{ width: SPACING.iconSize, height: SPACING.iconSize }}
                   resizeMode="contain"
                 />
-                <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+                <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: '#ff8800' }}>{usableVouchers}</Text>
               </TouchableOpacity>
             </View>
 
@@ -387,7 +387,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   onPress={() => navigation.navigate('Vouchers')}
                   style={{ marginTop: 12 }}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#F56B4C' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#ff8800' }}>
                     View All Vouchers →
                   </Text>
                 </TouchableOpacity>
@@ -453,7 +453,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                     height: 160,
                     borderRadius: 42,
                     borderWidth: 1,
-                    borderColor: '#F56B4C',
+                    borderColor: '#ff8800',
                     marginBottom: 16,
                     overflow: 'hidden',
                     position: 'relative',
@@ -934,7 +934,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
       {loading && !plansLoading && (
         <View className="absolute inset-0 bg-black/30 justify-center items-center">
           <View className="bg-white rounded-xl p-6">
-            <ActivityIndicator size="large" color="#F56B4C" />
+            <ActivityIndicator size="large" color="#ff8800" />
             <Text className="mt-2 text-gray-600">Processing...</Text>
           </View>
         </View>

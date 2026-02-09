@@ -42,7 +42,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
       case 'warning':
         return { name: 'warning', color: '#F59E0B' };
       default:
-        return { name: 'information', color: '#F56B4C' };
+        return { name: 'information', color: '#ff8800' };
     }
   };
 
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    backgroundColor: '#F56B4C',
+    backgroundColor: '#ff8800',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 20,

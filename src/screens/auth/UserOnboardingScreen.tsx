@@ -278,9 +278,9 @@ const UserOnboardingScreen: React.FC = () => {
                       paddingHorizontal: SPACING.lg,
                       paddingVertical: SPACING.md,
                       minHeight: TOUCH_TARGETS.comfortable,
-                      backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
+                      backgroundColor: isSelected ? '#ff8800' : '#F3F4F6',
                       borderWidth: 1,
-                      borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
+                      borderColor: isSelected ? '#ff8800' : '#E5E7EB',
                       minWidth: 100,
                     }}
                   >
@@ -312,9 +312,9 @@ const UserOnboardingScreen: React.FC = () => {
                 onPress={() => setEggiterian(!eggiterian)}
                 className="rounded-full px-4 py-3 flex-row items-center"
                 style={{
-                  backgroundColor: eggiterian ? '#F56B4C' : '#F3F4F6',
+                  backgroundColor: eggiterian ? '#ff8800' : '#F3F4F6',
                   borderWidth: 1,
-                  borderColor: eggiterian ? '#F56B4C' : '#E5E7EB',
+                  borderColor: eggiterian ? '#ff8800' : '#E5E7EB',
                 }}
               >
                 <MaterialCommunityIcons
@@ -335,9 +335,9 @@ const UserOnboardingScreen: React.FC = () => {
                 onPress={() => setJainFriendly(!jainFriendly)}
                 className="rounded-full px-4 py-3 flex-row items-center"
                 style={{
-                  backgroundColor: jainFriendly ? '#F56B4C' : '#F3F4F6',
+                  backgroundColor: jainFriendly ? '#ff8800' : '#F3F4F6',
                   borderWidth: 1,
-                  borderColor: jainFriendly ? '#F56B4C' : '#E5E7EB',
+                  borderColor: jainFriendly ? '#ff8800' : '#E5E7EB',
                 }}
               >
                 <MaterialCommunityIcons
@@ -370,9 +370,9 @@ const UserOnboardingScreen: React.FC = () => {
                     onPress={() => setDabbaType(type.id as any)}
                     className="rounded-full px-4 py-3 flex-row items-center flex-1"
                     style={{
-                      backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
+                      backgroundColor: isSelected ? '#ff8800' : '#F3F4F6',
                       borderWidth: 1,
-                      borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
+                      borderColor: isSelected ? '#ff8800' : '#E5E7EB',
                     }}
                   >
                     <MaterialCommunityIcons
@@ -407,9 +407,9 @@ const UserOnboardingScreen: React.FC = () => {
                     onPress={() => setSpiceLevel(level.id as any)}
                     className="rounded-full px-4 py-3 flex-row items-center flex-1"
                     style={{
-                      backgroundColor: isSelected ? '#F56B4C' : '#F3F4F6',
+                      backgroundColor: isSelected ? '#ff8800' : '#F3F4F6',
                       borderWidth: 1,
-                      borderColor: isSelected ? '#F56B4C' : '#E5E7EB',
+                      borderColor: isSelected ? '#ff8800' : '#E5E7EB',
                     }}
                   >
                     <MaterialCommunityIcons
@@ -473,8 +473,8 @@ const UserOnboardingScreen: React.FC = () => {
             style={{
               paddingVertical: SPACING.lg,
               minHeight: TOUCH_TARGETS.large,
-              backgroundColor: isLoading ? '#CCCCCC' : '#F56B4C',
-              shadowColor: '#F56B4C',
+              backgroundColor: isLoading ? '#CCCCCC' : '#ff8800',
+              shadowColor: '#ff8800',
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
               shadowRadius: 8,

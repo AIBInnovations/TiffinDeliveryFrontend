@@ -64,7 +64,7 @@ const OnboardingScreen3: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
       <View className="flex-1 px-10">
         <View className="flex-1 justify-center" style={{ width: '100%' }}>
           {/* Background Image */}
@@ -181,7 +181,7 @@ const OnboardingScreen3: React.FC<Props> = ({ navigation }) => {
             >
               <Text
                 style={{
-                  color: '#F56B4C',
+                  color: '#ff8800',
                   fontSize: FONT_SIZES.h4,
                   fontWeight: '600',
                   flex: 1,
@@ -193,7 +193,7 @@ const OnboardingScreen3: React.FC<Props> = ({ navigation }) => {
               </Text>
               <View
                 style={{
-                  backgroundColor: '#F56B4C',
+                  backgroundColor: '#ff8800',
                   borderRadius: SPACING.iconXl / 2,
                   width: SPACING.iconXl + 4,
                   height: SPACING.iconXl + 4,

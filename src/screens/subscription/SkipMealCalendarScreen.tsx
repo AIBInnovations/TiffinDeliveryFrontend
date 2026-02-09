@@ -67,7 +67,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
         // Add dot for meal window
         marked[dateKey].dots.push({
           key: slot.mealWindow,
-          color: slot.mealWindow === 'LUNCH' ? '#F56B4C' : '#3B82F6',
+          color: slot.mealWindow === 'LUNCH' ? '#ff8800' : '#3B82F6',
         });
       });
     }
@@ -77,7 +77,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
       marked[selectedDate] = {
         ...marked[selectedDate],
         selected: true,
-        selectedColor: '#F56B4C',
+        selectedColor: '#ff8800',
       };
     }
 
@@ -168,8 +168,8 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
   if (!subscription) {
     return (
       <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
-        <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
-        <ActivityIndicator size="large" color="#F56B4C" />
+        <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
+        <ActivityIndicator size="large" color="#ff8800" />
         <Text className="mt-4 text-gray-600">Loading calendar...</Text>
       </SafeAreaView>
     );
@@ -177,7 +177,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} className="flex-1 bg-white">
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
       {/* Header */}
       <View
         className="bg-orange-400 px-5 py-4"
@@ -225,19 +225,19 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
             markedDates={markedDates}
             onDayPress={handleDatePress}
             markingType={'multi-dot'}
-            renderArrow={(direction) => direction === 'left' ? null : <Text style={{ color: '#F56B4C', fontSize: 18 }}>›</Text>}
+            renderArrow={(direction) => direction === 'left' ? null : <Text style={{ color: '#ff8800', fontSize: 18 }}>›</Text>}
             theme={{
               backgroundColor: '#ffffff',
               calendarBackground: '#ffffff',
               textSectionTitleColor: '#6B7280',
-              selectedDayBackgroundColor: '#F56B4C',
+              selectedDayBackgroundColor: '#ff8800',
               selectedDayTextColor: '#ffffff',
-              todayTextColor: '#F56B4C',
+              todayTextColor: '#ff8800',
               dayTextColor: '#1F2937',
               textDisabledColor: '#D1D5DB',
-              dotColor: '#F56B4C',
+              dotColor: '#ff8800',
               selectedDotColor: '#ffffff',
-              arrowColor: '#F56B4C',
+              arrowColor: '#ff8800',
               monthTextColor: '#1F2937',
               textMonthFontWeight: 'bold' as any,
               textDayFontSize: 16,
@@ -303,7 +303,7 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                 style={{
                   width: TOUCH_TARGETS.large,
                   height: TOUCH_TARGETS.large,
-                  backgroundColor: monthlySkippedCount > 0 ? '#F56B4C' : '#10B981',
+                  backgroundColor: monthlySkippedCount > 0 ? '#ff8800' : '#10B981',
                 }}
               >
                 <Text className="font-bold text-white" style={{ fontSize: FONT_SIZES['2xl'] }}>{monthlySkippedCount}</Text>
@@ -389,9 +389,9 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                     padding: SPACING.lg,
                     minHeight: TOUCH_TARGETS.large,
                     borderWidth: 2,
-                    borderColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#E5E7EB',
-                    backgroundColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#FFFFFF',
-                    shadowColor: selectedMealWindow === 'LUNCH' ? '#F56B4C' : '#000',
+                    borderColor: selectedMealWindow === 'LUNCH' ? '#ff8800' : '#E5E7EB',
+                    backgroundColor: selectedMealWindow === 'LUNCH' ? '#ff8800' : '#FFFFFF',
+                    shadowColor: selectedMealWindow === 'LUNCH' ? '#ff8800' : '#000',
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: selectedMealWindow === 'LUNCH' ? 0.25 : 0.05,
                     shadowRadius: 8,
@@ -424,9 +424,9 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                     padding: SPACING.lg,
                     minHeight: TOUCH_TARGETS.large,
                     borderWidth: 2,
-                    borderColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#E5E7EB',
-                    backgroundColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#FFFFFF',
-                    shadowColor: selectedMealWindow === 'DINNER' ? '#F56B4C' : '#000',
+                    borderColor: selectedMealWindow === 'DINNER' ? '#ff8800' : '#E5E7EB',
+                    backgroundColor: selectedMealWindow === 'DINNER' ? '#ff8800' : '#FFFFFF',
+                    shadowColor: selectedMealWindow === 'DINNER' ? '#ff8800' : '#000',
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: selectedMealWindow === 'DINNER' ? 0.25 : 0.05,
                     shadowRadius: 8,
@@ -495,8 +495,8 @@ const SkipMealCalendarScreen: React.FC<Props> = ({ route, navigation }) => {
                   style={{
                     paddingVertical: SPACING.md,
                     minHeight: TOUCH_TARGETS.large,
-                    backgroundColor: isCurrentlySkipped ? '#10B981' : '#F56B4C',
-                    shadowColor: isCurrentlySkipped ? '#10B981' : '#F56B4C',
+                    backgroundColor: isCurrentlySkipped ? '#10B981' : '#ff8800',
+                    shadowColor: isCurrentlySkipped ? '#10B981' : '#ff8800',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.3,
                     shadowRadius: 8,

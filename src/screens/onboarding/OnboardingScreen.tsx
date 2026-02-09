@@ -248,7 +248,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView className="flex-1 bg-orange-400" edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
 
       {/* Skip Button - Top Right */}
       <View style={{
@@ -348,7 +348,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
             >
               <Text
                 style={{
-                  color: '#F56B4C',
+                  color: '#ff8800',
                   fontSize: Math.round(16 * scale),
                   fontWeight: '600',
                   textAlign: 'center',

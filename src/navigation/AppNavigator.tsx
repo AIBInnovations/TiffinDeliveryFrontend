@@ -21,7 +21,7 @@ const AppNavigator = () => {
   if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' }}>
-        <ActivityIndicator size="large" color="#F56B4C" />
+        <ActivityIndicator size="large" color="#ff8800" />
       </View>
     );
   }
@@ -30,7 +30,7 @@ const AppNavigator = () => {
   // Show branded loading screen (matching SplashScreen style) to prevent flash
   if (firebaseUser && !user && !isGuest) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F56B4C', justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#ff8800', justifyContent: 'center', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 32 }}>
           <Image
             source={require('../assets/images/logo.png')}
@@ -57,12 +57,12 @@ const AppNavigator = () => {
       theme={{
         dark: false,
         colors: {
-          primary: '#F56B4C',
+          primary: '#ff8800',
           background: '#FFFFFF',
           card: '#FFFFFF',
           text: '#000000',
           border: '#FFFFFF',
-          notification: '#F56B4C',
+          notification: '#ff8800',
         },
         fonts: {
           regular: {

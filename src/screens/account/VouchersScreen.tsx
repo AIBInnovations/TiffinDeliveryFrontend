@@ -230,13 +230,13 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#ff8800' }} edges={['top']} />
 
       {/* Orange background for pull-to-refresh/bounce area */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FB923C', zIndex: -1 }} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FDB766', zIndex: -1 }} />
 
       {/* Header */}
       <View
@@ -308,7 +308,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
                 style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
                 resizeMode="contain"
               />
-              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>{usableVouchers}</Text>
+              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#ff8800' }}>{usableVouchers}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -390,7 +390,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
               paddingHorizontal: SPACING.lg,
               paddingVertical: SPACING.sm,
               minHeight: TOUCH_TARGETS.minimum,
-              backgroundColor: activeFilter === tab.id ? '#F56B4C' : '#F3F4F6',
+              backgroundColor: activeFilter === tab.id ? '#ff8800' : '#F3F4F6',
             }}
           >
             <Text
@@ -425,7 +425,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
       {/* Loading State */}
       {vouchersLoading && !refreshing && (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#F56B4C" />
+          <ActivityIndicator size="large" color="#ff8800" />
           <Text className="mt-4 text-gray-500">Loading vouchers...</Text>
         </View>
       )}
@@ -447,7 +447,7 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#F56B4C']}
+              colors={['#ff8800']}
             />
           }
         />

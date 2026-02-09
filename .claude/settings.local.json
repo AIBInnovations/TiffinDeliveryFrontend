@@ -24,7 +24,8 @@
       "Bash(git pull:*)",
       "Bash(npm i:*)",
       "Bash(tree:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(git mv:*)"
     ]
   }
 }

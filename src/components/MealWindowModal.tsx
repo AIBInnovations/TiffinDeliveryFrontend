@@ -57,7 +57,7 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: 'rgba(245, 107, 76, 0.1)',
+              backgroundColor: 'rgba(255, 136, 0, 0.1)',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 20,
@@ -95,7 +95,7 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
           {/* Next Window Info */}
           <View
             style={{
-              backgroundColor: 'rgba(245, 107, 76, 0.08)',
+              backgroundColor: 'rgba(255, 136, 0, 0.08)',
               borderRadius: 12,
               padding: 16,
               width: '100%',
@@ -116,7 +116,7 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
               style={{
                 fontSize: 20,
                 fontWeight: 'bold',
-                color: '#F56B4C',
+                color: '#ff8800',
                 textAlign: 'center',
               }}
             >
@@ -128,7 +128,7 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
           <TouchableOpacity
             onPress={onClose}
             style={{
-              backgroundColor: '#F56B4C',
+              backgroundColor: '#ff8800',
               borderRadius: 30,
               paddingVertical: 14,
               paddingHorizontal: 40,

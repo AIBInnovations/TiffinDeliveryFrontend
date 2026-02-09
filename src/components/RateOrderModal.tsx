@@ -183,7 +183,7 @@ const RateOrderModal: React.FC<RateOrderModalProps> = ({
               disabled={isLoading || stars < 1}
               className="flex-1 py-4 rounded-full items-center ml-2"
               style={{
-                backgroundColor: isLoading || stars < 1 ? '#FDBA74' : '#F56B4C',
+                backgroundColor: isLoading || stars < 1 ? '#FED7AA' : '#ff8800',
               }}
             >
               {isLoading ? (

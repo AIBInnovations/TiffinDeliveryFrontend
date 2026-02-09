@@ -214,7 +214,7 @@ const AutoOrderFailureModal: React.FC<AutoOrderFailureModalProps> = ({
 
             {/* Icon */}
             <View style={styles.iconContainer}>
-              <IconComponent name={content.iconName} size={40} color="#F56B4C" />
+              <IconComponent name={content.iconName} size={40} color="#ff8800" />
             </View>
 
             {/* Title */}
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#F56B4C',
+    color: '#ff8800',
   },
   actions: {
     flexDirection: 'column',
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryButton: {
-    backgroundColor: '#F56B4C',
+    backgroundColor: '#ff8800',
   },
   primaryButtonText: {
     fontSize: 16,

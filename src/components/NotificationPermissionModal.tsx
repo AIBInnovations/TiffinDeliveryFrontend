@@ -36,7 +36,7 @@ const NotificationPermissionModal: React.FC<NotificationPermissionModalProps> = 
         <View style={styles.container}>
           {/* Bell Icon */}
           <View style={styles.iconContainer}>
-            <Ionicons name="notifications" size={40} color="#F56B4C" />
+            <Ionicons name="notifications" size={40} color="#ff8800" />
           </View>
 
           {/* Title */}
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FFF5F2',
+    backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   allowButton: {
-    backgroundColor: '#F56B4C',
+    backgroundColor: '#ff8800',
     borderRadius: 50,
     paddingVertical: 16,
     alignItems: 'center',

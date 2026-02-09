@@ -45,7 +45,7 @@ const NavItem: React.FC<NavItemProps> = ({ label, icon, isActive, onPress }) => 
           source={icon}
           style={[
             styles.icon,
-            { tintColor: isActive ? '#F56B4C' : '#9CA3AF' },
+            { tintColor: isActive ? '#ff8800' : '#9CA3AF' },
           ]}
           resizeMode="contain"
         />
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     height: SPACING.iconSize,
   },
   label: {
-    color: '#F56B4C',
+    color: '#ff8800',
     fontSize: FONT_SIZES.base - 1,
     fontWeight: '600',
     marginLeft: 6,

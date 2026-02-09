@@ -102,8 +102,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F56B4C' }} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ff8800' }} edges={['top']}>
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -118,7 +118,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View
             style={{
               height: 220,
-              backgroundColor: '#F56B4C',
+              backgroundColor: '#ff8800',
               paddingHorizontal: 20,
               paddingTop: 10,
             }}
@@ -316,7 +316,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               onPress={handleGetOtp}
               disabled={loading || phone.length !== 10}
               style={{
-                backgroundColor: loading || phone.length !== 10 ? '#CCCCCC' : '#F56B4C',
+                backgroundColor: loading || phone.length !== 10 ? '#CCCCCC' : '#ff8800',
                 borderRadius: 100,
                 paddingVertical: 15,
                 alignItems: 'center',

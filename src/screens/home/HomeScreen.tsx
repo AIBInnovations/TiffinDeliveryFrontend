@@ -789,20 +789,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F56B4C" />
+      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#F56B4C' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#ff8800' }} edges={['top']} />
 
       {/* Orange background for pull-to-refresh/bounce area */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FB923C', zIndex: -1 }} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FDB766', zIndex: -1 }} />
 
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: 'transparent' }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F56B4C']} tintColor="#FFFFFF" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ff8800']} tintColor="#FFFFFF" />
         }
       >
         {/* Header */}
@@ -899,7 +899,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
                     resizeMode="contain"
                   />
-                  <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#F56B4C' }}>
+                  <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#ff8800' }}>
                     {usableVouchers}
                   </Text>
                 </TouchableOpacity>
@@ -961,14 +961,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           }}>
             <View
               style={{
-                backgroundColor: '#FFF5F2',
+                backgroundColor: '#FFF7ED',
                 borderRadius: SPACING.lg,
                 padding: SPACING.lg,
                 flexDirection: 'row',
                 alignItems: 'center',
                 borderLeftWidth: 4,
-                borderLeftColor: '#F56B4C',
-                shadowColor: '#F56B4C',
+                borderLeftColor: '#ff8800',
+                shadowColor: '#ff8800',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
                 shadowRadius: 8,
@@ -981,7 +981,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: '#F56B4C',
+                  backgroundColor: '#ff8800',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: SPACING.md,
@@ -1206,7 +1206,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Loading State */}
           {isLoadingMenu && (
             <View className="items-center justify-center py-8">
-              <ActivityIndicator size="large" color="#F56B4C" />
+              <ActivityIndicator size="large" color="#ff8800" />
               <Text className="text-gray-500 mt-3">Loading menu...</Text>
             </View>
           )}
@@ -1276,7 +1276,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={handleAddToCart}
                 activeOpacity={0.7}
                 style={{
-                  backgroundColor: 'rgba(245, 107, 76, 1)',
+                  backgroundColor: 'rgba(255, 136, 0, 1)',
                   borderRadius: SPACING['3xl'],
                   width: SPACING['5xl'] * 3.125,
                   height: SPACING['2xl'] + SPACING.xl + 1,
@@ -1423,12 +1423,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                           style={{
                             flexDirection: 'row',
                             alignItems: 'center',
-                            backgroundColor: '#FFF5F2',
+                            backgroundColor: '#FFF7ED',
                             borderRadius: 18,
                             paddingVertical: 8,
                             paddingHorizontal: 8,
                             borderWidth: 1,
-                            borderColor: '#F56B4C',
+                            borderColor: '#ff8800',
                             minWidth: 60,
                           }}
                         >
@@ -1442,17 +1442,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                               alignItems: 'center',
                               justifyContent: 'center',
                               borderWidth: 1,
-                              borderColor: '#F56B4C',
+                              borderColor: '#ff8800',
                             }}
                           >
-                            <Text style={{ color: '#F56B4C', fontSize: 14, fontWeight: '600' }}>−</Text>
+                            <Text style={{ color: '#ff8800', fontSize: 14, fontWeight: '600' }}>−</Text>
                           </TouchableOpacity>
                           <Text
                             style={{
                               marginHorizontal: 8,
                               fontWeight: '600',
                               fontSize: FONT_SIZES.sm,
-                              color: '#F56B4C',
+                              color: '#ff8800',
                               minWidth: 12,
                               textAlign: 'center',
                             }}
@@ -1465,7 +1465,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                               width: 20,
                               height: 20,
                               borderRadius: 10,
-                              backgroundColor: '#F56B4C',
+                              backgroundColor: '#ff8800',
                               alignItems: 'center',
                               justifyContent: 'center',
                             }}
@@ -1492,10 +1492,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                             paddingHorizontal: 16,
                             paddingVertical: 8,
                             borderRadius: 18,
-                            backgroundColor: '#F56B4C',
+                            backgroundColor: '#ff8800',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            shadowColor: '#F56B4C',
+                            shadowColor: '#ff8800',
                             shadowOffset: { width: 0, height: 2 },
                             shadowOpacity: 0.3,
                             shadowRadius: 4,

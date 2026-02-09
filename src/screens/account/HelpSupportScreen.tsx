@@ -249,7 +249,7 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
                   paddingHorizontal: SPACING.lg,
                   paddingVertical: SPACING.sm,
                   minHeight: TOUCH_TARGETS.minimum,
-                  backgroundColor: selectedCategory === category ? '#F56B4C' : '#F3F4F6',
+                  backgroundColor: selectedCategory === category ? '#ff8800' : '#F3F4F6',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
