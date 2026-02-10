@@ -5,13 +5,13 @@ import {
   Text,
   Image,
   TouchableOpacity,
-  TextInput,
   StatusBar,
   ScrollView,
   ImageSourcePropType,
   ActivityIndicator,
   RefreshControl,
   Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -29,6 +29,7 @@ import { formatNextAutoOrderTime } from '../../utils/autoOrderUtils';
 import NotificationBell from '../../components/NotificationBell';
 import { useResponsive, useScaling } from '../../hooks/useResponsive';
 import { SPACING } from '../../constants/spacing';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FONT_SIZES } from '../../constants/typography';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
@@ -70,8 +71,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedMeal, setSelectedMeal] = useState<MealType>('lunch');
   const [showCartModal, setShowCartModal] = useState(false);
   const [mealQuantity, setMealQuantity] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [addOnsExpanded, setAddOnsExpanded] = useState(false);
+  const [includesExpanded, setIncludesExpanded] = useState(false);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
 
   // Menu state
   const [menuData, setMenuData] = useState<MenuData | null>(null);
@@ -89,9 +93,34 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   // Auto-order notification state
   const [showAutoOrderNotification, setShowAutoOrderNotification] = useState(false);
+  const [autoOrderTextIndex, setAutoOrderTextIndex] = useState(0);
+  const autoOrderSlideAnim = useRef(new Animated.Value(0)).current;
 
   // Background data preload tracking
   const hasPreloadedRef = useRef(false);
+
+  // Carousel images
+  const carouselImages = [
+    require('../../assets/images/1.png'),
+    require('../../assets/images/2.png'),
+    require('../../assets/images/3.png'),
+  ];
+
+  // Auto-scroll carousel - 3 second interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveCarouselIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % carouselImages.length;
+        carouselRef.current?.scrollTo({
+          x: nextIndex * width,
+          animated: true,
+        });
+        return nextIndex;
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [width]);
 
   // Note: We no longer use fallback addons with fake IDs as they cause API validation errors
   // Addons must come from the API with valid MongoDB ObjectIds
@@ -403,14 +432,48 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Check for auto-ordering status and show notification
   useFocusEffect(
     useCallback(() => {
-      const activeAutoOrderSub = subscriptions.find(
-        sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused
-      );
-      if (activeAutoOrderSub) {
+      const hasActiveSub = subscriptions.some(sub => sub.status === 'ACTIVE');
+      if (hasActiveSub) {
         setShowAutoOrderNotification(true);
+      } else {
+        setShowAutoOrderNotification(false);
       }
     }, [subscriptions])
   );
+
+  // Cycling text animation for auto-order enabled banner
+  const activeAutoOrderSub = useMemo(() =>
+    subscriptions.find(sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused),
+    [subscriptions]
+  );
+
+  useEffect(() => {
+    if (!activeAutoOrderSub) return;
+
+    const interval = setInterval(() => {
+      // Animate current text up (out)
+      Animated.timing(autoOrderSlideAnim, {
+        toValue: -1,
+        duration: 350,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }).start(() => {
+        // Switch text index
+        setAutoOrderTextIndex(prev => (prev + 1) % 2);
+        // Reset position to below (ready to enter from bottom)
+        autoOrderSlideAnim.setValue(1);
+        // Animate new text up (in)
+        Animated.timing(autoOrderSlideAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeAutoOrderSub, autoOrderSlideAnim]);
 
   // Background data preload - triggers after menu loads successfully
   useFocusEffect(
@@ -764,17 +827,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return addOns.filter(item => item.selected).length;
   };
 
-  const getFilteredAddOns = () => {
-    if (!searchQuery.trim()) {
-      return addOns;
-    }
-    return addOns.filter(item =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
-
-  const filteredAddOns = getFilteredAddOns();
-
   // Get meal name
   const getMealName = (): string => {
     const mealItem = getCurrentMealItem();
@@ -789,24 +841,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
+      <StatusBar barStyle="light-content" backgroundColor="#fb923c" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#ff8800' }} edges={['top']} />
-
-      {/* Orange background for pull-to-refresh/bounce area */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FDB766', zIndex: -1 }} />
+      <SafeAreaView style={{ backgroundColor: '#fb923c' }} edges={['top']} />
 
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        style={{ backgroundColor: 'transparent' }}
+        style={{ backgroundColor: 'white' }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ff8800']} tintColor="#FFFFFF" />
         }
       >
+        {/* Background behind header curves */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: 'white' }} />
+
         {/* Header */}
-        <View className="bg-orange-400 pb-6" style={{ position: 'relative', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, zIndex: 10, elevation: 10 }}>
+        <View className="bg-orange-400" style={{ position: 'relative', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden', zIndex: 10 }}>
           {/* Decorative Background Elements */}
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }} pointerEvents="none">
             <Image
@@ -821,9 +873,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          <View className="px-5 pt-4 pb-6">
+          <View className="px-5 pt-4">
             {/* Top Row: Logo, Location, Actions */}
-            <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center justify-between mb-3">
               {/* Logo */}
               <View style={{ width: isSmallDevice ? SPACING.iconXl * 1.2 : SPACING.iconXl * 1.45 }}>
                 <Image
@@ -905,193 +957,48 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             </View>
+
           </View>
 
-            {/* Search Bar */}
-            <View
-              className="mx-5 bg-white rounded-full flex-row items-center px-4"
-              style={{
-                height: SPACING['2xl'] + SPACING.lg,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-                elevation: 3,
+          {/* Promotional Carousel */}
+          <View style={{ marginTop: SPACING.xs, paddingBottom: SPACING.lg }}>
+            <ScrollView
+              ref={carouselRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                setActiveCarouselIndex(index);
               }}
+              decelerationRate="fast"
             >
-              <Image
-                source={require('../../assets/icons/search2.png')}
-                style={{ width: SPACING.iconSm, height: SPACING.iconSm }}
-                resizeMode="contain"
-              />
-              <TextInput
-                placeholder="Search for addons to your meal..."
-                placeholderTextColor="#9CA3AF"
-                className="flex-1 text-gray-700 ml-2"
-                style={{
-                  fontSize: FONT_SIZES.sm,
-                  paddingVertical: 0,
-                  paddingTop: 0,
-                  paddingBottom: 0,
-                  includeFontPadding: false,
-                  textAlignVertical: 'center',
-                  height: SPACING['2xl'] + SPACING.lg
-                }}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Text className="text-gray-400" style={{ fontSize: FONT_SIZES.lg }}>×</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-        </View>
-
-        {/* Auto-Order Notification Banner */}
-        {showAutoOrderNotification && subscriptions.find(
-          sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused
-        ) && (
-          <View style={{
-            marginHorizontal: SPACING.lg,
-            marginBottom: SPACING.md,
-            marginTop: SPACING.md,
-            zIndex: 10,
-            position: 'relative',
-          }}>
-            <View
-              style={{
-                backgroundColor: '#FFF7ED',
-                borderRadius: SPACING.lg,
-                padding: SPACING.lg,
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderLeftWidth: 4,
-                borderLeftColor: '#ff8800',
-                shadowColor: '#ff8800',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 5,
-              }}
-            >
-              {/* Icon Container */}
-              <View
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: '#ff8800',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: SPACING.md,
-                }}
-              >
-                <Text style={{ fontSize: 20 }}>⚡</Text>
-              </View>
-
-              {/* Content */}
-              <View style={{ flex: 1, paddingRight: SPACING.sm }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                  <View
-                    style={{
-                      backgroundColor: '#10B981',
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      marginRight: 6,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.base,
-                      fontWeight: '700',
-                      color: '#1F2937',
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    Auto-Order Active
-                  </Text>
-                </View>
-                <Text
+              {carouselImages.map((image, index) => (
+                <View
+                  key={index}
                   style={{
-                    fontSize: FONT_SIZES.sm,
-                    color: '#6B7280',
-                    lineHeight: FONT_SIZES.sm * 1.4,
-                    marginTop: 2,
+                    width: width,
+                    height: 130,
+                    paddingHorizontal: SPACING.md,
                   }}
                 >
-                  {(() => {
-                    const sub = subscriptions.find(s => s.status === 'ACTIVE' && s.autoOrderingEnabled && !s.isPaused);
-                    if (!sub) return 'Your meals will be automatically ordered';
-
-                    const nextOrderTime = formatNextAutoOrderTime(sub);
-
-                    // Determine which specific meal is coming next
-                    let mealType = 'Your order';
-                    if (sub.defaultMealType === 'LUNCH') {
-                      mealType = 'Lunch';
-                    } else if (sub.defaultMealType === 'DINNER') {
-                      mealType = 'Dinner';
-                    } else if (sub.defaultMealType === 'BOTH') {
-                      // For BOTH, determine which meal is next based on current time
-                      const now = new Date();
-                      const currentHour = now.getHours();
-
-                      // Get operating hours for accurate calculation
-                      const operatingHours = currentKitchen?.operatingHours;
-
-                      // Default lunch auto-order time is 10:00 AM (1 hour before 11:00 AM)
-                      // Default dinner auto-order time is 6:00 PM (1 hour before 7:00 PM)
-                      let lunchAutoOrderHour = 10;
-                      let dinnerAutoOrderHour = 18;
-
-                      // If operating hours are available, calculate accurate times
-                      if (operatingHours?.lunch?.startTime) {
-                        const [hoursStr] = operatingHours.lunch.startTime.split(':');
-                        lunchAutoOrderHour = parseInt(hoursStr, 10) - 1;
-                      }
-                      if (operatingHours?.dinner?.startTime) {
-                        const [hoursStr] = operatingHours.dinner.startTime.split(':');
-                        dinnerAutoOrderHour = parseInt(hoursStr, 10) - 1;
-                      }
-
-                      // Determine next meal based on current time
-                      if (currentHour < lunchAutoOrderHour) {
-                        mealType = 'Lunch';
-                      } else if (currentHour < dinnerAutoOrderHour) {
-                        mealType = 'Dinner';
-                      } else {
-                        // After dinner time, next meal is lunch tomorrow
-                        mealType = 'Lunch';
-                      }
-                    }
-
-                    return `${mealType} will be automatically ordered ${nextOrderTime}`;
-                  })()}
-                </Text>
-              </View>
-
-              {/* Close Button */}
-              <TouchableOpacity
-                onPress={() => setShowAutoOrderNotification(false)}
-                style={{
-                  width: 32,
-                  height: 32,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 16,
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={{ color: '#9CA3AF', fontSize: 24, fontWeight: '300' }}>×</Text>
-              </TouchableOpacity>
-            </View>
+                  <Image
+                    source={image}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: SPACING.lg,
+                    }}
+                    resizeMode="cover"
+                  />
+                </View>
+              ))}
+            </ScrollView>
           </View>
-        )}
+        </View>
 
         {/* White Container with Meal Options and Image */}
-        <View className="mb-6" style={{ position: 'relative', overflow: 'visible', marginTop: -30 }}>
+        <View className="mb-6" style={{ position: 'relative', overflow: 'visible', marginTop: SPACING.md }}>
           {/* Background Image */}
           <Image
             source={require('../../assets/images/homepage/homebackground.png')}
@@ -1108,8 +1015,107 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             resizeMode="cover"
           />
 
-          {/* Meal Type Tabs */}
-          <View className="flex-row justify-center pt-10 mb-6">
+          {/* Auto-Order Notification Banner - Over Background */}
+          {showAutoOrderNotification && (() => {
+            const activeSub = subscriptions.find(sub => sub.status === 'ACTIVE');
+            if (!activeSub) return null;
+
+            const isAutoOrderEnabled = activeSub.autoOrderingEnabled && !activeSub.isPaused;
+
+            if (isAutoOrderEnabled) {
+              // Enabled state: cycling text with navigation to Profile
+              const nextOrderTime = formatNextAutoOrderTime(activeSub);
+              const mealType = activeSub.defaultMealType === 'LUNCH' ? 'Lunch' : activeSub.defaultMealType === 'DINNER' ? 'Dinner' : 'Next meal';
+              const textLines = [
+                `${mealType} ${nextOrderTime}`,
+                'Manage auto-order settings',
+              ];
+              const textHeight = 18;
+
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('Account')}
+                  style={{ marginHorizontal: SPACING.md, marginTop: SPACING.md }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: SPACING.md,
+                      paddingVertical: SPACING.sm,
+                      paddingHorizontal: SPACING.md,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#ff8800',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}
+                  >
+                    <View style={{ backgroundColor: '#10B981', width: 6, height: 6, borderRadius: 3, marginRight: 6 }} />
+                    <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: '#1F2937', marginRight: 4 }}>Auto-Order Active</Text>
+                    <View style={{ flex: 1, height: textHeight, overflow: 'hidden' }}>
+                      <Animated.View
+                        style={{
+                          transform: [{
+                            translateY: autoOrderSlideAnim.interpolate({
+                              inputRange: [-1, 0, 1],
+                              outputRange: [-textHeight, 0, textHeight],
+                            }),
+                          }],
+                        }}
+                      >
+                        <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280', height: textHeight, lineHeight: textHeight }} numberOfLines={1}>
+                          {textLines[autoOrderTextIndex]}
+                        </Text>
+                      </Animated.View>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                  </View>
+                </TouchableOpacity>
+              );
+            } else {
+              // Disabled state: prompt to enable auto-order
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSub._id })}
+                  style={{ marginHorizontal: SPACING.md, marginTop: SPACING.md }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: SPACING.md,
+                      paddingVertical: SPACING.sm,
+                      paddingHorizontal: SPACING.md,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderLeftWidth: 3,
+                      borderLeftColor: '#D1D5DB',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}
+                  >
+                    <View style={{ backgroundColor: '#D1D5DB', width: 6, height: 6, borderRadius: 3, marginRight: 6 }} />
+                    <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280', flex: 1 }} numberOfLines={1}>
+                      Enable auto-order to never miss a meal
+                    </Text>
+                    <Text style={{ color: '#ff8800', fontSize: FONT_SIZES.xs, fontWeight: '600', marginLeft: 4 }}>Enable</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={16} color="#ff8800" style={{ marginLeft: 2 }} />
+                  </View>
+                </TouchableOpacity>
+              );
+            }
+          })()}
+
+          {/* Meal Type Tabs - commented out to prevent manual switching */}
+          {/* <View className="flex-row justify-center pt-10 mb-6">
             <TouchableOpacity
               onPress={() => setSelectedMeal('lunch')}
               className={`items-center mx-6 ${selectedMeal === 'lunch' ? '' : 'opacity-50'}`}
@@ -1173,7 +1179,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 />
               )}
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {/* Main Meal Image */}
           <View className="items-center justify-center pb-16" style={{ width: '100%' }}>
@@ -1363,28 +1369,56 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {getMealDescription()}
             </Text>
             {getCurrentMealItem()?.includes && getCurrentMealItem()!.includes!.length > 0 && (
-              <View className="mt-4 bg-orange-50 p-4" style={{ borderRadius: SPACING['2xl'], borderWidth: 1, borderColor: 'rgba(251, 146, 60, 0.3)' }}>
-                <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.base }}>What's Included</Text>
-                <View className="flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
-                  {getCurrentMealItem()!.includes!.map((item, index) => (
-                    <View key={index} className="flex-row items-start mb-3" style={{ width: '50%', paddingHorizontal: 6 }}>
-                      <View className="rounded-full bg-orange-400 items-center justify-center mr-2" style={{ width: SPACING.lg + 4, height: SPACING.lg + 4, marginTop: 2 }}>
-                        <Text className="text-white font-bold" style={{ fontSize: FONT_SIZES.xs }}>✓</Text>
-                      </View>
-                      <Text className="text-gray-700" style={{ fontSize: FONT_SIZES.sm, flex: 1 }}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
+              <View className="mt-3 flex-row flex-wrap" style={{ gap: 6 }}>
+                <Text className="text-gray-500" style={{ fontSize: FONT_SIZES.sm, marginRight: 4 }}>Includes:</Text>
+                {getCurrentMealItem()!.includes!.map((item, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      backgroundColor: '#FFF7ED',
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: 'rgba(251, 146, 60, 0.3)',
+                    }}
+                  >
+                    <Text style={{ fontSize: FONT_SIZES.xs, color: '#9a3412' }}>{item}</Text>
+                  </View>
+                ))}
               </View>
             )}
           </View>
 
           {/* Add-ons Section */}
           <View>
-            <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: FONT_SIZES.h4 }}>Add-ons</Text>
+            <TouchableOpacity
+              onPress={() => setAddOnsExpanded(!addOnsExpanded)}
+              className="flex-row items-center justify-between mb-4"
+              activeOpacity={0.7}
+            >
+              <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.h4 }}>Add-ons</Text>
+              <View className="flex-row items-center">
+                {addOns.length > 0 && (
+                  <Text className="text-gray-500 mr-2" style={{ fontSize: FONT_SIZES.sm }}>
+                    {addOns.length} items
+                  </Text>
+                )}
+                <Image
+                  source={require('../../assets/icons/down2.png')}
+                  style={{
+                    width: SPACING.iconSm,
+                    height: SPACING.iconSm,
+                    tintColor: '#9CA3AF',
+                    transform: [{ rotate: addOnsExpanded ? '180deg' : '0deg' }],
+                  }}
+                  resizeMode="contain"
+                />
+              </View>
+            </TouchableOpacity>
 
-            {filteredAddOns.length > 0 ? (
-              filteredAddOns.map((item) => (
+            {addOnsExpanded && addOns.length > 0 ? (
+              addOns.map((item) => (
                 <View
                   key={item.id}
                   className="flex-row items-center justify-between py-2"
@@ -1510,12 +1544,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 </View>
               ))
-            ) : (
+            ) : addOnsExpanded ? (
               <View className="py-10 items-center">
-                <Text className="text-gray-400" style={{ fontSize: FONT_SIZES.base }}>No items found</Text>
-                <Text className="text-gray-400 mt-2" style={{ fontSize: FONT_SIZES.sm }}>Try searching for something else</Text>
+                <Text className="text-gray-400" style={{ fontSize: FONT_SIZES.base }}>No add-ons available</Text>
               </View>
-            )}
+            ) : null}
           </View>
           </>
           )}

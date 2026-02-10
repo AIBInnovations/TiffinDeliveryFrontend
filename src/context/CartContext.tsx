@@ -39,6 +39,7 @@ interface CartContextType {
   replaceCart: (item: CartItem) => void;  // Atomic clear + add (avoids race condition)
   updateQuantity: (id: string, quantity: number) => void;
   updateAddonQuantity: (itemId: string, addonIndex: number, quantity: number) => void;
+  addAddonToItem: (itemId: string, addon: CartItemAddon) => void;
   removeAddon: (itemId: string, addonIndex: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
@@ -274,6 +275,26 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   }, []);
 
+  // Add an addon to an existing cart item (or increment quantity if already present)
+  const addAddonToItem = useCallback((itemId: string, addon: CartItemAddon) => {
+    setCartItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === itemId) {
+          const existingAddons = item.addons || [];
+          const existingIndex = existingAddons.findIndex(a => a.addonId === addon.addonId);
+          if (existingIndex >= 0) {
+            const updatedAddons = existingAddons.map((a, idx) =>
+              idx === existingIndex ? { ...a, quantity: a.quantity + addon.quantity } : a
+            );
+            return { ...item, addons: updatedAddons };
+          }
+          return { ...item, addons: [...existingAddons, addon] };
+        }
+        return item;
+      })
+    );
+  }, []);
+
   const clearCart = useCallback(async () => {
     setCartItems([]);
     // Also reset voucher and coupon when clearing cart
@@ -396,6 +417,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         replaceCart,
         updateQuantity,
         updateAddonQuantity,
+        addAddonToItem,
         removeAddon,
         removeItem,
         clearCart,

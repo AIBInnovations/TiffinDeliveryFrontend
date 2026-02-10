@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, TouchableOpacity, Image, Text, Animated, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SPACING } from '../constants/spacing';
 import { FONT_SIZES } from '../constants/typography';
 import { navigateToMainScreen } from '../navigation/navigationRef';
@@ -11,12 +12,13 @@ interface BottomNavBarProps {
 
 interface NavItemProps {
   label: string;
-  icon: any;
+  icon?: any;
+  iconName?: string;
   isActive: boolean;
   onPress: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ label, icon, isActive, onPress }) => {
+const NavItem: React.FC<NavItemProps> = ({ label, icon, iconName, isActive, onPress }) => {
   const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
 
   useEffect(() => {
@@ -41,14 +43,22 @@ const NavItem: React.FC<NavItemProps> = ({ label, icon, isActive, onPress }) => 
       style={styles.navItem}
     >
       <View style={[styles.navItemInner, isActive && styles.navItemActive]}>
-        <Image
-          source={icon}
-          style={[
-            styles.icon,
-            { tintColor: isActive ? '#ff8800' : '#9CA3AF' },
-          ]}
-          resizeMode="contain"
-        />
+        {iconName ? (
+          <MaterialCommunityIcons
+            name={iconName}
+            size={SPACING.iconSize}
+            color={isActive ? '#ff8800' : '#9CA3AF'}
+          />
+        ) : (
+          <Image
+            source={icon}
+            style={[
+              styles.icon,
+              { tintColor: isActive ? '#ff8800' : '#9CA3AF' },
+            ]}
+            resizeMode="contain"
+          />
+        )}
         {isActive && (
           <Animated.Text
             style={[
@@ -105,13 +115,13 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
       />
       <NavItem
         label="Orders"
-        icon={require('../assets/icons/cart3.png')}
+        icon={require('../assets/icons/kitchen.png')}
         isActive={activeTab === 'orders'}
         onPress={() => handleNavigation('orders')}
       />
       <NavItem
         label="On-Demand"
-        icon={require('../assets/icons/kitchen.png')}
+        iconName="bowl-mix-outline"
         isActive={activeTab === 'meals'}
         onPress={() => handleNavigation('meals')}
       />

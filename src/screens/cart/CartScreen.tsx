@@ -1,5 +1,5 @@
 // src/screens/cart/CartScreen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  TextInput,
+  Modal,
+  Pressable,
+  Animated,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +28,7 @@ import apiService, {
   PricingBreakdown,
   VoucherEligibility,
   Order,
+  AddonItem,
 } from '../../services/api.service';
 import dataPreloader from '../../services/dataPreloader.service';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -42,6 +47,7 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
     cartItems,
     updateQuantity: updateCartQuantity,
     updateAddonQuantity,
+    addAddonToItem,
     removeAddon,
     removeItem,
     kitchenId,
@@ -85,6 +91,38 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
   // Order summary expand/collapse state
   const [isOrderSummaryExpanded, setIsOrderSummaryExpanded] = useState(false);
 
+  // Available addons state
+  const [availableAddons, setAvailableAddons] = useState<AddonItem[]>([]);
+  const [addonsExpanded, setAddonsExpanded] = useState(false);
+
+  // Address drawer state
+  const [showAddressDrawer, setShowAddressDrawer] = useState(false);
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const drawerTranslateY = useRef(new Animated.Value(400)).current;
+
+  const openAddressDrawer = useCallback(() => {
+    setShowAddressDrawer(true);
+    Animated.parallel([
+      Animated.timing(backdropOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(drawerTranslateY, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  }, [backdropOpacity, drawerTranslateY]);
+
+  const closeAddressDrawer = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(drawerTranslateY, { toValue: 400, duration: 250, useNativeDriver: true }),
+    ]).start(() => setShowAddressDrawer(false));
+  }, [backdropOpacity, drawerTranslateY]);
+
+  // Quick action states
+  const [cookingInstructions, setCookingInstructions] = useState('');
+  const [showCookingInput, setShowCookingInput] = useState(false);
+  const [leaveAtDoor, setLeaveAtDoor] = useState(false);
+  const [doNotContact, setDoNotContact] = useState(false);
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
+  const [showDeliveryInput, setShowDeliveryInput] = useState(false);
+
   // Refresh voucher data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -93,6 +131,30 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
         console.error('[CartScreen] Error refreshing vouchers on focus:', err);
       });
     }, [fetchVouchers])
+  );
+
+  // Fetch available addons when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchAddons = async () => {
+        if (!kitchenId) return;
+        try {
+          const menuResponse = await apiService.getKitchenMenu(kitchenId, 'MEAL_MENU');
+          if (menuResponse.data) {
+            const { lunch, dinner } = menuResponse.data.mealMenu;
+            const currentMealItem = mealWindow === 'DINNER' ? dinner : lunch;
+            if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
+              setAvailableAddons(currentMealItem.addonIds);
+            } else {
+              setAvailableAddons([]);
+            }
+          }
+        } catch (error) {
+          console.error('[CartScreen] Error fetching addons:', error);
+        }
+      };
+      fetchAddons();
+    }, [kitchenId, mealWindow])
   );
 
   // Sync local address selection with cart context
@@ -756,73 +818,165 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   </TouchableOpacity>
                 </View>
               </View>
-
-              {/* Add-ons displayed as separate items */}
-              {item.addons && item.addons.length > 0 && item.addons.map((addon, addonIndex) => (
-                <View
-                  key={`${item.id}-addon-${addonIndex}`}
-                  className="flex-row items-center mb-4 pb-4 border-b border-gray-100 ml-4"
-                >
-                  {/* Addon Image */}
-                  <Image
-                    source={require('../../assets/images/homepage/roti.png')}
-                    className="w-14 h-14 rounded-full"
-                    resizeMode="cover"
-                  />
-
-                  {/* Addon Details */}
-                  <View className="flex-1 ml-4">
-                    <Text className="text-base font-bold text-gray-900">{addon.name}</Text>
-                    <Text className="text-sm text-gray-500 mt-1">
-                      {addon.quantity} {addon.quantity > 1 ? 'pieces' : 'piece'}{' '}
-                      <Text className="text-gray-900 font-semibold">
-                        ₹{(addon.unitPrice * addon.quantity).toFixed(2)}
-                      </Text>
-                    </Text>
-                  </View>
-
-                  {/* Addon Quantity Controls & Delete */}
-                  <View className="items-end">
-                    <View
-                      className="flex-row items-center mb-2"
-                      style={{ borderWidth: 1, borderColor: 'rgba(232, 235, 234, 1)', borderRadius: 60, paddingHorizontal: 8, paddingVertical: 4 }}
-                    >
-                      <TouchableOpacity
-                        onPress={() => updateAddonQuantity(item.id, addonIndex, addon.quantity - 1)}
-                        className="rounded-full items-center justify-center"
-                        style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
-                      >
-                        <Text className="text-gray-600 font-bold text-sm">−</Text>
-                      </TouchableOpacity>
-                      <Text className="mx-3 text-sm font-semibold">{addon.quantity}</Text>
-                      <TouchableOpacity
-                        onPress={() => updateAddonQuantity(item.id, addonIndex, addon.quantity + 1)}
-                        className="rounded-full items-center justify-center"
-                        style={{
-                          backgroundColor: 'rgba(255, 217, 197, 1)',
-                          minWidth: TOUCH_TARGETS.minimum,
-                          minHeight: TOUCH_TARGETS.minimum
-                        }}
-                      >
-                        <Image
-                          source={require('../../assets/icons/plus.png')}
-                          style={{ width: 23, height: 23 }}
-                          resizeMode="contain"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity onPress={() => removeAddon(item.id, addonIndex)}>
-                      <Image
-                        source={require('../../assets/icons/delete2.png')}
-                        style={{ width: 20, height: 20 }}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
             </React.Fragment>
           ))}
+
+          {/* Add-ons — unified list of all available addons */}
+          {availableAddons.length > 0 && (
+            <>
+              <TouchableOpacity
+                onPress={() => setAddonsExpanded(!addonsExpanded)}
+                className="flex-row items-center justify-between py-2"
+                activeOpacity={0.7}
+              >
+                <Text className="text-sm font-bold text-gray-900">Add-ons</Text>
+                <View className="flex-row items-center">
+                  {cartItems[0]?.addons && cartItems[0].addons.length > 0 && (
+                    <View
+                      className="items-center justify-center mr-2"
+                      style={{
+                        backgroundColor: '#ff8800',
+                        borderRadius: 10,
+                        width: 20,
+                        height: 20,
+                      }}
+                    >
+                      <Text style={{ color: 'white', fontSize: 11, fontWeight: '700' }}>
+                        {cartItems[0].addons.length}
+                      </Text>
+                    </View>
+                  )}
+                  <Image
+                    source={require('../../assets/icons/down2.png')}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      tintColor: '#9CA3AF',
+                      transform: [{ rotate: addonsExpanded ? '180deg' : '0deg' }],
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {addonsExpanded && availableAddons.map((addon) => {
+                const cartItem = cartItems[0];
+                const cartAddonIndex = cartItem?.addons?.findIndex(a => a.addonId === addon._id) ?? -1;
+                const cartAddon = cartAddonIndex >= 0 ? cartItem.addons![cartAddonIndex] : null;
+
+                return (
+                  <View
+                    key={addon._id}
+                    className="flex-row items-center py-2.5"
+                    style={cartAddon ? { backgroundColor: '#FFFBF5', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 10, marginVertical: 2 } : { marginVertical: 2 }}
+                  >
+                    <Image
+                      source={require('../../assets/images/homepage/roti.png')}
+                      className="rounded-full"
+                      style={{ width: 36, height: 36 }}
+                      resizeMode="cover"
+                    />
+                    <View className="flex-1 ml-3">
+                      <Text className="text-sm font-semibold text-gray-900">{addon.name}</Text>
+                      <Text className="text-xs text-gray-500">
+                        {addon.description || '1 serving'}
+                        {' · '}
+                        <Text className="font-semibold text-gray-700">₹{addon.price}</Text>
+                        {cartAddon && (
+                          <Text className="font-semibold" style={{ color: '#ff8800' }}>
+                            {' '}· ₹{(addon.price * cartAddon.quantity).toFixed(0)}
+                          </Text>
+                        )}
+                      </Text>
+                    </View>
+
+                    {cartAddon ? (
+                      <View
+                        className="flex-row items-center"
+                        style={{
+                          backgroundColor: '#FFF7ED',
+                          borderRadius: 16,
+                          paddingVertical: 4,
+                          paddingHorizontal: 6,
+                          borderWidth: 1,
+                          borderColor: '#ff8800',
+                        }}
+                      >
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (cartAddon.quantity <= 1) {
+                              removeAddon(cartItem.id, cartAddonIndex);
+                            } else {
+                              updateAddonQuantity(cartItem.id, cartAddonIndex, cartAddon.quantity - 1);
+                            }
+                          }}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 10,
+                            backgroundColor: 'white',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 1,
+                            borderColor: '#ff8800',
+                          }}
+                        >
+                          <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '600' }}>−</Text>
+                        </TouchableOpacity>
+                        <Text
+                          style={{
+                            marginHorizontal: 8,
+                            fontWeight: '600',
+                            fontSize: 13,
+                            color: '#ff8800',
+                            minWidth: 10,
+                            textAlign: 'center',
+                          }}
+                        >
+                          {cartAddon.quantity}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => updateAddonQuantity(cartItem.id, cartAddonIndex, cartAddon.quantity + 1)}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 10,
+                            backgroundColor: '#ff8800',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (cartItem) {
+                            addAddonToItem(cartItem.id, {
+                              addonId: addon._id,
+                              name: addon.name,
+                              quantity: 1,
+                              unitPrice: addon.price,
+                            });
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 6,
+                          borderRadius: 16,
+                          borderWidth: 1,
+                          borderColor: '#ff8800',
+                        }}
+                      >
+                        <Text style={{ color: '#ff8800', fontSize: 12, fontWeight: '600' }}>Add</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+            </>
+          )}
         </View>
 
         {/* Vouchers Banner */}
@@ -873,13 +1027,6 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity
                     onPress={handleAddMoreVoucher}
                     className="bg-orange-400 rounded-full px-4 py-3 flex-row items-center justify-center"
-                    style={{
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                      elevation: 3,
-                    }}
                   >
                     <Image
                       source={require('../../assets/icons/whitevoucher.png')}
@@ -898,11 +1045,6 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
                 className="bg-orange-400 rounded-full pl-6 pr-2 flex-row items-center justify-between"
                 style={{
                   height: 60,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 10,
-                  elevation: 8,
                 }}
               >
                 <View className="flex-row items-center flex-1">
@@ -951,63 +1093,204 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        {/* Delivery Address */}
+        {/* Delivery Address & Preferences */}
         <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
-          <Text className="text-xl font-bold text-gray-900 mb-4">Delivery Address</Text>
+          <Text className="text-xl font-bold text-gray-900 mb-4">Delivery Details</Text>
 
+          {/* Selected Address */}
           {addresses.length === 0 ? (
             <TouchableOpacity
-              className="flex-row items-center justify-center py-4"
+              className="flex-row items-center justify-center py-4 border-b border-gray-100"
               onPress={() => navigation.navigate('Address')}
             >
               <Text className="text-orange-400 font-semibold">+ Add Delivery Address</Text>
             </TouchableOpacity>
           ) : (
-            <>
-              {addresses.map((address, index) => (
-                <TouchableOpacity
-                  key={address.id}
-                  className={`flex-row items-center mb-3 ${index < addresses.length - 1 ? 'pb-3 border-b border-gray-100' : ''}`}
-                  onPress={() => handleSelectAddress(address.id)}
-                >
-                  {/* Icon */}
-                  <View className="w-12 h-12 items-center justify-center mr-3">
-                    <Image
-                      source={
-                        address.label.toLowerCase() === 'home'
-                          ? require('../../assets/icons/house2.png')
-                          : require('../../assets/icons/office.png')
-                      }
-                      style={{ width: 38, height: 38 }}
-                      resizeMode="contain"
-                    />
-                  </View>
+            <TouchableOpacity
+              onPress={openAddressDrawer}
+              className="flex-row items-center pb-3 mb-1 border-b border-gray-100"
+              activeOpacity={0.7}
+            >
+              {(() => {
+                const selectedAddress = addresses.find(a => a.id === localSelectedAddressId) || addresses[0];
+                return (
+                  <>
+                    <View className="w-10 h-10 items-center justify-center mr-3">
+                      <Image
+                        source={
+                          selectedAddress.label.toLowerCase() === 'home'
+                            ? require('../../assets/icons/house2.png')
+                            : require('../../assets/icons/office.png')
+                        }
+                        style={{ width: 32, height: 32 }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-gray-900">{selectedAddress.label}</Text>
+                      <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+                        {selectedAddress.addressLine1}, {selectedAddress.locality}, {selectedAddress.city}
+                      </Text>
+                    </View>
+                    <Text className="text-orange-400 font-semibold text-sm">Change</Text>
+                  </>
+                );
+              })()}
+            </TouchableOpacity>
+          )}
 
-                  {/* Address Details */}
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900 mb-1">{address.label}</Text>
-                    <Text className="text-sm text-gray-500" numberOfLines={2}>
-                      {address.addressLine1}, {address.locality}, {address.city}
-                    </Text>
-                  </View>
+          {/* Cooking Instructions */}
+          <TouchableOpacity
+            onPress={() => setShowCookingInput(!showCookingInput)}
+            className="flex-row items-center py-3 border-b border-gray-100"
+          >
+            <View
+              className="w-10 h-10 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: showCookingInput || cookingInstructions ? '#FFF7ED' : '#F3F4F6' }}
+            >
+              <MaterialCommunityIcons name="note-edit-outline" size={20} color={showCookingInput || cookingInstructions ? '#ff8800' : '#6B7280'} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-gray-900">Cooking Instructions</Text>
+              <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+                {cookingInstructions || 'Add special requests for your meal'}
+              </Text>
+            </View>
+            <Image
+              source={require('../../assets/icons/down2.png')}
+              style={{
+                width: 14,
+                height: 14,
+                tintColor: '#9CA3AF',
+                transform: [{ rotate: showCookingInput ? '180deg' : '0deg' }],
+              }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          {showCookingInput && (
+            <TextInput
+              className="text-sm text-gray-900 mt-2 mb-2"
+              style={{
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                minHeight: 60,
+                textAlignVertical: 'top',
+              }}
+              placeholder="E.g., Less spicy, no onions..."
+              placeholderTextColor="#9CA3AF"
+              value={cookingInstructions}
+              onChangeText={setCookingInstructions}
+              multiline
+            />
+          )}
 
-                  {/* Radio Button */}
-                  <View className={`w-5 h-5 rounded-full border-2 ${localSelectedAddressId === address.id ? 'border-orange-400' : 'border-gray-300'} items-center justify-center`}>
-                    {localSelectedAddressId === address.id && (
-                      <View className="w-3 h-3 rounded-full bg-orange-400" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+          {/* Leave at Door */}
+          <TouchableOpacity
+            onPress={() => setLeaveAtDoor(!leaveAtDoor)}
+            className="flex-row items-center py-3 border-b border-gray-100"
+          >
+            <View
+              className="w-10 h-10 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: leaveAtDoor ? '#FFF7ED' : '#F3F4F6' }}
+            >
+              <MaterialCommunityIcons name="door-open" size={20} color={leaveAtDoor ? '#ff8800' : '#6B7280'} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-gray-900">Leave at Door</Text>
+              <Text className="text-xs text-gray-500 mt-0.5">Drop off without ringing the bell</Text>
+            </View>
+            <View
+              className="w-5 h-5 rounded items-center justify-center"
+              style={{
+                borderWidth: 1.5,
+                borderColor: leaveAtDoor ? '#ff8800' : '#D1D5DB',
+                backgroundColor: leaveAtDoor ? '#ff8800' : 'white',
+              }}
+            >
+              {leaveAtDoor && (
+                <Text style={{ color: 'white', fontSize: 11, fontWeight: '700' }}>✓</Text>
+              )}
+            </View>
+          </TouchableOpacity>
 
-              {/* Add New Address Button */}
-              <TouchableOpacity
-                className="flex-row items-center justify-center mt-2"
-                onPress={() => navigation.navigate('Address')}
-              >
-                <Text className="text-orange-400 font-semibold text-sm">+ Add New Address</Text>
-              </TouchableOpacity>
-            </>
+          {/* Do Not Contact */}
+          <TouchableOpacity
+            onPress={() => setDoNotContact(!doNotContact)}
+            className="flex-row items-center py-3 border-b border-gray-100"
+          >
+            <View
+              className="w-10 h-10 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: doNotContact ? '#FFF7ED' : '#F3F4F6' }}
+            >
+              <MaterialCommunityIcons name="bell-off-outline" size={20} color={doNotContact ? '#ff8800' : '#6B7280'} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-gray-900">Do Not Contact</Text>
+              <Text className="text-xs text-gray-500 mt-0.5">Avoid calls or messages on delivery</Text>
+            </View>
+            <View
+              className="w-5 h-5 rounded items-center justify-center"
+              style={{
+                borderWidth: 1.5,
+                borderColor: doNotContact ? '#ff8800' : '#D1D5DB',
+                backgroundColor: doNotContact ? '#ff8800' : 'white',
+              }}
+            >
+              {doNotContact && (
+                <Text style={{ color: 'white', fontSize: 11, fontWeight: '700' }}>✓</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* Delivery Instructions */}
+          <TouchableOpacity
+            onPress={() => setShowDeliveryInput(!showDeliveryInput)}
+            className="flex-row items-center py-3"
+          >
+            <View
+              className="w-10 h-10 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: showDeliveryInput || deliveryInstructions ? '#FFF7ED' : '#F3F4F6' }}
+            >
+              <MaterialCommunityIcons name="map-marker-outline" size={20} color={showDeliveryInput || deliveryInstructions ? '#ff8800' : '#6B7280'} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-gray-900">Delivery Instructions</Text>
+              <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+                {deliveryInstructions || 'Add directions for the delivery person'}
+              </Text>
+            </View>
+            <Image
+              source={require('../../assets/icons/down2.png')}
+              style={{
+                width: 14,
+                height: 14,
+                tintColor: '#9CA3AF',
+                transform: [{ rotate: showDeliveryInput ? '180deg' : '0deg' }],
+              }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          {showDeliveryInput && (
+            <TextInput
+              className="text-sm text-gray-900 mt-2"
+              style={{
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                minHeight: 60,
+                textAlignVertical: 'top',
+              }}
+              placeholder="E.g., Gate code 1234, use side entrance..."
+              placeholderTextColor="#9CA3AF"
+              value={deliveryInstructions}
+              onChangeText={setDeliveryInstructions}
+              multiline
+            />
           )}
         </View>
 
@@ -1240,6 +1523,104 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Address Selection Bottom Drawer */}
+      <Modal
+        visible={showAddressDrawer}
+        transparent
+        animationType="none"
+        onRequestClose={closeAddressDrawer}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              opacity: backdropOpacity,
+            }}
+          >
+            <Pressable style={{ flex: 1 }} onPress={closeAddressDrawer} />
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              backgroundColor: 'white',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingHorizontal: SPACING.screenHorizontal,
+              paddingTop: 16,
+              paddingBottom: Math.max(insets.bottom + 12, 24),
+              transform: [{ translateY: drawerTranslateY }],
+            }}
+          >
+            {/* Drawer Handle */}
+            <View className="items-center mb-4">
+              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB' }} />
+            </View>
+
+            <Text className="text-lg font-bold text-gray-900 mb-4">Select Delivery Address</Text>
+
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+              {addresses.map((address, index) => (
+                <TouchableOpacity
+                  key={address.id}
+                  className={`flex-row items-center py-3 ${index < addresses.length - 1 ? 'border-b border-gray-100' : ''}`}
+                  onPress={() => {
+                    handleSelectAddress(address.id);
+                    closeAddressDrawer();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View className="w-10 h-10 items-center justify-center mr-3">
+                    <Image
+                      source={
+                        address.label.toLowerCase() === 'home'
+                          ? require('../../assets/icons/house2.png')
+                          : require('../../assets/icons/office.png')
+                      }
+                      style={{ width: 32, height: 32 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold text-gray-900">{address.label}</Text>
+                    <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={2}>
+                      {address.addressLine1}, {address.locality}, {address.city}
+                    </Text>
+                  </View>
+                  <View className={`w-5 h-5 rounded-full border-2 ${localSelectedAddressId === address.id ? 'border-orange-400' : 'border-gray-300'} items-center justify-center`}>
+                    {localSelectedAddressId === address.id && (
+                      <View className="w-3 h-3 rounded-full bg-orange-400" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Add New Address */}
+            <TouchableOpacity
+              className="flex-row items-center justify-center py-4 mt-2"
+              style={{
+                borderWidth: 1,
+                borderColor: '#ff8800',
+                borderRadius: 28,
+                borderStyle: 'dashed',
+              }}
+              onPress={() => {
+                closeAddressDrawer();
+                navigation.navigate('Address');
+              }}
+            >
+              <MaterialCommunityIcons name="plus" size={18} color="#ff8800" />
+              <Text className="text-orange-400 font-semibold text-sm ml-1">Add New Address</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Order Success Modal */}
       <OrderSuccessModal
