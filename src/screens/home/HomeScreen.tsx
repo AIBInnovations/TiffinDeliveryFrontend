@@ -31,6 +31,7 @@ import { useResponsive, useScaling } from '../../hooks/useResponsive';
 import { SPACING } from '../../constants/spacing';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FONT_SIZES } from '../../constants/typography';
+import VoucherPaymentModal from '../../components/VoucherPaymentModal';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -61,6 +62,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setMenuType,
     setMealWindow,
     setDeliveryAddressId,
+    setVoucherCount,
   } = useCart();
   const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
   const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers } = useSubscription();
@@ -98,6 +100,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   // Background data preload tracking
   const hasPreloadedRef = useRef(false);
+
+  // Buy Now flow state
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [isBuyNowFlow, setIsBuyNowFlow] = useState(false);
 
   // Carousel images
   const carouselImages = [
@@ -561,6 +567,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }, [cartItems, selectedMeal, menuData])
   );
 
+  // Resume Buy Now flow after address setup
+  useFocusEffect(
+    useCallback(() => {
+      if (isBuyNowFlow) {
+        setIsBuyNowFlow(false);
+
+        // Check if address was added
+        const mainAddress = getMainAddress();
+        if (mainAddress) {
+          console.log('[HomeScreen] Address added, resuming Buy Now flow');
+          // Resume Buy Now flow
+          handleBuyNow();
+        } else {
+          console.log('[HomeScreen] No address added, cancelling Buy Now flow');
+        }
+      }
+    }, [isBuyNowFlow, getMainAddress, handleBuyNow])
+  );
+
   // Update addons when meal type changes - sync with cart
   useEffect(() => {
     if (menuData) {
@@ -800,6 +825,61 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // Show cart modal
     setShowCartModal(true);
   };
+
+  const handleBuyNow = useCallback(() => {
+    console.log('[HomeScreen] handleBuyNow called');
+
+    // Validation: Check if menu item exists
+    const mealItem = getCurrentMealItem();
+    if (!mealItem?._id || !isValidObjectId(mealItem._id)) {
+      console.error('[HomeScreen] Cannot Buy Now: No valid menu item available');
+      return;
+    }
+
+    // Step 1: Check for main address
+    const mainAddress = getMainAddress();
+
+    if (!mainAddress) {
+      console.log('[HomeScreen] No main address, navigating to AddressSetupScreen');
+      // Set flag to resume Buy Now after address setup
+      setIsBuyNowFlow(true);
+
+      // Navigate to AddressSetupScreen
+      navigation.navigate('AddressSetup' as any);
+      return;
+    }
+
+    // Step 2: Set delivery address in cart context
+    setDeliveryAddressId(mainAddress.id);
+
+    // Step 3: Check for available vouchers
+    if (usableVouchers > 0) {
+      console.log('[HomeScreen] User has', usableVouchers, 'vouchers, showing modal');
+      setShowVoucherModal(true);
+    } else {
+      console.log('[HomeScreen] No vouchers, proceeding with payment');
+      proceedWithBuyNow(false);
+    }
+  }, [getCurrentMealItem, getMainAddress, usableVouchers, navigation, setDeliveryAddressId]);
+
+  const proceedWithBuyNow = useCallback((useVoucher: boolean) => {
+    console.log('[HomeScreen] proceedWithBuyNow, useVoucher:', useVoucher);
+
+    // Close voucher modal if open
+    setShowVoucherModal(false);
+
+    // Add current meal to cart (includes addons if selected)
+    handleAddToCart();
+
+    // Set voucher count
+    setVoucherCount(useVoucher ? 1 : 0);
+
+    // Small delay to ensure cart is updated
+    setTimeout(() => {
+      // Navigate to Cart with directCheckout flag
+      navigation.navigate('Cart', { directCheckout: true } as any);
+    }, 100);
+  }, [handleAddToCart, setVoucherCount, navigation]);
 
   const updateMealQuantity = (increment: boolean) => {
     const newQuantity = increment ? mealQuantity + 1 : Math.max(0, mealQuantity - 1);
@@ -1362,6 +1442,40 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </View>
 
+          {/* Buy Now Button */}
+          {!showCartModal && (
+            <View style={{ alignItems: 'center', marginBottom: SPACING.lg }}>
+              <TouchableOpacity
+                onPress={handleBuyNow}
+                activeOpacity={0.7}
+                disabled={isLoadingMenu}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 1)',
+                  borderWidth: 2,
+                  borderColor: 'rgba(255, 136, 0, 1)',
+                  borderRadius: SPACING['3xl'],
+                  width: SPACING['5xl'] * 3.125,
+                  height: SPACING['2xl'] + SPACING.xl + 1,
+                  paddingHorizontal: SPACING.xl + 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: isLoadingMenu ? 0.5 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    color: 'rgba(255, 136, 0, 1)',
+                    fontSize: FONT_SIZES.sm,
+                    fontWeight: '600',
+                  }}
+                >
+                  Buy Now
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Details Section */}
           <View className="mb-6">
             <Text className="font-bold text-gray-900 mb-3" style={{ fontSize: FONT_SIZES.h4 }}>Details</Text>
@@ -1622,6 +1736,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         nextMealWindow={mealWindowInfo.nextMealWindow}
         nextMealWindowTime={mealWindowInfo.nextMealWindowTime}
         onClose={handleMealWindowModalClose}
+      />
+
+      {/* Voucher Payment Choice Modal */}
+      <VoucherPaymentModal
+        visible={showVoucherModal}
+        voucherCount={usableVouchers}
+        onUseVoucher={() => proceedWithBuyNow(true)}
+        onPayDirectly={() => proceedWithBuyNow(false)}
+        onCancel={() => setShowVoucherModal(false)}
       />
     </View>
   );

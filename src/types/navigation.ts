@@ -37,7 +37,7 @@ export type MainTabParamList = {
   Home: undefined;
   Address: undefined;
   Menu: undefined;
-  Cart: undefined;
+  Cart: { directCheckout?: boolean } | undefined;
   Profile: undefined;
   Payment: undefined;
   Account: undefined;

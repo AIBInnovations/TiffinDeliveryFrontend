@@ -42,7 +42,7 @@ interface OrderResult {
   amountToPay: number;
 }
 
-const CartScreen: React.FC<Props> = ({ navigation }) => {
+const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   const {
     cartItems,
     updateQuantity: updateCartQuantity,
@@ -609,6 +609,22 @@ const CartScreen: React.FC<Props> = ({ navigation }) => {
       );
     }
   }, [voucherInfo?.cutoffPassed, voucherCount, setVoucherCount, showAlert]);
+
+  // Auto-trigger order placement for "Buy Now" flow
+  useEffect(() => {
+    const directCheckout = route.params?.directCheckout;
+
+    if (directCheckout && cartItems.length > 0 && localSelectedAddressId) {
+      console.log('[CartScreen] Direct checkout detected, auto-placing order');
+
+      // Small delay to ensure UI is ready and state is fully updated
+      const timer = setTimeout(() => {
+        handlePlaceOrder();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [route.params?.directCheckout, cartItems.length, localSelectedAddressId]);
 
   // Handler to remove all vouchers
   const handleRemoveVoucher = () => {
