@@ -23,10 +23,12 @@ import {
   formatShortDate,
   validateAutoOrderEnable,
 } from '../../utils/autoOrderUtils';
-import apiService from '../../services/api.service';
+import apiService, { WeeklySchedule, DefaultMealType } from '../../services/api.service';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
+import WeeklyScheduleGrid from '../../components/WeeklyScheduleGrid';
+import WeeklyScheduleQuickSets from '../../components/WeeklyScheduleQuickSets';
 
 type Props = StackScreenProps<any, 'AutoOrderSettings'>;
 
@@ -54,6 +56,10 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [pauseMealType, setPauseMealType] = useState<'LUNCH' | 'DINNER' | 'BOTH'>('BOTH');
   const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
+  // Weekly schedule state
+  const [useWeeklySchedule, setUseWeeklySchedule] = useState(false);
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(null);
+
   // Modal states for success and error messages
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -65,6 +71,11 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
     if (subscription) {
       setIsEnabled(subscription.autoOrderingEnabled || false);
       setSelectedMealType(subscription.defaultMealType || 'BOTH');
+
+      // Initialize weekly schedule state
+      const hasWeeklySchedule = subscription.weeklySchedule !== null && subscription.weeklySchedule !== undefined;
+      setUseWeeklySchedule(hasWeeklySchedule);
+      setWeeklySchedule(subscription.weeklySchedule || null);
     }
   }, [subscription]);
 
@@ -104,6 +115,99 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
+  // Initialize weekly schedule from defaultMealType
+  const initializeWeeklySchedule = (mealType: DefaultMealType): WeeklySchedule => {
+    const days: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'> = [
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+    ];
+
+    const schedule: WeeklySchedule = {};
+    days.forEach(day => {
+      schedule[day] = {
+        lunch: mealType === 'LUNCH' || mealType === 'BOTH',
+        dinner: mealType === 'DINNER' || mealType === 'BOTH',
+      };
+    });
+
+    return schedule;
+  };
+
+  // Handle weekly schedule toggle
+  const handleWeeklyScheduleToggle = async (value: boolean) => {
+    setUseWeeklySchedule(value);
+
+    if (value) {
+      // Initialize schedule from current defaultMealType
+      const initialSchedule = initializeWeeklySchedule(selectedMealType);
+      setWeeklySchedule(initialSchedule);
+
+      // Save to backend if already enabled
+      if (isEnabled) {
+        setIsLoading(true);
+        try {
+          await updateAutoOrderSettings(subscription!._id, {
+            autoOrderingEnabled: true,
+            defaultMealType: selectedMealType,
+            defaultAddressId: defaultAddress?._id,
+            weeklySchedule: initialSchedule,
+          });
+        } catch (error: any) {
+          setModalTitle('Error');
+          setModalMessage(error.message || 'Failed to enable weekly schedule');
+          setShowErrorModal(true);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    } else {
+      // Clear weekly schedule (revert to defaultMealType)
+      setWeeklySchedule(null);
+
+      // Save to backend if already enabled
+      if (isEnabled) {
+        setIsLoading(true);
+        try {
+          await updateAutoOrderSettings(subscription!._id, {
+            autoOrderingEnabled: true,
+            defaultMealType: selectedMealType,
+            defaultAddressId: defaultAddress?._id,
+            weeklySchedule: null,
+          });
+        } catch (error: any) {
+          setModalTitle('Error');
+          setModalMessage(error.message || 'Failed to disable weekly schedule');
+          setShowErrorModal(true);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+  };
+
+  // Handle weekly schedule change
+  const handleWeeklyScheduleChange = async (newSchedule: WeeklySchedule) => {
+    setWeeklySchedule(newSchedule);
+
+    // Auto-save if already enabled
+    if (isEnabled) {
+      setIsLoading(true);
+      try {
+        await updateAutoOrderSettings(subscription!._id, {
+          autoOrderingEnabled: true,
+          defaultMealType: selectedMealType,
+          defaultAddressId: defaultAddress?._id,
+          weeklySchedule: newSchedule,
+        });
+      } catch (error: any) {
+        setModalTitle('Error');
+        setModalMessage(error.message || 'Failed to update weekly schedule');
+        setShowErrorModal(true);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   // Handle enable/disable toggle
   const handleToggleEnabled = async (value: boolean) => {
     // Validate before enabling
@@ -127,6 +231,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
         autoOrderingEnabled: value,
         defaultMealType: selectedMealType,
         defaultAddressId: defaultAddress?._id,
+        weeklySchedule: useWeeklySchedule ? weeklySchedule : undefined,
       });
       setIsEnabled(value);
       setModalTitle('Success');
@@ -157,6 +262,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           autoOrderingEnabled: true,
           defaultMealType: mealType,
           defaultAddressId: defaultAddress?._id,
+          weeklySchedule: useWeeklySchedule ? weeklySchedule : undefined,
         });
       } catch (error: any) {
         setModalTitle('Error');
@@ -293,7 +399,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
           <Text
             className="font-bold text-white flex-1 text-center"
-            style={{ fontSize: isSmallDevice ? FONT_SIZES.h3 : FONT_SIZES.h2 }}
+            style={{ fontSize: FONT_SIZES.h4 }}
             numberOfLines={1}
           >
             Auto-Order Settings
@@ -391,48 +497,88 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
                   {/* Active Meals Display */}
                   <View className="pt-3 border-t border-white/20 mb-3">
                     <Text className="text-xs text-white/80 mb-2">
-                      Auto-Ordering
+                      {useWeeklySchedule ? 'Weekly Schedule' : 'Auto-Ordering'}
                     </Text>
-                    <View className="flex-row items-center">
-                      {selectedMealType === 'BOTH' || selectedMealType === 'LUNCH' ? (
+                    {useWeeklySchedule ? (
+                      <View className="flex-row items-center flex-wrap">
                         <View style={{
                           backgroundColor: 'rgba(255, 255, 255, 0.25)',
                           borderRadius: 12,
                           paddingHorizontal: 10,
                           paddingVertical: 4,
                           marginRight: 8,
+                          marginBottom: 4,
                           flexDirection: 'row',
                           alignItems: 'center'
                         }}>
-                          <MaterialCommunityIcons name="white-balance-sunny" size={14} color="white" style={{ marginRight: 4 }} />
-                          <Text className="text-xs font-semibold text-white">Lunch</Text>
+                          <MaterialCommunityIcons name="calendar-week" size={14} color="white" style={{ marginRight: 4 }} />
+                          <Text className="text-xs font-semibold text-white">
+                            {(() => {
+                              let count = 0;
+                              if (weeklySchedule) {
+                                Object.values(weeklySchedule).forEach(day => {
+                                  if (day?.lunch) count++;
+                                  if (day?.dinner) count++;
+                                });
+                              }
+                              return `${count} meals/week`;
+                            })()}
+                          </Text>
                         </View>
-                      ) : null}
-                      {selectedMealType === 'BOTH' || selectedMealType === 'DINNER' ? (
-                        <View style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                          borderRadius: 12,
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          flexDirection: 'row',
-                          alignItems: 'center'
-                        }}>
-                          <MaterialCommunityIcons name="moon-waning-crescent" size={14} color="white" style={{ marginRight: 4 }} />
-                          <Text className="text-xs font-semibold text-white">Dinner</Text>
-                        </View>
-                      ) : null}
-                      {subscription.isPaused && (
-                        <View style={{
-                          backgroundColor: 'rgba(245, 158, 11, 0.9)',
-                          borderRadius: 12,
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          marginLeft: 8
-                        }}>
-                          <Text className="text-xs font-semibold text-white">All Paused</Text>
-                        </View>
-                      )}
-                    </View>
+                        {subscription.isPaused && (
+                          <View style={{
+                            backgroundColor: 'rgba(245, 158, 11, 0.9)',
+                            borderRadius: 12,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            marginBottom: 4
+                          }}>
+                            <Text className="text-xs font-semibold text-white">Paused</Text>
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <View className="flex-row items-center">
+                        {selectedMealType === 'BOTH' || selectedMealType === 'LUNCH' ? (
+                          <View style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                            borderRadius: 12,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            marginRight: 8,
+                            flexDirection: 'row',
+                            alignItems: 'center'
+                          }}>
+                            <MaterialCommunityIcons name="white-balance-sunny" size={14} color="white" style={{ marginRight: 4 }} />
+                            <Text className="text-xs font-semibold text-white">Lunch</Text>
+                          </View>
+                        ) : null}
+                        {selectedMealType === 'BOTH' || selectedMealType === 'DINNER' ? (
+                          <View style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                            borderRadius: 12,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            flexDirection: 'row',
+                            alignItems: 'center'
+                          }}>
+                            <MaterialCommunityIcons name="moon-waning-crescent" size={14} color="white" style={{ marginRight: 4 }} />
+                            <Text className="text-xs font-semibold text-white">Dinner</Text>
+                          </View>
+                        ) : null}
+                        {subscription.isPaused && (
+                          <View style={{
+                            backgroundColor: 'rgba(245, 158, 11, 0.9)',
+                            borderRadius: 12,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            marginLeft: 8
+                          }}>
+                            <Text className="text-xs font-semibold text-white">All Paused</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
 
                   {/* Next Order Countdown */}
@@ -776,6 +922,53 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               )}
             </View>
           </TouchableOpacity>
+        </View>
+
+        {/* Weekly Schedule Section */}
+        <View className="mx-4 mb-4">
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center">
+              <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+              <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
+                Weekly Schedule
+              </Text>
+            </View>
+            <Switch
+              value={useWeeklySchedule}
+              onValueChange={handleWeeklyScheduleToggle}
+              trackColor={{ false: '#E5E7EB', true: '#FED7AA' }}
+              thumbColor={useWeeklySchedule ? '#ff8800' : '#f4f3f4'}
+              disabled={isLoading}
+              style={{ transform: [{ scale: 0.9 }] }}
+            />
+          </View>
+
+          {!useWeeklySchedule && (
+            <Text className="text-sm text-gray-600 mb-3 pl-1" numberOfLines={2}>
+              Using simple mode: Auto-order {selectedMealType === 'BOTH' ? 'both meals' : selectedMealType.toLowerCase()} every day
+            </Text>
+          )}
+
+          {useWeeklySchedule && (
+            <>
+              <Text className="text-sm text-gray-600 mb-4 pl-1" numberOfLines={3}>
+                Customize which days and meals to auto-order each week
+              </Text>
+
+              {/* Quick Set Buttons */}
+              <WeeklyScheduleQuickSets
+                onSelectPattern={handleWeeklyScheduleChange}
+                disabled={isLoading || !isEnabled}
+              />
+
+              {/* Weekly Schedule Grid */}
+              <WeeklyScheduleGrid
+                schedule={weeklySchedule}
+                onChange={handleWeeklyScheduleChange}
+                disabled={isLoading || !isEnabled}
+              />
+            </>
+          )}
         </View>
 
         {/* Default Address */}

@@ -2,8 +2,9 @@ import axios, { AxiosInstance } from 'axios';
 import { getIdToken } from '../config/firebase';
 
 // Backend base URL - update this with your actual backend URL
-const BASE_URL = 'https://tiffsy-backend.onrender.com';
+// const BASE_URL = 'https://tiffsy-backend.onrender.com';
 // const BASE_URL = 'http://192.168.29.105:5005';
+const BASE_URL = 'http://192.168.29.69:5005';
 
 // Type definitions for API responses
 export interface UserData {
@@ -633,6 +634,18 @@ export interface SkippedSlot {
   skippedAt: string;
 }
 
+// Weekly schedule types
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface DayMealSchedule {
+  lunch: boolean;  // REQUIRED: Backend will reject if missing
+  dinner: boolean; // REQUIRED: Backend will reject if missing
+}
+
+export type WeeklySchedule = {
+  [K in DayOfWeek]?: DayMealSchedule;
+} | null;
+
 export interface Subscription {
   _id: string;
   userId: string;
@@ -668,6 +681,7 @@ export interface Subscription {
   defaultMealType?: DefaultMealType;
   defaultKitchenId?: string;
   defaultAddressId?: string;
+  weeklySchedule?: WeeklySchedule;
 }
 
 export type VoucherStatus =
@@ -859,6 +873,7 @@ export interface UpdateSubscriptionSettingsRequest {
   defaultMealType?: DefaultMealType;
   defaultKitchenId?: string | null;
   defaultAddressId?: string | null;
+  weeklySchedule?: WeeklySchedule;
 }
 
 export interface UpdateSubscriptionSettingsResponse {
@@ -870,6 +885,7 @@ export interface UpdateSubscriptionSettingsResponse {
     defaultMealType: DefaultMealType;
     defaultKitchen: { name: string } | null;
     defaultAddress: { addressLine1: string; city: string } | null;
+    weeklySchedule?: WeeklySchedule;
   };
 }
 

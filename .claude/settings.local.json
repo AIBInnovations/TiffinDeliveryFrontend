@@ -25,7 +25,9 @@
       "Bash(npm i:*)",
       "Bash(tree:*)",
       "Bash(npm start)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(gradlew.bat uninstallDebug:*)",
+      "Bash(npx react-native start:*)"
     ]
   }
 }

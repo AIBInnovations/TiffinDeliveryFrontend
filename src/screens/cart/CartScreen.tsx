@@ -208,13 +208,23 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       });
 
       if (response.success && response.data) {
-        console.log('[CartScreen] calculatePricing API response:');
-        console.log('  - voucherCount sent:', voucherCount);
-        console.log('  - breakdown:', JSON.stringify(response.data.breakdown));
-        console.log('  - voucherCoverage:', JSON.stringify(response.data.breakdown?.voucherCoverage));
-        console.log('  - backend amountToPay:', response.data.breakdown?.amountToPay);
-        console.log('  - backend subtotal:', response.data.breakdown?.subtotal);
-        console.log('  - backend charges:', JSON.stringify(response.data.breakdown?.charges));
+        console.log('[CartScreen] ✅ calculatePricing API response received:');
+        console.log('  - voucherCount sent to backend:', voucherCount);
+        console.log('  - backend returned subtotal:', response.data.breakdown?.subtotal);
+        console.log('  - backend returned amountToPay:', response.data.breakdown?.amountToPay);
+        console.log('  - backend returned voucherCoverage:', JSON.stringify(response.data.breakdown?.voucherCoverage));
+        console.log('  - backend returned discount:', JSON.stringify(response.data.breakdown?.discount));
+        console.log('  - backend returned charges:', JSON.stringify(response.data.breakdown?.charges));
+        console.log('  - full breakdown:', JSON.stringify(response.data.breakdown, null, 2));
+
+        // 🚨 VALIDATION: Check if backend returned incorrect pricing
+        if (voucherCount === 0 && response.data.breakdown?.voucherCoverage?.value > 0) {
+          console.error('🚨🚨🚨 BACKEND BUG DETECTED! 🚨🚨🚨');
+          console.error('  - Frontend sent voucherCount: 0');
+          console.error('  - But backend returned voucherCoverage:', response.data.breakdown.voucherCoverage.value);
+          console.error('  - This is a BACKEND BUG - backend should not return voucher coverage when voucherCount is 0');
+          console.error('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨');
+        }
 
         // CRITICAL: Use backend pricing as-is without modification
         // Backend is the source of truth - it has authoritative prices and calculation logic
@@ -223,7 +233,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         setPricing(response.data.breakdown);
         setVoucherInfo(response.data.voucherEligibility);
 
-        console.log('[CartScreen] Using backend pricing directly (no frontend override)');
+        console.log('[CartScreen] ✅ Pricing state updated with backend data');
       }
     } catch (error: any) {
       console.error('Error calculating pricing:', error.message || error);
@@ -237,8 +247,15 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Recalculate pricing on changes
   useEffect(() => {
+    console.log('[CartScreen] Triggering calculatePricing');
+    console.log('  - cartItems.length:', cartItems.length);
+    console.log('  - cartItems:', cartItems.map(item => ({ name: item.name, price: item.price, qty: item.quantity })));
+    console.log('  - voucherCount:', voucherCount);
+    console.log('  - kitchenId:', kitchenId);
+    console.log('  - menuType:', menuType);
+    console.log('  - localSelectedAddressId:', localSelectedAddressId);
     calculatePricing();
-  }, [calculatePricing]);
+  }, [calculatePricing, cartItems, voucherCount, kitchenId, menuType, localSelectedAddressId]);
 
   // Handle placing order directly
   const handlePlaceOrder = async () => {
@@ -513,18 +530,32 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     });
   }
 
-  // Debug: Log pricing changes
+  // Debug: Log pricing changes with alert for debugging
   useEffect(() => {
-    console.log('[CartScreen] Pricing state changed:');
-    console.log('  - pricing:', pricing ? 'exists' : 'null');
+    console.log('[CartScreen] ===== PRICING DISPLAY DEBUG =====');
+    console.log('  - pricing object:', pricing ? 'exists' : 'null');
+    console.log('  - pricing.subtotal:', pricing?.subtotal);
     console.log('  - pricing.amountToPay:', pricing?.amountToPay);
+    console.log('  - pricing.grandTotal:', pricing?.grandTotal);
     console.log('  - pricing.voucherCoverage:', JSON.stringify(pricing?.voucherCoverage));
-    console.log('  - calculated voucherDiscount:', voucherDiscount);
-    console.log('  - calculated amountToPay:', amountToPay);
+    console.log('  - pricing.discount:', JSON.stringify(pricing?.discount));
+    console.log('  - pricing.charges:', JSON.stringify(pricing?.charges));
+    console.log('  - calculated subtotal (display):', subtotal);
+    console.log('  - calculated voucherDiscount (display):', voucherDiscount);
+    console.log('  - calculated couponDiscount (display):', couponDiscount);
+    console.log('  - calculated totalDiscount (display):', totalDiscount);
+    console.log('  - calculated totalCharges (display):', totalCharges);
+    console.log('  - calculated amountToPay (display):', amountToPay);
     console.log('  - current voucherCount:', voucherCount);
-    console.log('  - charges (0 if voucher):', JSON.stringify(charges));
-    console.log('  - totalCharges:', totalCharges);
-  }, [pricing, voucherDiscount, amountToPay, voucherCount, charges, totalCharges]);
+    console.log('  - cart items count:', cartItems.length);
+    console.log('=====================================');
+
+    // Debug alert when there's a discount but voucherCount is 0
+    if (voucherDiscount > 0 && voucherCount === 0) {
+      console.log('🚨 BUG DETECTED: voucherDiscount is', voucherDiscount, 'but voucherCount is 0!');
+      console.log('🚨 Backend returned incorrect pricing with voucherCoverage:', pricing?.voucherCoverage);
+    }
+  }, [pricing, subtotal, voucherDiscount, couponDiscount, totalDiscount, totalCharges, amountToPay, voucherCount, cartItems.length]);
 
   // Voucher UI state - include both AVAILABLE and RESTORED vouchers
   const hasVouchers = usableVouchers > 0;
@@ -536,7 +567,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   // 2. No voucher is currently applied to this order (voucherCount === 0)
   // 3. Either voucherInfo is not loaded yet OR (canUse > 0 AND cutoff not passed)
   // The backend now correctly calculates canUse based on available vouchers, main courses, and cutoff time
-  const canUseVoucher = voucherInfo ? voucherInfo.canUse > 0 && !voucherInfo.cutoffPassed : true;
+  const canUseVoucher = voucherInfo ? maxVouchersCanUse > 0 && !voucherInfo.cutoffPassed : true;
   const showRedeemButton = hasVouchers && voucherCount === 0 && canUseVoucher;
 
   // Debug logging for cart items
@@ -582,7 +613,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     if (hasAutoApplied) return;
 
     // Check if voucher can be auto-applied
-    if (voucherInfo && !voucherInfo.cutoffPassed && voucherInfo.canUse > 0 && voucherCount === 0 && hasVouchers) {
+    if (voucherInfo && !voucherInfo.cutoffPassed && maxVouchersCanUse > 0 && voucherCount === 0 && hasVouchers) {
       console.log('[CartScreen] Auto-applying voucher');
       setVoucherCount(1);
       setHasAutoApplied(true);
@@ -627,10 +658,26 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [route.params?.directCheckout, cartItems.length, localSelectedAddressId]);
 
   // Handler to remove all vouchers
-  const handleRemoveVoucher = () => {
-    console.log('[CartScreen] Removing voucher');
+  const handleRemoveVoucher = useCallback(() => {
+    console.log('[CartScreen] ========== REMOVING VOUCHER ==========');
+    console.log('  - Current voucherCount:', voucherCount);
+    console.log('  - Current pricing.voucherCoverage:', JSON.stringify(pricing?.voucherCoverage));
+    console.log('  - Current pricing.amountToPay:', pricing?.amountToPay);
+
+    // CRITICAL FIX: Clear pricing state FIRST to immediately remove discount from UI
+    // This prevents showing stale pricing with voucher discount
+    console.log('  - Step 1: Clearing pricing state...');
+    setPricing(null);
+    setVoucherInfo(null);
+
+    // Then set voucher count to 0
+    // The useEffect (line 239) will automatically recalculate pricing with voucherCount: 0
+    console.log('  - Step 2: Setting voucherCount to 0...');
     setVoucherCount(0);
-  };
+
+    console.log('  - Voucher removal initiated - useEffect will recalculate pricing with voucherCount: 0');
+    console.log('========== END REMOVING VOUCHER ==========');
+  }, [voucherCount, setVoucherCount, pricing]);
 
   // Handler to add one more voucher
   const handleAddMoreVoucher = () => {
@@ -648,11 +695,11 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     console.log('  - hasVouchers:', hasVouchers);
     console.log('  - usableVouchers:', usableVouchers);
 
-    // Use the backend's canUse value if available, otherwise default to 1 voucher
-    // The backend calculates canUse based on available vouchers, main courses, and cutoff time
-    if (voucherInfo && voucherInfo.canUse > 0) {
-      console.log('  - Setting voucherCount to:', Math.min(1, voucherInfo.canUse));
-      setVoucherCount(Math.min(1, voucherInfo.canUse));
+    // Use maxVouchersCanUse (computed from usableVouchers & thaliCount) to determine eligibility
+    // This doesn't depend on backend's canUse which is 0 when voucherCount is 0
+    if (maxVouchersCanUse > 0) {
+      console.log('  - Setting voucherCount to 1');
+      setVoucherCount(1);
     } else if (hasVouchers) {
       // Fallback: apply 1 voucher if voucherInfo not loaded yet
       console.log('  - Fallback: Setting voucherCount to 1');
@@ -1077,7 +1124,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View className="bg-white rounded-full px-4 items-center justify-center" style={{ height: 46 }}>
                     <Text className="text-red-500 font-semibold text-xs">Cutoff Passed</Text>
                   </View>
-                ) : voucherInfo.canUse > 0 ? (
+                ) : maxVouchersCanUse > 0 ? (
                   <TouchableOpacity
                     className="bg-white rounded-full px-5 items-center justify-center"
                     style={{ height: 46 }}

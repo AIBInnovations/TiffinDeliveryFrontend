@@ -1062,15 +1062,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     paddingHorizontal: SPACING.md,
                   }}
                 >
-                  <Image
-                    source={image}
+                  <View
                     style={{
                       width: '100%',
                       height: '100%',
                       borderRadius: SPACING.lg,
+                      overflow: 'hidden',
+                      backgroundColor: 'white',
                     }}
-                    resizeMode="cover"
-                  />
+                  >
+                    <Image
+                      source={image}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                      }}
+                      resizeMode="contain"
+                    />
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -1262,14 +1271,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View> */}
 
           {/* Main Meal Image */}
-          <View className="items-center justify-center pb-16" style={{ width: '100%' }}>
+          <View className="items-center justify-center pb-4" style={{ width: '100%' }}>
             <Image
               source={
                 selectedMeal === 'lunch'
                   ? require('../../assets/images/homepage/lunchThali.png')
                   : require('../../assets/images/homepage/dinnerThali.png')
               }
-              style={{ width: width * 0.95, height: width * 0.95, alignSelf: 'center', marginLeft: SPACING.lg + 4 }}
+              style={{ width: width * 0.80, height: width * 0.80, alignSelf: 'center', marginLeft: SPACING.lg + 4 }}
               resizeMode="contain"
             />
           </View>
@@ -1279,7 +1288,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View
           className="bg-white px-6 pt-5 pb-10"
           style={{
-            marginTop: -60,
+            marginTop: -40,
             borderTopLeftRadius: 33,
             borderTopRightRadius: 33,
             shadowColor: '#000',
@@ -1347,17 +1356,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
 
-          {/* Special Thali and Add to Cart */}
+          {/* Special Thali and Buttons */}
           {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && (
           <>
-          <View className="flex-row items-center justify-between mb-6">
-            <View className="flex-1">
+          <View className="flex-row justify-between items-start mb-6">
+            {/* Left: Meal Name and Price */}
+            <View className="flex-1 pr-4">
               <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.h3 }}>{getMealName()}</Text>
               <Text className="text-gray-600 mt-1" style={{ fontSize: FONT_SIZES.base }}>
                 From: <Text className="font-semibold text-gray-900">₹{getMealPrice().toFixed(2)}</Text>
               </Text>
             </View>
-            {!showCartModal ? (
+
+            {/* Right: Buttons Stack */}
+            <View style={{ gap: SPACING.sm }}>
+              {!showCartModal ? (
               <TouchableOpacity
                 onPress={handleAddToCart}
                 activeOpacity={0.7}
@@ -1440,41 +1453,40 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
 
-          {/* Buy Now Button */}
-          {!showCartModal && (
-            <View style={{ alignItems: 'center', marginBottom: SPACING.lg }}>
-              <TouchableOpacity
-                onPress={handleBuyNow}
-                activeOpacity={0.7}
-                disabled={isLoadingMenu}
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 1)',
-                  borderWidth: 2,
-                  borderColor: 'rgba(255, 136, 0, 1)',
-                  borderRadius: SPACING['3xl'],
-                  width: SPACING['5xl'] * 3.125,
-                  height: SPACING['2xl'] + SPACING.xl + 1,
-                  paddingHorizontal: SPACING.xl + 4,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: isLoadingMenu ? 0.5 : 1,
-                }}
-              >
-                <Text
+              {/* Buy Now Button */}
+              {!showCartModal && (
+                <TouchableOpacity
+                  onPress={handleBuyNow}
+                  activeOpacity={0.7}
+                  disabled={isLoadingMenu}
                   style={{
-                    color: 'rgba(255, 136, 0, 1)',
-                    fontSize: FONT_SIZES.sm,
-                    fontWeight: '600',
+                    backgroundColor: 'rgba(255, 255, 255, 1)',
+                    borderWidth: 2,
+                    borderColor: 'rgba(255, 136, 0, 1)',
+                    borderRadius: SPACING['3xl'],
+                    width: SPACING['5xl'] * 3.125,
+                    height: SPACING['2xl'] + SPACING.xl + 1,
+                    paddingHorizontal: SPACING.xl + 4,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: isLoadingMenu ? 0.5 : 1,
                   }}
                 >
-                  Buy Now
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={{
+                      color: 'rgba(255, 136, 0, 1)',
+                      fontSize: FONT_SIZES.sm,
+                      fontWeight: '600',
+                    }}
+                  >
+                    Buy Now
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
-          )}
+          </View>
 
           {/* Details Section */}
           <View className="mb-6">
@@ -1664,11 +1676,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             ) : null}
           </View>
-          </>
-          )}
 
           {/* Bottom Spacing for Navigation Bar and Cart Popup */}
           <View style={{ height: (showCartModal ? 160 : 100) + insets.bottom }} />
+          </>
+          )}
         </View>
       </ScrollView>
 

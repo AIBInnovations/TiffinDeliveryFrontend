@@ -683,10 +683,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                   <TouchableOpacity
                     onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSubFull._id })}
-                    className="px-3 py-1 rounded-full"
+                    className="px-5 py-2 rounded-full"
                     style={{ backgroundColor: 'white' }}
                   >
-                    <Text className="text-xs font-semibold" style={{ color: '#8B5CF6' }}>Settings</Text>
+                    <Text className="text-sm font-semibold" style={{ color: '#8B5CF6' }}>Settings</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1118,21 +1118,6 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     onChangeText={setPauseUntilDate}
                     className="bg-gray-50 rounded-xl px-4 py-3 mb-4 text-gray-900"
                     placeholderTextColor="#9CA3AF"
-                  />
-
-                  {/* Pause Reason (Optional) */}
-                  <Text className="text-sm font-medium text-gray-700 mb-2">
-                    Reason (optional):
-                  </Text>
-                  <TextInput
-                    placeholder="Why are you pausing? (optional)"
-                    value={pauseReason}
-                    onChangeText={setPauseReason}
-                    className="bg-gray-50 rounded-xl px-4 py-3 mb-4 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                    multiline
-                    numberOfLines={2}
-                    maxLength={500}
                   />
                 </>
               )}
