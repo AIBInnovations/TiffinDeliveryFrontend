@@ -1,5 +1,5 @@
 // src/components/OrderSuccessModal.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'react-native';
 
@@ -16,8 +17,11 @@ interface OrderSuccessModalProps {
   onClose: () => void;
   onGoHome: () => void;
   onTrackOrder: () => void;
+  onCancelOrder?: () => Promise<void>;
   orderNumber?: string;
   amountToPay?: number;
+  extraVouchersIssued?: number;
+  cancelDeadline?: string;
 }
 
 const { height } = Dimensions.get('window');
@@ -27,11 +31,70 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   onClose,
   onGoHome,
   onTrackOrder,
+  onCancelOrder,
   orderNumber,
   amountToPay,
+  extraVouchersIssued,
+  cancelDeadline,
 }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Cancel countdown state
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Calculate and start countdown when modal becomes visible
+  useEffect(() => {
+    if (visible && cancelDeadline) {
+      const deadline = new Date(cancelDeadline).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
+      setRemainingSeconds(remaining);
+      setIsCancelling(false);
+
+      if (remaining > 0) {
+        timerRef.current = setInterval(() => {
+          const newRemaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+          setRemainingSeconds(newRemaining);
+          if (newRemaining <= 0) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+          }
+        }, 1000);
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [visible, cancelDeadline]);
+
+  // Format seconds as M:SS
+  const formatCountdown = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCancel = useCallback(async () => {
+    if (!onCancelOrder || isCancelling) return;
+    setIsCancelling(true);
+    try {
+      await onCancelOrder();
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [onCancelOrder, isCancelling]);
+
+  const showCancelButton = cancelDeadline && remainingSeconds > 0 && onCancelOrder;
+  const isMultiOrder = orderNumber ? orderNumber.includes(' & ') : false;
 
   useEffect(() => {
     if (visible) {
@@ -126,10 +189,10 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                   marginBottom: 8,
                 }}
               >
-                Order Successful!
+                {isMultiOrder ? 'Orders Successful!' : 'Order Successful!'}
               </Text>
 
-              {/* Order Number */}
+              {/* Order Number(s) */}
               {orderNumber && (
                 <Text
                   style={{
@@ -140,7 +203,7 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                     marginBottom: 8,
                   }}
                 >
-                  Order #{orderNumber}
+                  {isMultiOrder ? `Orders #${orderNumber}` : `Order #${orderNumber}`}
                 </Text>
               )}
 
@@ -175,13 +238,37 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                   fontSize: 14,
                   color: '#9CA3AF',
                   textAlign: 'center',
-                  marginBottom: 24,
+                  marginBottom: extraVouchersIssued && extraVouchersIssued > 0 ? 12 : 24,
                   lineHeight: 20,
                 }}
               >
-                We're preparing your food.{'\n'}
-                See updates in my orders
+                {isMultiOrder
+                  ? 'Your lunch & dinner orders are being prepared.\nSee updates in my orders'
+                  : 'We\'re preparing your food.\nSee updates in my orders'}
               </Text>
+
+              {/* Bonus Vouchers Banner */}
+              {extraVouchersIssued !== undefined && extraVouchersIssued > 0 && (
+                <View
+                  style={{
+                    backgroundColor: '#EFF6FF',
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    marginBottom: 24,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: '#BFDBFE',
+                  }}
+                >
+                  <Text style={{ fontSize: 18, marginRight: 8 }}>🎉</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#1D4ED8', textAlign: 'center' }}>
+                    You got {extraVouchersIssued} bonus meal voucher{extraVouchersIssued > 1 ? 's' : ''}!
+                  </Text>
+                </View>
+              )}
 
               {/* Go Home Button */}
               <TouchableOpacity
@@ -223,6 +310,7 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                   alignItems: 'center',
                   flexDirection: 'row',
                   justifyContent: 'center',
+                  marginBottom: showCancelButton ? 12 : 0,
                 }}
               >
                 <Text
@@ -233,10 +321,40 @@ const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
                     marginRight: 4,
                   }}
                 >
-                  Track your order
+                  {isMultiOrder ? 'View your orders' : 'Track your order'}
                 </Text>
                 <Text style={{ fontSize: 16, color: 'rgba(255, 136, 0, 1)' }}>→</Text>
               </TouchableOpacity>
+
+              {/* Cancel Order Button with Countdown */}
+              {showCancelButton && (
+                <TouchableOpacity
+                  onPress={handleCancel}
+                  disabled={isCancelling}
+                  style={{
+                    borderRadius: 28,
+                    paddingVertical: 12,
+                    paddingHorizontal: 32,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: isCancelling ? 0.6 : 1,
+                  }}
+                >
+                  {isCancelling ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#EF4444',
+                      }}
+                    >
+                      Cancel order ({formatCountdown(remainingSeconds)})
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </Animated.View>
           </TouchableWithoutFeedback>
         </Animated.View>

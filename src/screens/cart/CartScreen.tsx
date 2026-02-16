@@ -1,5 +1,5 @@
 // src/screens/cart/CartScreen.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,6 @@ import {
   StatusBar,
   ActivityIndicator,
   TextInput,
-  Modal,
-  Pressable,
-  Animated,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +27,7 @@ import apiService, {
   Order,
   AddonItem,
 } from '../../services/api.service';
+import CouponSheet from '../../components/CouponSheet';
 import dataPreloader from '../../services/dataPreloader.service';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
@@ -40,6 +38,7 @@ interface OrderResult {
   orderId: string;
   orderNumber: string;
   amountToPay: number;
+  cancelDeadline?: string;
 }
 
 const CartScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -50,15 +49,28 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     addAddonToItem,
     removeAddon,
     removeItem,
+    replaceCart,
     kitchenId,
     menuType,
     mealWindow,
     deliveryAddressId,
     voucherCount,
+    couponCode,
     setVoucherCount,
+    setCouponCode,
     setDeliveryAddressId,
     getOrderItems,
     resetOrderContext,
+    setMealWindow,
+    // Multi-slot support
+    selectedMealWindows,
+    toggleMealWindow,
+    addToCartForSlot,
+    getItemsForSlot,
+    getOrderItemsForSlot,
+    removeItemsForSlot,
+    slotVoucherCounts,
+    setSlotVoucherCount,
   } = useCart();
 
   const { addresses, getMainAddress } = useAddress();
@@ -73,11 +85,31 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     deliveryAddressId || getMainAddress()?.id || (addresses.length > 0 ? addresses[0].id : '')
   );
 
-  // Pricing state
-  const [pricing, setPricing] = useState<PricingBreakdown | null>(null);
-  const [voucherInfo, setVoucherInfo] = useState<VoucherEligibility | null>(null);
+  // Per-slot pricing state
+  interface SlotPricing {
+    pricing: PricingBreakdown | null;
+    voucherInfo: VoucherEligibility | null;
+    error: string | null;
+  }
+  const [lunchPricing, setLunchPricing] = useState<SlotPricing>({ pricing: null, voucherInfo: null, error: null });
+  const [dinnerPricing, setDinnerPricing] = useState<SlotPricing>({ pricing: null, voucherInfo: null, error: null });
   const [isCalculating, setIsCalculating] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
+
+  // Backward compat helpers
+  const pricing = selectedMealWindows.length === 1
+    ? (selectedMealWindows[0] === 'LUNCH' ? lunchPricing.pricing : dinnerPricing.pricing)
+    : null;
+  // voucherInfo: use first available slot's info (so voucher section shows even when both selected)
+  const voucherInfo = (() => {
+    if (selectedMealWindows.includes('LUNCH') && lunchPricing.voucherInfo) {
+      return lunchPricing.voucherInfo;
+    }
+    if (selectedMealWindows.includes('DINNER') && dinnerPricing.voucherInfo) {
+      return dinnerPricing.voucherInfo;
+    }
+    return null;
+  })();
+  const pricingError = lunchPricing.error || dinnerPricing.error || null;
 
   // Order state
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -85,43 +117,43 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
   const [pendingPaymentOrderId, setPendingPaymentOrderId] = useState<string | null>(null);
 
+  // Coupon sheet state
+  const [showCouponSheet, setShowCouponSheet] = useState(false);
+  // Track extra vouchers from coupon for order success display
+  const [extraVouchersIssued, setExtraVouchersIssued] = useState(0);
+
   // Voucher auto-apply state
   const [hasAutoApplied, setHasAutoApplied] = useState(false);
 
-  // Order summary expand/collapse state
-  const [isOrderSummaryExpanded, setIsOrderSummaryExpanded] = useState(false);
-
-  // Available addons state
-  const [availableAddons, setAvailableAddons] = useState<AddonItem[]>([]);
+  // Addons expand state
   const [addonsExpanded, setAddonsExpanded] = useState(false);
 
-  // Address drawer state
-  const [showAddressDrawer, setShowAddressDrawer] = useState(false);
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const drawerTranslateY = useRef(new Animated.Value(400)).current;
+  // Payment summary expand state
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
-  const openAddressDrawer = useCallback(() => {
-    setShowAddressDrawer(true);
-    Animated.parallel([
-      Animated.timing(backdropOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-      Animated.timing(drawerTranslateY, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start();
-  }, [backdropOpacity, drawerTranslateY]);
-
-  const closeAddressDrawer = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(drawerTranslateY, { toValue: 400, duration: 250, useNativeDriver: true }),
-    ]).start(() => setShowAddressDrawer(false));
-  }, [backdropOpacity, drawerTranslateY]);
-
-  // Quick action states
+  // Delivery preferences
   const [cookingInstructions, setCookingInstructions] = useState('');
   const [showCookingInput, setShowCookingInput] = useState(false);
   const [leaveAtDoor, setLeaveAtDoor] = useState(false);
   const [doNotContact, setDoNotContact] = useState(false);
-  const [deliveryInstructions, setDeliveryInstructions] = useState('');
-  const [showDeliveryInput, setShowDeliveryInput] = useState(false);
+
+  // Three-state cutoff per slot
+  interface SlotCutoffState {
+    canOrder: boolean;
+    canUseVoucher: boolean;
+    voucherCutoffTime?: string;
+    orderCutoffTime?: string;
+  }
+  const [lunchCutoff, setLunchCutoff] = useState<SlotCutoffState>({ canOrder: true, canUseVoucher: true });
+  const [dinnerCutoff, setDinnerCutoff] = useState<SlotCutoffState>({ canOrder: true, canUseVoucher: true });
+
+  // Helper to get slot state
+  const getSlotState = (cutoff: SlotCutoffState): 'available' | 'cash_only' | 'closed' => {
+    if (!cutoff.canOrder) return 'closed';
+    if (!cutoff.canUseVoucher) return 'cash_only';
+    return 'available';
+  };
+
 
   // Refresh voucher data when screen comes into focus
   useFocusEffect(
@@ -133,28 +165,85 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     }, [fetchVouchers])
   );
 
-  // Fetch available addons when screen comes into focus
+  // Per-slot addons
+  const [lunchAddons, setLunchAddons] = useState<AddonItem[]>([]);
+  const [dinnerAddons, setDinnerAddons] = useState<AddonItem[]>([]);
+  // Backward compat: availableAddons for first selected slot
+  const availableAddons = selectedMealWindows.includes('LUNCH') ? lunchAddons :
+    selectedMealWindows.includes('DINNER') ? dinnerAddons : [];
+
+  // Cache menu items for slot toggling
+  const [menuItemCache, setMenuItemCache] = useState<{ lunch?: any; dinner?: any }>({});
+
+  // Map MenuItem to three-state cutoff
+  const mapCutoffState = (menuItem: any): SlotCutoffState => {
+    if (!menuItem) return { canOrder: false, canUseVoucher: false };
+
+    console.log('[CartScreen] mapCutoffState raw backend fields:', {
+      isPastCutoff: menuItem.isPastCutoff,
+      canOrder: menuItem.canOrder,
+      canUseVoucher: menuItem.canUseVoucher,
+      cutoffTime: menuItem.cutoffTime,
+      voucherCutoffTime: menuItem.voucherCutoffTime,
+      orderCutoffTime: menuItem.orderCutoffTime,
+    });
+
+    // New two-phase fields take priority
+    if (menuItem.voucherCutoffTime !== undefined || menuItem.orderCutoffTime !== undefined) {
+      return {
+        canOrder: menuItem.canOrder ?? true,
+        canUseVoucher: menuItem.canUseVoucher ?? true,
+        voucherCutoffTime: menuItem.voucherCutoffTime,
+        orderCutoffTime: menuItem.orderCutoffTime,
+      };
+    }
+    // Backward compat: old single-cutoff model
+    // isPastCutoff from old model = voucher cutoff passed (cash only), NOT order closed.
+    // Ordering stays open — only the new canOrder field (from backend) can close ordering.
+    const voucherCutoffPassed = menuItem.isPastCutoff ?? false;
+    return {
+      canOrder: menuItem.canOrder ?? true, // always open until backend sends explicit canOrder:false
+      canUseVoucher: menuItem.canUseVoucher ?? !voucherCutoffPassed,
+      voucherCutoffTime: menuItem.cutoffTime,
+      orderCutoffTime: menuItem.cutoffTime,
+    };
+  };
+
+  // Fetch menu data, cutoff info, and addons when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      const fetchAddons = async () => {
+      const fetchMenuData = async () => {
         if (!kitchenId) return;
         try {
           const menuResponse = await apiService.getKitchenMenu(kitchenId, 'MEAL_MENU');
           if (menuResponse.data) {
             const { lunch, dinner } = menuResponse.data.mealMenu;
-            const currentMealItem = mealWindow === 'DINNER' ? dinner : lunch;
-            if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
-              setAvailableAddons(currentMealItem.addonIds);
+
+            // Cache menu items for slot toggling
+            setMenuItemCache({ lunch, dinner });
+
+            // Update three-state cutoff
+            setLunchCutoff(mapCutoffState(lunch));
+            setDinnerCutoff(mapCutoffState(dinner));
+
+            // Update per-slot addons
+            if (lunch?.addonIds && lunch.addonIds.length > 0) {
+              setLunchAddons(lunch.addonIds);
             } else {
-              setAvailableAddons([]);
+              setLunchAddons([]);
+            }
+            if (dinner?.addonIds && dinner.addonIds.length > 0) {
+              setDinnerAddons(dinner.addonIds);
+            } else {
+              setDinnerAddons([]);
             }
           }
         } catch (error) {
-          console.error('[CartScreen] Error fetching addons:', error);
+          console.error('[CartScreen] Error fetching menu data:', error);
         }
       };
-      fetchAddons();
-    }, [kitchenId, mealWindow])
+      fetchMenuData();
+    }, [kitchenId])
   );
 
   // Sync local address selection with cart context
@@ -164,241 +253,300 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [localSelectedAddressId]);
 
-  // Calculate pricing when cart changes
-  const calculatePricing = useCallback(async () => {
-    console.log('[CartScreen] calculatePricing called');
-    console.log('  - cartItems.length:', cartItems.length);
-    console.log('  - kitchenId:', kitchenId);
-    console.log('  - menuType:', menuType);
-    console.log('  - mealWindow:', mealWindow);
-    console.log('  - localSelectedAddressId:', localSelectedAddressId);
-    console.log('  - voucherCount:', voucherCount);
+  // When slots are toggled, add/remove items for that slot
+  const handleToggleSlot = useCallback(async (slot: 'LUNCH' | 'DINNER') => {
+    const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
+    if (!cutoff.canOrder) return;
 
-    // Don't calculate if missing required data
+    if (selectedMealWindows.includes(slot)) {
+      // Deselecting — remove items and reset vouchers for this slot
+      removeItemsForSlot(slot);
+      setSlotVoucherCount(slot, 0);
+      toggleMealWindow(slot);
+    } else {
+      // Selecting — add item for this slot
+      toggleMealWindow(slot);
+      const menuItem = slot === 'LUNCH' ? menuItemCache.lunch : menuItemCache.dinner;
+      if (menuItem?._id) {
+        const existingItems = getItemsForSlot(slot);
+        if (existingItems.length === 0) {
+          addToCartForSlot({
+            id: menuItem._id,
+            name: menuItem.name,
+            image: slot === 'LUNCH'
+              ? require('../../assets/images/homepage/lunch2.png')
+              : require('../../assets/images/homepage/dinneritem.png'),
+            subtitle: '1 Thali',
+            price: menuItem.discountedPrice || menuItem.price,
+            quantity: 1,
+            hasVoucher: true, // Thalis always support vouchers; cutoff handled separately
+            mealWindow: slot,
+          }, slot);
+        }
+      } else if (kitchenId) {
+        // Menu item not cached, fetch it
+        try {
+          const menuResponse = await apiService.getKitchenMenu(kitchenId, 'MEAL_MENU');
+          if (menuResponse.data) {
+            const item = slot === 'LUNCH' ? menuResponse.data.mealMenu.lunch : menuResponse.data.mealMenu.dinner;
+            if (item?._id) {
+              addToCartForSlot({
+                id: item._id,
+                name: item.name,
+                image: slot === 'LUNCH'
+                  ? require('../../assets/images/homepage/lunch2.png')
+                  : require('../../assets/images/homepage/dinneritem.png'),
+                subtitle: '1 Thali',
+                price: item.discountedPrice || item.price,
+                quantity: 1,
+                hasVoucher: true, // Thalis always support vouchers; cutoff handled separately
+                mealWindow: slot,
+              }, slot);
+            }
+          }
+        } catch (error) {
+          console.error('[CartScreen] Error fetching menu item for slot:', error);
+        }
+      }
+
+      // If slot is cash-only, auto-clear vouchers for it
+      if (!cutoff.canUseVoucher) {
+        setSlotVoucherCount(slot, 0);
+      }
+    }
+  }, [selectedMealWindows, lunchCutoff, dinnerCutoff, menuItemCache, kitchenId, getItemsForSlot, addToCartForSlot, removeItemsForSlot, toggleMealWindow, setSlotVoucherCount]);
+
+  // Auto-remove vouchers when a slot enters cash-only phase
+  useEffect(() => {
+    selectedMealWindows.forEach(slot => {
+      const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
+      if (!cutoff.canUseVoucher && slotVoucherCounts[slot] > 0) {
+        setSlotVoucherCount(slot, 0);
+        showAlert(
+          'Voucher Removed',
+          `${slot === 'LUNCH' ? 'Lunch' : 'Dinner'} voucher ordering time has passed. This slot will proceed as a paid order.`,
+          undefined,
+          'warning'
+        );
+      }
+    });
+  }, [lunchCutoff, dinnerCutoff, selectedMealWindows, slotVoucherCounts]);
+
+  // Calculate pricing per selected slot
+  const calculateAllPricing = useCallback(async () => {
+    console.log('[CartScreen] calculateAllPricing called');
+
     if (cartItems.length === 0 || !kitchenId || !menuType || !localSelectedAddressId) {
-      console.log('[CartScreen] calculatePricing - Missing required data, returning early');
-      console.log('  - cartItems empty:', cartItems.length === 0);
-      console.log('  - kitchenId missing:', !kitchenId);
-      console.log('  - menuType missing:', !menuType);
-      console.log('  - localSelectedAddressId missing:', !localSelectedAddressId);
-      setPricing(null);
-      setVoucherInfo(null);
+      setLunchPricing({ pricing: null, voucherInfo: null, error: null });
+      setDinnerPricing({ pricing: null, voucherInfo: null, error: null });
       return;
     }
 
-    // For MEAL_MENU, mealWindow is required
-    if (menuType === 'MEAL_MENU' && !mealWindow) {
-      console.log('[CartScreen] calculatePricing - MEAL_MENU but mealWindow missing');
-      setPricing(null);
+    if (menuType === 'MEAL_MENU' && selectedMealWindows.length === 0) {
       return;
     }
 
     setIsCalculating(true);
-    setPricingError(null);
 
-    try {
-      const response = await apiService.calculatePricing({
-        kitchenId,
-        menuType,
-        mealWindow: menuType === 'MEAL_MENU' ? mealWindow! : undefined,
-        deliveryAddressId: localSelectedAddressId,
-        items: getOrderItems(),
-        voucherCount,
-        couponCode: null,
-      });
+    const results = await Promise.allSettled(
+      selectedMealWindows.map(async (slot) => {
+        const items = getOrderItemsForSlot(slot);
+        if (items.length === 0) return { slot, data: null };
 
-      if (response.success && response.data) {
-        console.log('[CartScreen] ✅ calculatePricing API response received:');
-        console.log('  - voucherCount sent to backend:', voucherCount);
-        console.log('  - backend returned subtotal:', response.data.breakdown?.subtotal);
-        console.log('  - backend returned amountToPay:', response.data.breakdown?.amountToPay);
-        console.log('  - backend returned voucherCoverage:', JSON.stringify(response.data.breakdown?.voucherCoverage));
-        console.log('  - backend returned discount:', JSON.stringify(response.data.breakdown?.discount));
-        console.log('  - backend returned charges:', JSON.stringify(response.data.breakdown?.charges));
-        console.log('  - full breakdown:', JSON.stringify(response.data.breakdown, null, 2));
+        const response = await apiService.calculatePricing({
+          kitchenId,
+          menuType,
+          mealWindow: menuType === 'MEAL_MENU' ? slot : undefined,
+          deliveryAddressId: localSelectedAddressId,
+          items,
+          voucherCount: slotVoucherCounts[slot] || 0,
+          couponCode: couponCode || null,
+        });
 
-        // 🚨 VALIDATION: Check if backend returned incorrect pricing
-        if (voucherCount === 0 && response.data.breakdown?.voucherCoverage?.value > 0) {
-          console.error('🚨🚨🚨 BACKEND BUG DETECTED! 🚨🚨🚨');
-          console.error('  - Frontend sent voucherCount: 0');
-          console.error('  - But backend returned voucherCoverage:', response.data.breakdown.voucherCoverage.value);
-          console.error('  - This is a BACKEND BUG - backend should not return voucher coverage when voucherCount is 0');
-          console.error('🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨');
-        }
+        return { slot, data: response };
+      })
+    );
 
-        // CRITICAL: Use backend pricing as-is without modification
-        // Backend is the source of truth - it has authoritative prices and calculation logic
-        // The order creation and Razorpay payment use backend's calculation
-        // Frontend MUST match backend to avoid pricing mismatches
-        setPricing(response.data.breakdown);
-        setVoucherInfo(response.data.voucherEligibility);
-
-        console.log('[CartScreen] ✅ Pricing state updated with backend data');
-      }
-    } catch (error: any) {
-      console.error('Error calculating pricing:', error.message || error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      setPricingError(error.message || 'Failed to calculate pricing');
-      setPricing(null);
-    } finally {
-      setIsCalculating(false);
+    // Clear pricing for deselected slots
+    if (!selectedMealWindows.includes('LUNCH')) {
+      setLunchPricing({ pricing: null, voucherInfo: null, error: null });
     }
-  }, [cartItems, kitchenId, menuType, mealWindow, localSelectedAddressId, voucherCount, getOrderItems]);
+    if (!selectedMealWindows.includes('DINNER')) {
+      setDinnerPricing({ pricing: null, voucherInfo: null, error: null });
+    }
+
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value?.data) {
+        const { slot, data } = result.value;
+        if (data?.success && data.data) {
+          const slotPricing: SlotPricing = {
+            pricing: data.data.breakdown,
+            voucherInfo: data.data.voucherEligibility,
+            error: null,
+          };
+          if (slot === 'LUNCH') setLunchPricing(slotPricing);
+          else setDinnerPricing(slotPricing);
+        }
+      } else if (result.status === 'rejected') {
+        console.error('[CartScreen] Error calculating pricing for slot:', result.reason);
+      }
+    });
+
+    setIsCalculating(false);
+  }, [cartItems, kitchenId, menuType, selectedMealWindows, localSelectedAddressId, slotVoucherCounts, couponCode, getOrderItemsForSlot]);
+
+  // Backward compat: single calculatePricing reference
+  const calculatePricing = calculateAllPricing;
 
   // Recalculate pricing on changes
   useEffect(() => {
-    console.log('[CartScreen] Triggering calculatePricing');
-    console.log('  - cartItems.length:', cartItems.length);
-    console.log('  - cartItems:', cartItems.map(item => ({ name: item.name, price: item.price, qty: item.quantity })));
-    console.log('  - voucherCount:', voucherCount);
-    console.log('  - kitchenId:', kitchenId);
-    console.log('  - menuType:', menuType);
-    console.log('  - localSelectedAddressId:', localSelectedAddressId);
-    calculatePricing();
-  }, [calculatePricing, cartItems, voucherCount, kitchenId, menuType, localSelectedAddressId]);
+    calculateAllPricing();
+  }, [calculateAllPricing, cartItems, slotVoucherCounts, kitchenId, menuType, localSelectedAddressId, couponCode]);
 
-  // Handle placing order directly
+  // Handle placing order — supports dual-slot (creates one order per selected slot)
   const handlePlaceOrder = async () => {
     console.log('[CartScreen] handlePlaceOrder called');
-    console.log('  - kitchenId:', kitchenId);
-    console.log('  - menuType:', menuType);
-    console.log('  - localSelectedAddressId:', localSelectedAddressId);
-    console.log('  - cartItems.length:', cartItems.length);
-    console.log('  - mealWindow:', mealWindow);
-    console.log('  - voucherCount:', voucherCount);
+    console.log('  - selectedMealWindows:', selectedMealWindows);
 
     if (!kitchenId || !menuType || !localSelectedAddressId || cartItems.length === 0) {
       showAlert('Error', 'Please ensure you have items in cart and a delivery address selected', undefined, 'error');
       return;
     }
 
-    if (menuType === 'MEAL_MENU' && !mealWindow) {
-      showAlert('Error', 'Please select a meal type', undefined, 'error');
+    if (menuType === 'MEAL_MENU' && selectedMealWindows.length === 0) {
+      showAlert('Error', 'Please select a delivery slot', undefined, 'error');
       return;
     }
 
-    // Safety check: Prevent voucher orders after cutoff
-    if (voucherCount > 0 && voucherInfo?.cutoffPassed) {
-      showAlert(
-        'Voucher Unavailable',
-        voucherInfo.cutoffInfo?.message || 'Voucher ordering time has passed. Please remove the voucher to continue with a paid order.',
-        undefined,
-        'error'
-      );
-      setVoucherCount(0);
-      return;
+    // Safety check: Prevent voucher orders after cutoff per slot
+    for (const slot of selectedMealWindows) {
+      const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
+      if (slotVoucherCounts[slot] > 0 && !cutoff.canUseVoucher) {
+        showAlert(
+          'Voucher Unavailable',
+          `${slot === 'LUNCH' ? 'Lunch' : 'Dinner'} voucher ordering time has passed. Please remove the voucher to continue.`,
+          undefined,
+          'error'
+        );
+        setSlotVoucherCount(slot, 0);
+        return;
+      }
     }
 
     setIsPlacingOrder(true);
 
+    const slots = [...selectedMealWindows];
+    const orderResults: Array<{ orderId: string; orderNumber: string; amountToPay: number; cancelDeadline?: string; slot: string }> = [];
+    let totalAmountToPay = 0;
+
     try {
-      // Step 1: Create order
-      const response = await apiService.createOrder({
-        kitchenId: kitchenId!,
-        menuType: menuType!,
-        mealWindow: menuType === 'MEAL_MENU' ? mealWindow! : undefined,
-        deliveryAddressId: localSelectedAddressId,
-        items: getOrderItems(),
-        voucherCount,
-        couponCode: null,
-        paymentMethod: voucherCount > 0 && pricing?.amountToPay === 0 ? 'VOUCHER_ONLY' : 'UPI',
-      });
+      // Step 1: Create orders for each slot
+      for (const slot of slots) {
+        const slotItems = getOrderItemsForSlot(slot);
+        if (slotItems.length === 0) continue;
 
-      console.log('[CartScreen] createOrder response:', JSON.stringify(response));
+        const slotVouchers = slotVoucherCounts[slot] || 0;
+        const slotPricingData = slot === 'LUNCH' ? lunchPricing.pricing : dinnerPricing.pricing;
 
-      // Handle different API response formats
-      // Format 1: { success: true, data: { order: {...}, amountToPay: ... } }
-      // Format 2: { message: true, data: "Order placed successfully", error: { order: {...}, amountToPay: ... } }
-      const isSuccess = response.success || response.message === true;
-      const orderData = response.data?.order ? response.data : response.error;
+        const response = await apiService.createOrder({
+          kitchenId: kitchenId!,
+          menuType: menuType!,
+          mealWindow: slot,
+          deliveryAddressId: localSelectedAddressId,
+          items: slotItems,
+          voucherCount: slotVouchers,
+          couponCode: couponCode || null,
+          paymentMethod: slotVouchers > 0 && slotPricingData?.amountToPay === 0 ? 'VOUCHER_ONLY' : 'UPI',
+        });
 
-      if (isSuccess && orderData?.order) {
-        console.log('[CartScreen] Order created successfully!');
-        console.log('  - orderId:', orderData.order._id);
-        console.log('  - orderNumber:', orderData.order.orderNumber);
-        console.log('  - amountToPay:', orderData.amountToPay);
+        console.log(`[CartScreen] createOrder response for ${slot}:`, JSON.stringify(response));
+
+        const isSuccess = response.success || (response as any).message === true;
+        const orderData = response.data?.order ? response.data : (response as any).error;
+
+        if (!isSuccess || !orderData?.order) {
+          throw new Error(`Failed to create ${slot} order`);
+        }
 
         const orderId = orderData.order._id;
         const orderNumber = orderData.order.orderNumber;
         const orderAmountToPay = orderData.amountToPay || 0;
+        const cancelDeadline = orderData.cancelDeadline || undefined;
 
-        // Refresh voucher data immediately if vouchers were used
-        if (voucherCount > 0) {
-          console.log('[CartScreen] Refreshing voucher data after using', voucherCount, 'voucher(s)');
-          fetchVouchers().catch(err => {
-            console.error('[CartScreen] Error refreshing vouchers:', err);
-          });
-        }
+        orderResults.push({ orderId, orderNumber, amountToPay: orderAmountToPay, cancelDeadline, slot });
+        totalAmountToPay += orderAmountToPay;
+      }
 
-        // Step 2: Check if payment is required
-        if (orderAmountToPay > 0) {
-          console.log('[CartScreen] Payment required, initiating Razorpay checkout...');
+      // Refresh voucher data if any vouchers were used
+      if (voucherCount > 0) {
+        fetchVouchers().catch(err => console.error('[CartScreen] Error refreshing vouchers:', err));
+      }
 
-          // Process payment via Razorpay
-          const paymentResult = await processOrderPayment(orderId);
+      // Step 2: Process payments sequentially
+      for (const result of orderResults) {
+        const shouldPay = result.amountToPay > 0;
+        if (shouldPay) {
+          console.log(`[CartScreen] Processing payment for ${result.slot} order ${result.orderNumber}...`);
+          const paymentResult = await processOrderPayment(result.orderId);
 
           if (!paymentResult.success) {
-            // Payment failed or cancelled
-            if (paymentResult.error === 'Payment cancelled') {
-              console.log('[CartScreen] Payment cancelled by user');
-              // Store order for retry
-              setPendingPaymentOrderId(orderId);
-              setOrderResult({ orderId, orderNumber, amountToPay: orderAmountToPay });
-              showAlert(
-                'Payment Cancelled',
-                'Your order has been created but payment is pending. You can retry payment from your orders.',
-                [
-                  { text: 'Go to Orders', onPress: () => navigation.navigate('YourOrders') },
-                  { text: 'OK', style: 'cancel' },
-                ],
-                'warning'
-              );
-              return;
-            }
+            // Payment failed for this order
+            const successfulOrders = orderResults.filter(r => r.orderId !== result.orderId);
+            const successInfo = successfulOrders.length > 0
+              ? `\n\nOrder(s) ${successfulOrders.map(r => r.orderNumber).join(', ')} were placed successfully.`
+              : '';
 
-            // Payment failed - offer retry
-            console.log('[CartScreen] Payment failed:', paymentResult.error);
-            setPendingPaymentOrderId(orderId);
             showAlert(
               'Payment Failed',
-              paymentResult.error || 'Payment could not be processed. Please try again.',
+              `Payment failed for ${result.slot === 'LUNCH' ? 'Lunch' : 'Dinner'} order #${result.orderNumber}.${successInfo}\n\nYou can retry payment from Your Orders.`,
               [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Retry Payment',
-                  onPress: () => handleRetryPayment(orderId, orderNumber, orderAmountToPay),
-                },
+                { text: 'Go to Orders', onPress: () => navigation.navigate('YourOrders') },
+                { text: 'OK', style: 'cancel' },
               ],
               'error'
             );
+            setIsPlacingOrder(false);
             return;
           }
-
-          console.log('[CartScreen] Payment successful!');
-        } else {
-          console.log('[CartScreen] No payment required (voucher-only or zero amount)');
         }
-
-        // Invalidate cached data after successful order placement
-        console.log('[CartScreen] 🗑️ Invalidating orders & vouchers cache after order placement');
-        dataPreloader.invalidateCache('orders');
-        if (voucherCount > 0) {
-          dataPreloader.invalidateCache('vouchers');
-        }
-
-        // Step 3: Show success modal
-        setOrderResult({ orderId, orderNumber, amountToPay: orderAmountToPay });
-        setShowSuccessModal(true);
-        setPendingPaymentOrderId(null);
-      } else {
-        console.log('[CartScreen] Order response not successful or no data');
-        showAlert('Order Failed', 'Unexpected response from server', undefined, 'error');
       }
+
+      // Step 3: All successful — show success
+      dataPreloader.invalidateCache('orders');
+      if (voucherCount > 0) {
+        dataPreloader.invalidateCache('vouchers');
+      }
+
+      const bonusVouchers = orderResults.reduce((sum, r) => sum, 0); // TODO: extract from order data
+      setExtraVouchersIssued(bonusVouchers);
+      setOrderResult({
+        orderId: orderResults[0].orderId,
+        orderNumber: orderResults.map(r => r.orderNumber).join(' & '),
+        amountToPay: totalAmountToPay,
+        cancelDeadline: orderResults[0].cancelDeadline,
+      });
+      setShowSuccessModal(true);
+      setPendingPaymentOrderId(null);
+
     } catch (error: any) {
-      console.error('Error placing order:', error);
-      // Handle different error response formats
-      const errorMessage = error.data || error.message || 'Failed to place order. Please try again.';
-      showAlert('Order Failed', errorMessage, undefined, 'error');
+      console.error('Error placing order:', JSON.stringify(error));
+
+      if (orderResults.length > 0) {
+        // Partial success
+        showAlert(
+          'Partial Order Issue',
+          `${orderResults.length} order(s) placed successfully, but an error occurred. Check Your Orders for details.`,
+          [
+            { text: 'Go to Orders', onPress: () => navigation.navigate('YourOrders') },
+            { text: 'OK', style: 'cancel' },
+          ],
+          'warning'
+        );
+      } else {
+        const errorMessage = error.message || error.data || 'Failed to place order. Please try again.';
+        const errorDetail = error.error ? (typeof error.error === 'string' ? error.error : JSON.stringify(error.error)) : '';
+        showAlert('Order Failed', errorDetail ? `${errorMessage}\n${errorDetail}` : errorMessage, undefined, 'error');
+      }
     } finally {
       setIsPlacingOrder(false);
     }
@@ -480,15 +628,47 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     setShowSuccessModal(false);
     if (orderResult) {
       resetOrderContext();
-      navigation.navigate('OrderTracking', { orderId: orderResult.orderId });
+      // For multi-orders (orderNumber contains " & "), go to YourOrders list
+      if (orderResult.orderNumber.includes(' & ')) {
+        navigation.navigate('YourOrders');
+      } else {
+        navigation.navigate('OrderTracking', { orderId: orderResult.orderId });
+      }
     }
   };
 
-  // Get display values - use backend's subtotal when available
-  // Fallback to local calculation only if backend pricing is not yet loaded
-  const subtotal = pricing?.subtotal ?? cartItems.reduce((sum, item) => {
+  const handleCancelOrder = async () => {
+    if (!orderResult) return;
+    try {
+      console.log('[CartScreen] Cancelling order:', orderResult.orderId);
+      const response = await apiService.cancelOrder(orderResult.orderId, 'Changed my mind');
+      const isSuccess = response.success === true || (response as any).message === true;
+      const responseData = (response as any).error || response.data;
+
+      if (isSuccess) {
+        console.log('[CartScreen] Order cancelled successfully');
+        setShowSuccessModal(false);
+        resetOrderContext();
+        const successMessage = responseData?.message ||
+          (typeof response.data === 'string' ? response.data : 'Order cancelled successfully.');
+        showAlert('Order Cancelled', successMessage, [
+          { text: 'OK', onPress: () => navigation.navigate('Home') },
+        ], 'success');
+      } else {
+        const errorMessage = typeof response.data === 'string'
+          ? response.data
+          : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
+        showAlert('Cannot Cancel', errorMessage, undefined, 'error');
+      }
+    } catch (err: any) {
+      console.error('[CartScreen] Cancel error:', err.message || err);
+      showAlert('Error', err.message || 'Failed to cancel order', undefined, 'error');
+    }
+  };
+
+  // Combined pricing display values from both slots
+  const localFallbackSubtotal = cartItems.reduce((sum, item) => {
     let itemTotal = item.price * item.quantity;
-    // Include addons in subtotal calculation
     if (item.addons) {
       item.addons.forEach(addon => {
         itemTotal += addon.unitPrice * addon.quantity * item.quantity;
@@ -497,38 +677,47 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     return sum + itemTotal;
   }, 0);
 
-  // Use backend's charges directly - backend handles voucher logic
-  const charges = pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
-  const totalCharges = charges.deliveryFee + charges.serviceFee + charges.packagingFee + charges.taxAmount;
+  const lunchSubtotal = lunchPricing.pricing?.subtotal ?? 0;
+  const dinnerSubtotal = dinnerPricing.pricing?.subtotal ?? 0;
+  const subtotal = (lunchSubtotal + dinnerSubtotal) || localFallbackSubtotal;
 
-  // Use backend's voucher coverage for display
-  // Backend calculates this correctly including add-ons
-  const voucherDiscount = pricing?.voucherCoverage?.value ?? 0;
-  const couponDiscount = pricing?.discount?.value ?? 0;
+  const lunchCharges = lunchPricing.pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
+  const dinnerCharges = dinnerPricing.pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
+  const totalCharges = (lunchCharges.deliveryFee + lunchCharges.serviceFee + lunchCharges.packagingFee + lunchCharges.taxAmount)
+    + (dinnerCharges.deliveryFee + dinnerCharges.serviceFee + dinnerCharges.packagingFee + dinnerCharges.taxAmount);
+
+  const voucherDiscount = (lunchPricing.pricing?.voucherCoverage?.value ?? 0) + (dinnerPricing.pricing?.voucherCoverage?.value ?? 0);
+
+  const getCouponDiscount = (p: PricingBreakdown | null) => {
+    if (!p) return 0;
+    const amt = (p.discount?.discountAmount ?? 0) + (p.discount?.addonDiscountAmount ?? 0);
+    return amt || (p.discount?.value ?? 0);
+  };
+  const couponDiscount = getCouponDiscount(lunchPricing.pricing) + getCouponDiscount(dinnerPricing.pricing);
+  const couponExtraVouchers = (lunchPricing.pricing?.discount?.extraVouchersToIssue ?? 0)
+    + (dinnerPricing.pricing?.discount?.extraVouchersToIssue ?? 0);
   const totalDiscount = voucherDiscount + couponDiscount;
 
   // Check if cart has any add-ons
   const hasAddons = cartItems.some(item => item.addons && item.addons.length > 0);
 
-  // Calculate amountToPay
-  // ALWAYS use backend pricing when available to ensure UI matches Razorpay payment
-  // Backend is source of truth for pricing - it has authoritative prices from database
-  let amountToPay;
+  // Auto-clear addon coupons when no addons are selected
+  useEffect(() => {
+    if (!hasAddons && couponCode && pricing?.discount?.discountType) {
+      const dt = pricing.discount.discountType;
+      if (dt === 'FREE_ADDON_COUNT' || dt === 'FREE_ADDON_VALUE') {
+        setCouponCode(null);
+      }
+    }
+  }, [hasAddons, couponCode, pricing?.discount?.discountType, setCouponCode]);
 
-  if (pricing?.amountToPay !== undefined && pricing?.amountToPay !== null) {
-    // Use backend's calculated amount - this matches what will be sent to Razorpay
-    amountToPay = pricing.amountToPay;
-    console.log('[CartScreen] Using backend pricing.amountToPay:', amountToPay);
-  } else {
-    // Fallback to local calculation only if backend pricing unavailable
-    amountToPay = Math.max(0, subtotal + totalCharges - totalDiscount);
-    console.log('[CartScreen] Using local calculation (no pricing data):', {
-      subtotal,
-      totalCharges,
-      totalDiscount,
-      amountToPay,
-    });
-  }
+  // Combined amountToPay from both slots
+  const lunchAmountToPay = lunchPricing.pricing?.amountToPay ?? 0;
+  const dinnerAmountToPay = dinnerPricing.pricing?.amountToPay ?? 0;
+  const hasBackendPricing = lunchPricing.pricing !== null || dinnerPricing.pricing !== null;
+  const amountToPay = hasBackendPricing
+    ? (lunchAmountToPay + dinnerAmountToPay)
+    : Math.max(0, subtotal + totalCharges - totalDiscount);
 
   // Debug: Log pricing changes with alert for debugging
   useEffect(() => {
@@ -557,11 +746,12 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [pricing, subtotal, voucherDiscount, couponDiscount, totalDiscount, totalCharges, amountToPay, voucherCount, cartItems.length]);
 
-  // Voucher UI state - include both AVAILABLE and RESTORED vouchers
-  const hasVouchers = usableVouchers > 0;
+  // Voucher UI state - use pricing API's voucherInfo as authoritative source when available
+  const effectiveVoucherCount = Math.max(usableVouchers, voucherInfo?.available ?? 0);
+  const hasVouchers = effectiveVoucherCount > 0;
   // Calculate max vouchers that can be used based on thali count (main courses)
   const thaliCount = cartItems.reduce((sum, item) => item.hasVoucher !== false ? sum + item.quantity : sum, 0);
-  const maxVouchersCanUse = Math.min(usableVouchers, thaliCount);
+  const maxVouchersCanUse = Math.min(effectiveVoucherCount, thaliCount);
   // Show "Click to Redeem" button when:
   // 1. User has vouchers in their account (hasVouchers)
   // 2. No voucher is currently applied to this order (voucherCount === 0)
@@ -607,6 +797,18 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     console.log('  - maxVouchersCanUse:', maxVouchersCanUse);
   }, [voucherSummary, hasVouchers, voucherCount, voucherInfo, canUseVoucher, showRedeemButton, thaliCount, usableVouchers, maxVouchersCanUse]);
 
+  // Helper: apply 1 voucher to each selected eligible slot
+  const applyVouchersToSlots = useCallback(() => {
+    console.log('[CartScreen] applyVouchersToSlots called');
+    selectedMealWindows.forEach(slot => {
+      const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
+      if (cutoff.canUseVoucher) {
+        console.log(`  - Setting ${slot} voucher to 1`);
+        setSlotVoucherCount(slot, 1);
+      }
+    });
+  }, [selectedMealWindows, lunchCutoff, dinnerCutoff, setSlotVoucherCount]);
+
   // Auto-apply voucher when eligible (cutoff not passed and vouchers available)
   useEffect(() => {
     // Only auto-apply once per cart session
@@ -615,10 +817,10 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     // Check if voucher can be auto-applied
     if (voucherInfo && !voucherInfo.cutoffPassed && maxVouchersCanUse > 0 && voucherCount === 0 && hasVouchers) {
       console.log('[CartScreen] Auto-applying voucher');
-      setVoucherCount(1);
+      applyVouchersToSlots();
       setHasAutoApplied(true);
     }
-  }, [voucherInfo, voucherCount, hasVouchers, hasAutoApplied, setVoucherCount]);
+  }, [voucherInfo, voucherCount, hasVouchers, hasAutoApplied, applyVouchersToSlots, maxVouchersCanUse]);
 
   // Reset auto-apply flag when cart is emptied
   useEffect(() => {
@@ -627,19 +829,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [cartItems.length]);
 
-  // Auto-remove vouchers when cutoff time is detected
-  useEffect(() => {
-    if (voucherInfo?.cutoffPassed && voucherCount > 0) {
-      console.log('[CartScreen] Cutoff detected, auto-removing vouchers');
-      setVoucherCount(0);
-      showAlert(
-        'Voucher Removed',
-        voucherInfo.cutoffInfo?.message || 'Voucher ordering time has passed. Your order will proceed as a paid order.',
-        undefined,
-        'warning'
-      );
-    }
-  }, [voucherInfo?.cutoffPassed, voucherCount, setVoucherCount, showAlert]);
+  // (voucher auto-remove on cutoff is handled in the slot cutoff effect above)
 
   // Auto-trigger order placement for "Buy Now" flow
   useEffect(() => {
@@ -659,53 +849,31 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Handler to remove all vouchers
   const handleRemoveVoucher = useCallback(() => {
-    console.log('[CartScreen] ========== REMOVING VOUCHER ==========');
-    console.log('  - Current voucherCount:', voucherCount);
-    console.log('  - Current pricing.voucherCoverage:', JSON.stringify(pricing?.voucherCoverage));
-    console.log('  - Current pricing.amountToPay:', pricing?.amountToPay);
-
-    // CRITICAL FIX: Clear pricing state FIRST to immediately remove discount from UI
-    // This prevents showing stale pricing with voucher discount
-    console.log('  - Step 1: Clearing pricing state...');
-    setPricing(null);
-    setVoucherInfo(null);
-
-    // Then set voucher count to 0
-    // The useEffect (line 239) will automatically recalculate pricing with voucherCount: 0
-    console.log('  - Step 2: Setting voucherCount to 0...');
-    setVoucherCount(0);
-
-    console.log('  - Voucher removal initiated - useEffect will recalculate pricing with voucherCount: 0');
-    console.log('========== END REMOVING VOUCHER ==========');
-  }, [voucherCount, setVoucherCount, pricing]);
+    console.log('[CartScreen] Removing all vouchers');
+    // Clear pricing state to immediately remove discount from UI
+    setLunchPricing(prev => ({ ...prev, pricing: null, voucherInfo: null }));
+    setDinnerPricing(prev => ({ ...prev, pricing: null, voucherInfo: null }));
+    // Reset all slot voucher counts
+    setSlotVoucherCount('LUNCH', 0);
+    setSlotVoucherCount('DINNER', 0);
+  }, [setSlotVoucherCount]);
 
   // Handler to add one more voucher
   const handleAddMoreVoucher = () => {
     console.log('[CartScreen] Adding one more voucher');
-    if (voucherCount < maxVouchersCanUse) {
-      setVoucherCount(voucherCount + 1);
-    }
+    handleIncrementVoucher();
   };
 
   // Handler to apply voucher (click to redeem)
   const handleApplyVoucher = () => {
     console.log('[CartScreen] handleApplyVoucher called');
     console.log('  - current voucherCount:', voucherCount);
-    console.log('  - voucherInfo:', JSON.stringify(voucherInfo));
     console.log('  - hasVouchers:', hasVouchers);
     console.log('  - usableVouchers:', usableVouchers);
 
-    // Use maxVouchersCanUse (computed from usableVouchers & thaliCount) to determine eligibility
-    // This doesn't depend on backend's canUse which is 0 when voucherCount is 0
-    if (maxVouchersCanUse > 0) {
-      console.log('  - Setting voucherCount to 1');
-      setVoucherCount(1);
-    } else if (hasVouchers) {
-      // Fallback: apply 1 voucher if voucherInfo not loaded yet
-      console.log('  - Fallback: Setting voucherCount to 1');
-      setVoucherCount(1);
+    if (maxVouchersCanUse > 0 || hasVouchers) {
+      applyVouchersToSlots();
     }
-    // Price will recalculate automatically due to existing useEffect dependency on voucherCount
   };
 
   // Handler to increment voucher count
@@ -713,15 +881,21 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     console.log('[CartScreen] handleIncrementVoucher called');
     console.log('  - current voucherCount:', voucherCount);
     console.log('  - maxVouchersCanUse:', maxVouchersCanUse);
-    console.log('  - usableVouchers:', usableVouchers);
-    console.log('  - thaliCount:', thaliCount);
 
     if (voucherCount < maxVouchersCanUse) {
-      const newCount = voucherCount + 1;
-      console.log('  - Setting voucherCount to:', newCount);
-      setVoucherCount(newCount);
-    } else {
-      console.log('  - Cannot increment: reached max vouchers');
+      // Add 1 more to the first selected slot that has room
+      for (const slot of selectedMealWindows) {
+        const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
+        if (cutoff.canUseVoucher) {
+          const current = slotVoucherCounts[slot] || 0;
+          const slotItems = getItemsForSlot(slot);
+          const slotThalis = slotItems.reduce((sum, item) => item.hasVoucher !== false ? sum + item.quantity : sum, 0);
+          if (current < slotThalis) {
+            setSlotVoucherCount(slot, current + 1);
+            break;
+          }
+        }
+      }
     }
   };
 
@@ -731,14 +905,29 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     console.log('  - current voucherCount:', voucherCount);
 
     if (voucherCount > 1) {
-      const newCount = voucherCount - 1;
-      console.log('  - Setting voucherCount to:', newCount);
-      setVoucherCount(newCount);
+      // Remove 1 from the last selected slot that has vouchers
+      for (let i = selectedMealWindows.length - 1; i >= 0; i--) {
+        const slot = selectedMealWindows[i];
+        const current = slotVoucherCounts[slot] || 0;
+        if (current > 0) {
+          setSlotVoucherCount(slot, current - 1);
+          break;
+        }
+      }
     } else {
-      // If decrementing to 0, remove all vouchers
-      console.log('  - Removing all vouchers (setting to 0)');
-      setVoucherCount(0);
+      // Removing last voucher
+      handleRemoveVoucher();
     }
+  };
+
+  // Format 24hr time (e.g. "14:00") to 12hr (e.g. "2:00 PM")
+  const formatCutoffTime = (time24: string) => {
+    const [hourStr, minuteStr] = time24.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = minuteStr || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return `${hour}:${minute} ${ampm}`;
   };
 
   // Check if cart is empty
@@ -805,7 +994,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Your Order Section */}
-        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingTop: isSmallDevice ? SPACING.lg : SPACING.xl, paddingBottom: isSmallDevice ? 10 : 14 }}>
           <Text className="text-xl font-bold text-gray-900 mb-4">Your Order</Text>
 
           {cartItems.map((item) => (
@@ -828,7 +1017,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                       ₹{(item.price * item.quantity).toFixed(2)}
                     </Text>
                   </Text>
-                  {item.hasVoucher && voucherCount > 0 && (
+                  {item.hasVoucher && item.mealWindow && (slotVoucherCounts[item.mealWindow] || 0) > 0 && (
                     <View className="flex-row items-center mt-2">
                       <Image
                         source={require('../../assets/icons/voucher.png')}
@@ -836,7 +1025,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                         resizeMode="contain"
                       />
                       <Text className="text-xs text-green-600 font-semibold">
-                        {voucherCount} Voucher Applied
+                        Voucher Applied
                       </Text>
                     </View>
                   )}
@@ -892,7 +1081,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                 className="flex-row items-center justify-between py-2"
                 activeOpacity={0.7}
               >
-                <Text className="text-sm font-bold text-gray-900">Add-ons</Text>
+                <Text className="text-base font-bold text-gray-900">Would you like some add-ons?</Text>
                 <View className="flex-row items-center">
                   {cartItems[0]?.addons && cartItems[0].addons.length > 0 && (
                     <View
@@ -986,16 +1175,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                         >
                           <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '600' }}>−</Text>
                         </TouchableOpacity>
-                        <Text
-                          style={{
-                            marginHorizontal: 8,
-                            fontWeight: '600',
-                            fontSize: 13,
-                            color: '#ff8800',
-                            minWidth: 10,
-                            textAlign: 'center',
-                          }}
-                        >
+                        <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '700', marginHorizontal: 6 }}>
                           {cartAddon.quantity}
                         </Text>
                         <TouchableOpacity
@@ -1025,15 +1205,15 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                           }
                         }}
                         style={{
-                          paddingHorizontal: 14,
-                          paddingVertical: 6,
-                          borderRadius: 16,
-                          borderWidth: 1,
-                          borderColor: '#ff8800',
+                          width: 22,
+                          height: 22,
+                          borderRadius: 4,
+                          borderWidth: 1.5,
+                          borderColor: '#D1D5DB',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
-                      >
-                        <Text style={{ color: '#ff8800', fontSize: 12, fontWeight: '600' }}>Add</Text>
-                      </TouchableOpacity>
+                      />
                     )}
                   </View>
                 );
@@ -1122,13 +1302,13 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
                 {voucherInfo.cutoffPassed ? (
                   <View className="bg-white rounded-full px-4 items-center justify-center" style={{ height: 46 }}>
-                    <Text className="text-red-500 font-semibold text-xs">Cutoff Passed</Text>
+                    <Text className="text-red-500 font-semibold text-xs">Not Available</Text>
                   </View>
                 ) : maxVouchersCanUse > 0 ? (
                   <TouchableOpacity
                     className="bg-white rounded-full px-5 items-center justify-center"
                     style={{ height: 46 }}
-                    onPress={() => setVoucherCount(1)}
+                    onPress={handleApplyVoucher}
                   >
                     <Text className="text-orange-400 font-semibold text-sm">Use Voucher</Text>
                   </TouchableOpacity>
@@ -1144,8 +1324,11 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
             )}
             {voucherInfo.cutoffPassed && (
-              <Text className="text-red-500 text-xs mt-2 text-center">
-                {voucherInfo.cutoffInfo.message}
+              <Text className="text-sm mt-2 text-center" style={{ color: '#92400E' }}>
+                {mealWindow === 'DINNER' ? 'Dinner' : 'Lunch'} voucher ordering closed — cutoff was{' '}
+                <Text className="font-semibold">
+                  {formatCutoffTime(voucherInfo.cutoffInfo.voucherCutoffTime || voucherInfo.cutoffInfo.cutoffTime)}
+                </Text>
               </Text>
             )}
             {!voucherInfo.cutoffPassed && usableVouchers === 0 && (
@@ -1156,9 +1339,160 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Delivery Address & Preferences */}
+        {/* Ordering for Today + Plan Ahead */}
         <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
-          <Text className="text-xl font-bold text-gray-900 mb-4">Delivery Details</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <MaterialCommunityIcons name="calendar-today" size={20} color="#ff8800" style={{ marginRight: 10 }} />
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Ordering for Today</Text>
+                <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MealCalendar')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFF7ED',
+                borderRadius: 20,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderWidth: 1,
+                borderColor: '#FDBA74',
+              }}
+            >
+              <MaterialCommunityIcons name="calendar-month" size={16} color="#ff8800" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#ff8800', fontSize: 12, fontWeight: '600' }}>Plan Ahead</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Select Delivery Slot (multi-select) */}
+        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+          <Text className="text-base font-bold text-gray-900 mb-3">Select Delivery Slot</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {/* Lunch Card */}
+            {(() => {
+              const lunchState = getSlotState(lunchCutoff);
+              const isSelected = selectedMealWindows.includes('LUNCH');
+              const isClosed = lunchState === 'closed';
+              const isCashOnly = lunchState === 'cash_only';
+              return (
+                <TouchableOpacity
+                  onPress={() => handleToggleSlot('LUNCH')}
+                  disabled={isClosed}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 16,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    borderWidth: 2,
+                    borderColor: isClosed ? '#E5E7EB' : isSelected ? '#ff8800' : '#E5E7EB',
+                    backgroundColor: isClosed ? '#F9FAFB' : isSelected ? '#FFF7ED' : '#FFFFFF',
+                    alignItems: 'center',
+                    opacity: isClosed ? 0.5 : 1,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  {isSelected && (
+                    <View style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ff8800', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>✓</Text>
+                    </View>
+                  )}
+                  <MaterialCommunityIcons
+                    name="white-balance-sunny"
+                    size={28}
+                    color={isClosed ? '#D1D5DB' : isSelected ? '#ff8800' : '#9CA3AF'}
+                  />
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: isClosed ? '#9CA3AF' : isSelected ? '#ff8800' : '#374151', marginTop: 6 }}>
+                    Lunch
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isClosed ? '#D1D5DB' : isSelected ? '#EA580C' : '#9CA3AF', marginTop: 2 }}>
+                    {lunchCutoff.voucherCutoffTime && lunchCutoff.orderCutoffTime
+                      ? `${formatCutoffTime(lunchCutoff.voucherCutoffTime)} - ${formatCutoffTime(lunchCutoff.orderCutoffTime)}`
+                      : lunchCutoff.voucherCutoffTime || lunchCutoff.orderCutoffTime
+                        ? formatCutoffTime(lunchCutoff.voucherCutoffTime || lunchCutoff.orderCutoffTime!)
+                        : '12:00 - 01:30 PM'}
+                  </Text>
+                  {isCashOnly && (
+                    <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#92400E', fontWeight: '600' }}>Cash Only</Text>
+                    </View>
+                  )}
+                  {isClosed && (
+                    <Text style={{ fontSize: 10, color: '#EF4444', marginTop: 4, fontWeight: '600' }}>
+                      Ordering Closed{lunchCutoff.orderCutoffTime ? ` (${formatCutoffTime(lunchCutoff.orderCutoffTime)})` : ''}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })()}
+
+            {/* Dinner Card */}
+            {(() => {
+              const dinnerState = getSlotState(dinnerCutoff);
+              const isSelected = selectedMealWindows.includes('DINNER');
+              const isClosed = dinnerState === 'closed';
+              const isCashOnly = dinnerState === 'cash_only';
+              return (
+                <TouchableOpacity
+                  onPress={() => handleToggleSlot('DINNER')}
+                  disabled={isClosed}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 16,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    borderWidth: 2,
+                    borderColor: isClosed ? '#E5E7EB' : isSelected ? '#ff8800' : '#E5E7EB',
+                    backgroundColor: isClosed ? '#F9FAFB' : isSelected ? '#FFF7ED' : '#FFFFFF',
+                    alignItems: 'center',
+                    opacity: isClosed ? 0.5 : 1,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  {isSelected && (
+                    <View style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: '#ff8800', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>✓</Text>
+                    </View>
+                  )}
+                  <MaterialCommunityIcons
+                    name="moon-waning-crescent"
+                    size={28}
+                    color={isClosed ? '#D1D5DB' : isSelected ? '#ff8800' : '#9CA3AF'}
+                  />
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: isClosed ? '#9CA3AF' : isSelected ? '#ff8800' : '#374151', marginTop: 6 }}>
+                    Dinner
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isClosed ? '#D1D5DB' : isSelected ? '#EA580C' : '#9CA3AF', marginTop: 2 }}>
+                    {dinnerCutoff.voucherCutoffTime && dinnerCutoff.orderCutoffTime
+                      ? `${formatCutoffTime(dinnerCutoff.voucherCutoffTime)} - ${formatCutoffTime(dinnerCutoff.orderCutoffTime)}`
+                      : dinnerCutoff.voucherCutoffTime || dinnerCutoff.orderCutoffTime
+                        ? formatCutoffTime(dinnerCutoff.voucherCutoffTime || dinnerCutoff.orderCutoffTime!)
+                        : '07:00 - 08:30 PM'}
+                  </Text>
+                  {isCashOnly && (
+                    <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#92400E', fontWeight: '600' }}>Cash Only</Text>
+                    </View>
+                  )}
+                  {isClosed && (
+                    <Text style={{ fontSize: 10, color: '#EF4444', marginTop: 4, fontWeight: '600' }}>
+                      Ordering Closed{dinnerCutoff.orderCutoffTime ? ` (${formatCutoffTime(dinnerCutoff.orderCutoffTime)})` : ''}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })()}
+          </View>
+        </View>
+
+        {/* Delivery Details */}
+        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+          <Text className="text-base font-bold text-gray-900 mb-3">Delivery Details</Text>
 
           {/* Selected Address */}
           {addresses.length === 0 ? (
@@ -1170,7 +1504,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              onPress={openAddressDrawer}
+              onPress={() => navigation.navigate('Address')}
               className="flex-row items-center pb-3 mb-1 border-b border-gray-100"
               activeOpacity={0.7}
             >
@@ -1282,7 +1616,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           {/* Do Not Contact */}
           <TouchableOpacity
             onPress={() => setDoNotContact(!doNotContact)}
-            className="flex-row items-center py-3 border-b border-gray-100"
+            className="flex-row items-center py-3"
           >
             <View
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
@@ -1307,67 +1641,223 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
               )}
             </View>
           </TouchableOpacity>
+        </View>
 
-          {/* Delivery Instructions */}
-          <TouchableOpacity
-            onPress={() => setShowDeliveryInput(!showDeliveryInput)}
-            className="flex-row items-center py-3"
-          >
+        {/* Coupon Section */}
+        <View className="mx-5 mb-4">
+          {couponCode && pricing?.discount ? (
+            /* Applied Coupon Card */
             <View
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: showDeliveryInput || deliveryInstructions ? '#FFF7ED' : '#F3F4F6' }}
-            >
-              <MaterialCommunityIcons name="map-marker-outline" size={20} color={showDeliveryInput || deliveryInstructions ? '#ff8800' : '#6B7280'} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-gray-900">Delivery Instructions</Text>
-              <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-                {deliveryInstructions || 'Add directions for the delivery person'}
-              </Text>
-            </View>
-            <Image
-              source={require('../../assets/icons/down2.png')}
-              style={{
-                width: 14,
-                height: 14,
-                tintColor: '#9CA3AF',
-                transform: [{ rotate: showDeliveryInput ? '180deg' : '0deg' }],
-              }}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-          {showDeliveryInput && (
-            <TextInput
-              className="text-sm text-gray-900 mt-2"
               style={{
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                borderRadius: 12,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                minHeight: 60,
-                textAlignVertical: 'top',
+                borderColor: '#BBF7D0',
+                backgroundColor: '#F0FDF4',
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
               }}
-              placeholder="E.g., Gate code 1234, use side entrance..."
-              placeholderTextColor="#9CA3AF"
-              value={deliveryInstructions}
-              onChangeText={setDeliveryInstructions}
-              multiline
-            />
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <MaterialCommunityIcons name="ticket-percent" size={22} color="#16A34A" />
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#15803D' }}>
+                      {couponCode} Applied
+                    </Text>
+                    {couponDiscount > 0 && (
+                      <Text style={{ fontSize: 12, color: '#16A34A', marginTop: 1 }}>
+                        You save ₹{couponDiscount.toFixed(0)}
+                      </Text>
+                    )}
+                    {couponExtraVouchers > 0 && (
+                      <Text style={{ fontSize: 12, color: '#2563EB', marginTop: 1 }}>
+                        +{couponExtraVouchers} bonus meal voucher{couponExtraVouchers > 1 ? 's' : ''}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setCouponCode(null)}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    backgroundColor: 'white',
+                    borderWidth: 1.5,
+                    borderColor: '#ff8800',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>×</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* Promotional Coupon Banner */
+            <TouchableOpacity
+              onPress={() => setShowCouponSheet(true)}
+              activeOpacity={0.8}
+              style={{
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#ff8800',
+              }}
+            >
+              <MaterialCommunityIcons name="ticket-percent" size={24} color="white" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: 'white' }}>
+                  Save more with coupons!
+                </Text>
+                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>
+                  View all coupons {'>'}
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: 'white',
+                borderRadius: 20,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}>
+                <Text style={{ color: '#ff8800', fontWeight: '700', fontSize: 13 }}>Apply</Text>
+              </View>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Bottom Spacing - Dynamic based on summary height */}
-        <View style={{ height: 300 }} />
+        {/* Order Summary - Collapsible */}
+        <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
+          {/* Collapsed Header — always visible */}
+          <TouchableOpacity
+            onPress={() => setSummaryExpanded(!summaryExpanded)}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>To Pay</Text>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={18}
+                color="#9CA3AF"
+                style={{ marginLeft: 6 }}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {isCalculating ? (
+                <ActivityIndicator size="small" color="#ff8800" />
+              ) : (
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>₹{amountToPay.toFixed(2)}</Text>
+              )}
+              <Image
+                source={require('../../assets/icons/down2.png')}
+                style={{
+                  width: 14,
+                  height: 14,
+                  tintColor: '#9CA3AF',
+                  marginLeft: 8,
+                  transform: [{ rotate: summaryExpanded ? '180deg' : '0deg' }],
+                }}
+                resizeMode="contain"
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Expanded Breakdown */}
+          {summaryExpanded && (
+            <View style={{ marginTop: 14 }}>
+              {isCalculating ? (
+                <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                  <ActivityIndicator size="small" color="#ff8800" />
+                  <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 8 }}>Calculating...</Text>
+                </View>
+              ) : pricingError ? (
+                <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                  <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Pricing Error</Text>
+                  <Text style={{ color: '#6B7280', textAlign: 'center', marginBottom: 12 }}>{pricingError}</Text>
+                  <TouchableOpacity onPress={calculatePricing} style={{ backgroundColor: '#ff8800', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}>
+                    <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {/* Per-slot subtotals when both selected */}
+                  {selectedMealWindows.length > 1 ? (
+                    <>
+                      {selectedMealWindows.includes('LUNCH') && lunchSubtotal > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <Text style={{ fontSize: 14, color: '#374151' }}>Lunch Subtotal:</Text>
+                          <Text style={{ fontSize: 14, color: '#374151' }}>₹{lunchSubtotal.toFixed(2)}</Text>
+                        </View>
+                      )}
+                      {selectedMealWindows.includes('DINNER') && dinnerSubtotal > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <Text style={{ fontSize: 14, color: '#374151' }}>Dinner Subtotal:</Text>
+                          <Text style={{ fontSize: 14, color: '#374151' }}>₹{dinnerSubtotal.toFixed(2)}</Text>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#374151' }}>Subtotal:</Text>
+                      <Text style={{ fontSize: 14, color: '#374151' }}>₹{subtotal.toFixed(2)}</Text>
+                    </View>
+                  )}
+
+                  {/* Taxes & Charges */}
+                  {totalCharges > 0 && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#374151' }}>Taxes & Charges:</Text>
+                      <Text style={{ fontSize: 14, color: '#374151' }}>₹{totalCharges.toFixed(2)}</Text>
+                    </View>
+                  )}
+
+                  {/* Voucher Discount */}
+                  {voucherDiscount > 0 && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#10B981' }}>Voucher ({voucherCount} used):</Text>
+                      <Text style={{ fontSize: 14, color: '#10B981' }}>- ₹{Math.round(voucherDiscount).toFixed(2)}</Text>
+                    </View>
+                  )}
+
+                  {/* Coupon Discount */}
+                  {couponCode && couponDiscount > 0 && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#10B981' }}>Discount:</Text>
+                      <Text style={{ fontSize: 14, color: '#10B981' }}>- ₹{Math.round(couponDiscount).toFixed(2)}</Text>
+                    </View>
+                  )}
+
+                  {/* Divider */}
+                  <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', borderStyle: 'dashed', marginVertical: 10 }} />
+
+                  {/* Total Amount */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Total Amount:</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>₹{amountToPay.toFixed(2)}</Text>
+                  </View>
+                </>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Bottom Spacing for fixed footer */}
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Order Summary - Sticky */}
+      {/* Sticky Bottom Bar */}
       <View
-        className="absolute left-0 right-0 bg-white"
         style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
           bottom: 0,
-          paddingBottom: Math.max(insets.bottom + 12, 20),
-          paddingTop: 16,
+          backgroundColor: 'white',
+          paddingBottom: Math.max(insets.bottom + 8, 16),
+          paddingTop: 12,
           paddingHorizontal: 20,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
@@ -1376,191 +1866,32 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           elevation: 8,
         }}
       >
-        {/* Voucher Promotion Card - Show only when user has no vouchers */}
-        {!hasVouchers && (
-          <View
-            className="rounded-2xl p-3 mb-3 flex-row items-center"
-            style={{
-              backgroundColor: '#FFF7ED',
-              borderWidth: 1,
-              borderColor: '#FFDED6',
-            }}
-          >
-            <Image
-              source={require('../../assets/icons/voucher4.png')}
-              style={{ width: 32, height: 32 }}
-              resizeMode="contain"
-            />
-            <View className="flex-1 ml-2">
-              <Text className="font-semibold text-gray-900 text-sm">Save more with Vouchers!</Text>
-              <Text className="text-xs text-gray-600">Get meal plans starting Rs149</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('MealPlans')}
-              className="bg-orange-400 rounded-full px-3 py-1.5"
-            >
-              <Text className="text-white font-semibold text-xs">View Plans</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {isCalculating ? (
-          <View className="items-center py-4">
-            <ActivityIndicator size="small" color="#ff8800" />
-            <Text className="text-gray-500 text-sm mt-2">Calculating...</Text>
-          </View>
-        ) : pricingError ? (
-          <View className="items-center py-6 px-4">
-            <Text className="text-red-500 text-lg font-semibold mb-2">Pricing Error</Text>
-            <Text className="text-gray-600 text-center mb-4">{pricingError}</Text>
-            <TouchableOpacity
-              onPress={calculatePricing}
-              className="bg-orange-400 px-6 py-3 rounded-full"
-            >
-              <Text className="text-white font-semibold">Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            {/* To Pay Header - Always Visible */}
-            <View className="flex-row justify-between items-center mb-3">
-              <View className="flex-row items-center">
-                <Text className="text-base font-semibold text-gray-900">To Pay</Text>
-                <TouchableOpacity
-                  onPress={() => setIsOrderSummaryExpanded(!isOrderSummaryExpanded)}
-                  activeOpacity={0.7}
-                  style={{ marginLeft: 6 }}
-                >
-                  <MaterialCommunityIcons
-                    name="information-outline"
-                    size={16}
-                    color="#9CA3AF"
-                  />
-                </TouchableOpacity>
-              </View>
-              <View className="flex-row items-center">
-                {totalDiscount > 0 && (
-                  <Text className="text-sm text-gray-400 mr-2" style={{ textDecorationLine: 'line-through' }}>
-                    ₹{(subtotal + totalCharges).toFixed(2)}
-                  </Text>
-                )}
-                <Text className="text-lg font-bold text-gray-900">₹{amountToPay.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            {/* Expandable Breakdown Section */}
-            {isOrderSummaryExpanded && (
-              <View style={{ marginBottom: 12 }}>
-                {/* Total Saving */}
-                {totalDiscount > 0 && (
-                  <View className="items-end mb-3">
-                    <Text className="text-sm font-semibold" style={{ color: '#10B981' }}>
-                      Total Saving: ₹{totalDiscount.toFixed(2)}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Sub Total */}
-                <View className="flex-row justify-between mb-2">
-                  <Text className="text-sm text-gray-900">Sub Total</Text>
-                  <Text className="text-sm text-gray-900">₹ {subtotal.toFixed(0)}</Text>
-                </View>
-
-                {/* Discount */}
-                {totalDiscount > 0 && (
-                  <View className="flex-row justify-between mb-2">
-                    <Text className="text-sm" style={{ color: '#10B981' }}>Discount</Text>
-                    <Text className="text-sm" style={{ color: '#10B981' }}>(-)₹ {Math.round(totalDiscount)}</Text>
-                  </View>
-                )}
-
-                <View className="border-t border-gray-200 my-2" style={{ borderStyle: 'dashed' }} />
-
-                {/* Delivery Charges */}
-                {charges.deliveryFee > 0 && (
-                  <View className="flex-row justify-between mb-2">
-                    <View className="flex-row items-center">
-                      <Text className="text-sm text-gray-900">Delivery Charges</Text>
-                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
-                    </View>
-                    <Text className="text-sm text-gray-900">₹{charges.deliveryFee.toFixed(2)}</Text>
-                  </View>
-                )}
-
-                {/* Packaging Charges */}
-                {charges.packagingFee > 0 && (
-                  <View className="flex-row justify-between mb-2">
-                    <View className="flex-row items-center">
-                      <Text className="text-sm text-gray-900">Packaging Charges</Text>
-                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
-                    </View>
-                    <Text className="text-sm text-gray-900">₹{charges.packagingFee.toFixed(2)}</Text>
-                  </View>
-                )}
-
-                {/* Platform Charges */}
-                {charges.serviceFee > 0 && (
-                  <View className="flex-row justify-between mb-2">
-                    <View className="flex-row items-center">
-                      <Text className="text-sm text-gray-900">Platform Charges</Text>
-                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
-                    </View>
-                    <Text className="text-sm text-gray-900">₹{charges.serviceFee.toFixed(2)}</Text>
-                  </View>
-                )}
-
-                {/* Applicable Taxes */}
-                {charges.taxAmount > 0 && (
-                  <View className="flex-row justify-between mb-3">
-                    <View className="flex-row items-center">
-                      <Text className="text-sm text-gray-900">Applicable Taxes</Text>
-                      <MaterialCommunityIcons name="information-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
-                    </View>
-                    <Text className="text-sm text-gray-900">₹ {charges.taxAmount.toFixed(2)}</Text>
-                  </View>
-                )}
-
-                {/* TO PAY - Bottom */}
-                <View className="border-t border-gray-300 pt-2 mt-1">
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-base font-bold text-gray-900">TO PAY</Text>
-                    <View className="flex-row items-center">
-                      {totalDiscount > 0 && (
-                        <Text className="text-sm text-gray-400 mr-2" style={{ textDecorationLine: 'line-through' }}>
-                          ₹ {(subtotal + totalCharges).toFixed(2)}
-                        </Text>
-                      )}
-                      <Text className="text-lg font-bold text-gray-900">₹{amountToPay.toFixed(2)}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
-          </>
-        )}
-
-        {/* Bottom Button - Pay Now */}
         <View
-          className="bg-orange-400 rounded-full flex-row items-center justify-between"
           style={{
+            backgroundColor: '#ff8800',
+            borderRadius: 28,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             height: 56,
             paddingLeft: 20,
             paddingRight: 6,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 12,
-            elevation: 10,
             opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || pricingError) ? 0.7 : 1,
           }}
         >
-          <View className="flex-row items-center flex-1">
-            <Text className="text-white text-xl font-bold mr-2">₹{amountToPay.toFixed(2)}</Text>
-            <Text className="text-white text-sm opacity-90">Total</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Text style={{ color: 'white', fontSize: 20, fontWeight: '700', marginRight: 6 }}>
+              ₹{amountToPay.toFixed(2)}
+            </Text>
+            <Text style={{ color: 'white', fontSize: 13, opacity: 0.9 }}>Total</Text>
           </View>
           <TouchableOpacity
-            className="bg-white rounded-full flex-row items-center justify-center"
             style={{
+              backgroundColor: 'white',
+              borderRadius: 22,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
               height: 44,
               paddingHorizontal: 20,
               minWidth: 130,
@@ -1573,7 +1904,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
               <ActivityIndicator size="small" color="#ff8800" />
             ) : (
               <>
-                <Text className="text-orange-400 font-bold text-base mr-2">
+                <Text style={{ color: '#ff8800', fontWeight: '700', fontSize: 15, marginRight: 6 }}>
                   {addresses.length === 0 ? 'Add Address' : amountToPay === 0 ? 'Place Order' : 'Pay Now'}
                 </Text>
                 <Image
@@ -1587,103 +1918,19 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Address Selection Bottom Drawer */}
-      <Modal
-        visible={showAddressDrawer}
-        transparent
-        animationType="none"
-        onRequestClose={closeAddressDrawer}
-      >
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Animated.View
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              opacity: backdropOpacity,
-            }}
-          >
-            <Pressable style={{ flex: 1 }} onPress={closeAddressDrawer} />
-          </Animated.View>
-
-          <Animated.View
-            style={{
-              backgroundColor: 'white',
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              paddingHorizontal: SPACING.screenHorizontal,
-              paddingTop: 16,
-              paddingBottom: Math.max(insets.bottom + 12, 24),
-              transform: [{ translateY: drawerTranslateY }],
-            }}
-          >
-            {/* Drawer Handle */}
-            <View className="items-center mb-4">
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB' }} />
-            </View>
-
-            <Text className="text-lg font-bold text-gray-900 mb-4">Select Delivery Address</Text>
-
-            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-              {addresses.map((address, index) => (
-                <TouchableOpacity
-                  key={address.id}
-                  className={`flex-row items-center py-3 ${index < addresses.length - 1 ? 'border-b border-gray-100' : ''}`}
-                  onPress={() => {
-                    handleSelectAddress(address.id);
-                    closeAddressDrawer();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View className="w-10 h-10 items-center justify-center mr-3">
-                    <Image
-                      source={
-                        address.label.toLowerCase() === 'home'
-                          ? require('../../assets/icons/house2.png')
-                          : require('../../assets/icons/office.png')
-                      }
-                      style={{ width: 32, height: 32 }}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">{address.label}</Text>
-                    <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={2}>
-                      {address.addressLine1}, {address.locality}, {address.city}
-                    </Text>
-                  </View>
-                  <View className={`w-5 h-5 rounded-full border-2 ${localSelectedAddressId === address.id ? 'border-orange-400' : 'border-gray-300'} items-center justify-center`}>
-                    {localSelectedAddressId === address.id && (
-                      <View className="w-3 h-3 rounded-full bg-orange-400" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Add New Address */}
-            <TouchableOpacity
-              className="flex-row items-center justify-center py-4 mt-2"
-              style={{
-                borderWidth: 1,
-                borderColor: '#ff8800',
-                borderRadius: 28,
-                borderStyle: 'dashed',
-              }}
-              onPress={() => {
-                closeAddressDrawer();
-                navigation.navigate('Address');
-              }}
-            >
-              <MaterialCommunityIcons name="plus" size={18} color="#ff8800" />
-              <Text className="text-orange-400 font-semibold text-sm ml-1">Add New Address</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Modal>
+      {/* Coupon Selection Sheet */}
+      {kitchenId && menuType && (
+        <CouponSheet
+          visible={showCouponSheet}
+          onClose={() => setShowCouponSheet(false)}
+          onApply={(code) => setCouponCode(code)}
+          menuType={menuType}
+          kitchenId={kitchenId}
+          orderValue={subtotal}
+          itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+          hasAddons={hasAddons}
+        />
+      )}
 
       {/* Order Success Modal */}
       <OrderSuccessModal
@@ -1691,8 +1938,11 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         onClose={() => setShowSuccessModal(false)}
         onGoHome={handleGoHome}
         onTrackOrder={handleTrackOrder}
+        onCancelOrder={handleCancelOrder}
         orderNumber={orderResult?.orderNumber}
         amountToPay={orderResult?.amountToPay}
+        extraVouchersIssued={extraVouchersIssued}
+        cancelDeadline={orderResult?.cancelDeadline}
       />
 
     </SafeAreaView>

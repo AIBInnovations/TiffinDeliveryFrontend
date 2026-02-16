@@ -121,7 +121,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
       />
       <NavItem
         label="On-Demand"
-        iconName="bowl-mix-outline"
+        iconName="food"
         isActive={activeTab === 'meals'}
         onPress={() => handleNavigation('meals')}
       />

@@ -2,9 +2,9 @@ import axios, { AxiosInstance } from 'axios';
 import { getIdToken } from '../config/firebase';
 
 // Backend base URL - update this with your actual backend URL
-// const BASE_URL = 'https://tiffsy-backend.onrender.com';
+const BASE_URL = 'https://tiffsy-backend.onrender.com';
 // const BASE_URL = 'http://192.168.29.105:5005';
-const BASE_URL = 'http://192.168.29.69:5005';
+// const BASE_URL = 'http://192.168.29.69:5005';
 
 // Type definitions for API responses
 export interface UserData {
@@ -257,6 +257,9 @@ export interface MenuItem {
   cutoffTime?: string;
   isPastCutoff?: boolean;
   canUseVoucher?: boolean;
+  canOrder?: boolean;
+  voucherCutoffTime?: string;
+  orderCutoffTime?: string;
   cutoffMessage?: string;
   addonIds?: AddonItem[];
 }
@@ -325,6 +328,121 @@ export interface HomeFeedResponse {
 }
 
 // ============================================
+// COUPON TYPES
+// ============================================
+
+export type CouponDiscountType =
+  | 'PERCENTAGE'
+  | 'FLAT'
+  | 'FREE_DELIVERY'
+  | 'FREE_ADDON_COUNT'
+  | 'FREE_ADDON_VALUE'
+  | 'FREE_EXTRA_VOUCHER';
+
+export interface Coupon {
+  code: string;
+  name: string;
+  description?: string;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  maxDiscountAmount?: number | null;
+  freeAddonCount?: number | null;
+  freeAddonMaxValue?: number | null;
+  extraVoucherCount?: number | null;
+  applicableMenuTypes: ('MEAL_MENU' | 'ON_DEMAND_MENU')[];
+  minOrderValue: number;
+  termsAndConditions?: string | null;
+  validTill: string;
+  usesRemaining: number;
+  bannerImage?: string | null;
+}
+
+export interface GetAvailableCouponsParams {
+  kitchenId?: string;
+  zoneId?: string;
+  orderValue?: number;
+  menuType?: 'MEAL_MENU' | 'ON_DEMAND_MENU';
+}
+
+export interface GetAvailableCouponsResponse {
+  code: number;
+  success: boolean;
+  message: string;
+  data: {
+    coupons: Coupon[];
+  };
+}
+
+export interface ValidateCouponRequest {
+  code: string;
+  kitchenId: string;
+  zoneId: string;
+  orderValue: number;
+  itemCount: number;
+  menuType: 'MEAL_MENU' | 'ON_DEMAND_MENU';
+}
+
+export type CouponRejectionReason =
+  | 'INVALID_CODE'
+  | 'EXPIRED'
+  | 'EXHAUSTED'
+  | 'INACTIVE'
+  | 'NOT_STARTED'
+  | 'USER_LIMIT_EXCEEDED'
+  | 'WRONG_MENU_TYPE'
+  | 'KITCHEN_NOT_APPLICABLE'
+  | 'ZONE_NOT_APPLICABLE'
+  | 'MIN_ORDER_NOT_MET'
+  | 'MIN_ITEMS_NOT_MET'
+  | 'NEW_USERS_ONLY'
+  | 'EXISTING_USERS_ONLY'
+  | 'NOT_ELIGIBLE_USER'
+  | 'FIRST_ORDER_ONLY';
+
+export const COUPON_REJECTION_MESSAGES: Record<CouponRejectionReason, string> = {
+  INVALID_CODE: 'Invalid coupon code',
+  EXPIRED: 'This coupon has expired',
+  EXHAUSTED: 'This coupon has been fully redeemed',
+  INACTIVE: 'This coupon is not active',
+  NOT_STARTED: 'This coupon is not yet valid',
+  USER_LIMIT_EXCEEDED: "You've already used this coupon",
+  WRONG_MENU_TYPE: 'This coupon is not valid for this order type',
+  KITCHEN_NOT_APPLICABLE: 'This coupon is not valid for this kitchen',
+  ZONE_NOT_APPLICABLE: 'This coupon is not valid in your area',
+  MIN_ORDER_NOT_MET: 'Minimum order value not met',
+  MIN_ITEMS_NOT_MET: 'Minimum items not met',
+  NEW_USERS_ONLY: 'This coupon is for new users only',
+  EXISTING_USERS_ONLY: 'This coupon is for existing users only',
+  NOT_ELIGIBLE_USER: 'You are not eligible for this coupon',
+  FIRST_ORDER_ONLY: 'This coupon is valid on first order only',
+};
+
+export interface ValidateCouponResponse {
+  code: number;
+  success: boolean;
+  message: string;
+  data: {
+    valid: boolean;
+    coupon: {
+      code: string;
+      name: string;
+      discountType?: CouponDiscountType;
+      discountValue?: number;
+      freeAddonCount?: number | null;
+      freeAddonMaxValue?: number | null;
+      extraVoucherCount?: number | null;
+      applicableMenuTypes?: ('MEAL_MENU' | 'ON_DEMAND_MENU')[];
+    };
+    discount: {
+      type: string;
+      value: number;
+      amount: number;
+    } | null;
+    reason: CouponRejectionReason | null;
+  };
+}
+
+// ============================================
 // ORDER TYPES
 // ============================================
 
@@ -379,11 +497,23 @@ export interface VoucherCoverage {
   value: number;
 }
 
+export interface PricingDiscount {
+  couponCode?: string;
+  discountType?: CouponDiscountType;
+  discountAmount?: number;
+  addonDiscountAmount?: number;
+  extraVouchersToIssue?: number;
+  // Legacy fields for backward compatibility
+  code?: string;
+  type?: string;
+  value?: number;
+}
+
 export interface PricingBreakdown {
   items: PricingItem[];
   subtotal: number;
   charges: PricingCharges;
-  discount: { code?: string; type?: string; value?: number } | null;
+  discount: PricingDiscount | null;
   voucherCoverage: VoucherCoverage | null;
   grandTotal: number;
   amountToPay: number;
@@ -393,8 +523,12 @@ export interface VoucherEligibility {
   available: number;
   canUse: number;
   cutoffPassed: boolean;
+  orderCutoffPassed?: boolean;
+  canOrder?: boolean;
   cutoffInfo: {
     cutoffTime: string;
+    voucherCutoffTime?: string;
+    orderCutoffTime?: string;
     currentTime: string;
     message: string;
   };
@@ -478,6 +612,14 @@ export interface Order {
   }[];
   subtotal: number;
   charges: PricingCharges;
+  discount?: {
+    couponId?: string;
+    couponCode?: string;
+    discountType?: CouponDiscountType;
+    discountAmount?: number;
+    addonDiscountAmount?: number;
+    extraVouchersIssued?: number;
+  };
   grandTotal: number;
   voucherUsage?: OrderVoucherUsage;
   amountPaid: number;
@@ -506,6 +648,8 @@ export interface Order {
   cancelledAt?: string;
   cancellationReason?: string;
   isAutoOrder?: boolean;
+  orderSource?: 'DIRECT' | 'SCHEDULED' | 'AUTO_ORDER';
+  scheduledFor?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -625,7 +769,6 @@ export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PAUSED';
 
 // Auto-ordering types
 export type MealWindowType = 'LUNCH' | 'DINNER';
-export type DefaultMealType = 'LUNCH' | 'DINNER' | 'BOTH';
 
 export interface SkippedSlot {
   date: string;
@@ -678,7 +821,6 @@ export interface Subscription {
   isPaused?: boolean;
   pausedUntil?: string;
   skippedSlots?: SkippedSlot[];
-  defaultMealType?: DefaultMealType;
   defaultKitchenId?: string;
   defaultAddressId?: string;
   weeklySchedule?: WeeklySchedule;
@@ -864,62 +1006,103 @@ export interface GetVoucherBalanceResponse {
 }
 
 // ============================================
-// AUTO-ORDERING API TYPES
+// AUTO-ORDERING API TYPES (Per-Address Multi-Config)
 // ============================================
 
-// PUT /api/subscriptions/:id/settings
-export interface UpdateSubscriptionSettingsRequest {
-  autoOrderingEnabled?: boolean;
-  defaultMealType?: DefaultMealType;
-  defaultKitchenId?: string | null;
-  defaultAddressId?: string | null;
-  weeklySchedule?: WeeklySchedule;
+// Per-address auto-order config (from configs[] array)
+export interface AutoOrderAddressConfig {
+  _id: string;
+  addressId: string;
+  address: { addressLine1: string; city: string };
+  enabled: boolean;
+  weeklySchedule: WeeklySchedule;
+  kitchen: { _id: string; name: string } | null;
+  addons: Array<{
+    addonId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    isAvailable?: boolean;
+  }>;
+  isPaused: boolean;
+  pausedUntil: string | null;
+  skippedSlots: SkippedSlot[];
 }
 
-export interface UpdateSubscriptionSettingsResponse {
+// GET /api/scheduling/auto-order/settings (no addressId) → all configs
+export interface AutoOrderSettingsMultiResponse {
   success: boolean;
   message: string;
   data: {
-    subscription: Subscription;
     autoOrderingEnabled: boolean;
-    defaultMealType: DefaultMealType;
-    defaultKitchen: { name: string } | null;
-    defaultAddress: { addressLine1: string; city: string } | null;
-    weeklySchedule?: WeeklySchedule;
+    isPaused: boolean;
+    pausedUntil: string | null;
+    skippedSlots: SkippedSlot[];
+    configs: AutoOrderAddressConfig[];
   };
 }
 
-// POST /api/subscriptions/:id/pause
-export interface PauseSubscriptionRequest {
+// GET /api/scheduling/auto-order/settings?addressId=X → single config
+export interface AutoOrderSettingsSingleResponse {
+  success: boolean;
+  message: string;
+  data: {
+    autoOrderingEnabled: boolean;
+    isPaused: boolean;
+    config: AutoOrderAddressConfig;
+  };
+}
+
+// PUT /api/scheduling/auto-order/settings
+export interface UpdateAutoOrderConfigRequest {
+  addressId: string;
+  autoOrderingEnabled?: boolean;
+  enabled?: boolean;
+  kitchenId?: string | null;
+  weeklySchedule?: WeeklySchedule;
+  addons?: Array<{ addonId: string; quantity: number }>;
+}
+
+export interface UpdateAutoOrderConfigResponse {
+  success: boolean;
+  message: string;
+  data: {
+    autoOrderingEnabled: boolean;
+    config: AutoOrderAddressConfig;
+  };
+}
+
+// POST /api/scheduling/auto-order/pause
+export interface PauseAutoOrderRequest {
+  addressId?: string; // Optional: omit for global pause
   pauseUntil?: string; // ISO date string
   pauseReason?: string; // Max 500 characters
 }
 
-export interface PauseSubscriptionResponse {
+export interface PauseAutoOrderResponse {
   success: boolean;
   message: string;
   data: {
-    subscriptionId: string;
     isPaused: boolean;
     pausedUntil: string | null;
     message: string;
   };
 }
 
-// POST /api/subscriptions/:id/resume
-export interface ResumeSubscriptionResponse {
+// POST /api/scheduling/auto-order/resume
+export interface ResumeAutoOrderResponse {
   success: boolean;
   message: string;
   data: {
-    subscriptionId: string;
     isPaused: boolean;
     autoOrderingEnabled: boolean;
     message: string;
   };
 }
 
-// POST /api/subscriptions/:id/skip-meal
+// POST /api/scheduling/auto-order/skip-meal
 export interface SkipMealRequest {
+  addressId: string;
   date: string; // ISO date string - cannot be in the past
   mealWindow: MealWindowType;
   reason?: string; // Max 200 characters
@@ -938,8 +1121,9 @@ export interface SkipMealResponse {
   };
 }
 
-// POST /api/subscriptions/:id/unskip-meal
+// POST /api/scheduling/auto-order/unskip-meal
 export interface UnskipMealRequest {
+  addressId: string;
   date: string; // ISO date string
   mealWindow: MealWindowType;
 }
@@ -953,6 +1137,34 @@ export interface UnskipMealResponse {
       mealWindow: MealWindowType;
     };
     totalSkippedSlots: number;
+  };
+}
+
+// DELETE /api/scheduling/auto-order/config/:addressId
+export interface DeleteAutoOrderConfigResponse {
+  success: boolean;
+  message: string;
+}
+
+// GET /api/scheduling/auto-order/schedule?addressId=X
+export interface AutoOrderScheduleDay {
+  date: string;
+  dayName: string;
+  lunch: { scheduled: boolean; skipped: boolean };
+  dinner: { scheduled: boolean; skipped: boolean };
+}
+
+export interface AutoOrderScheduleResponse {
+  success: boolean;
+  message: string;
+  data: {
+    autoOrderingEnabled: boolean;
+    isPaused: boolean;
+    pausedUntil: string | null;
+    configAddressId?: string;
+    configEnabled?: boolean;
+    configIsPaused?: boolean;
+    schedule: AutoOrderScheduleDay[];
   };
 }
 
@@ -984,6 +1196,152 @@ export const extractKitchensFromResponse = (
 
   return [];
 };
+
+// ============================================
+// SCHEDULED MEAL TYPES
+// ============================================
+
+export interface ScheduledMealSlot {
+  date: string;
+  dayName: string;
+  mealWindow: 'LUNCH' | 'DINNER';
+  status: 'available' | 'cutoff_passed' | 'auto_order_active' | 'already_scheduled' | 'already_ordered' | 'not_serviceable' | 'no_kitchen';
+  reason: string | null;
+}
+
+export interface ScheduledMealPricingData {
+  kitchen: { id: string; name: string; logo?: string };
+  items: Array<{
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    isMainCourse: boolean;
+    addons: Array<{
+      addonId: string;
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+    }>;
+  }>;
+  pricing: {
+    subtotal: number;
+    mainCoursesTotal: number;
+    addonsTotal: number;
+    charges: {
+      deliveryFee: number;
+      serviceFee: number;
+      packagingFee: number;
+      handlingFee: number;
+      taxAmount: number;
+      taxBreakdown: Array<{ taxType: string; rate: number; amount: number }>;
+    };
+    discount: {
+      couponCode: string;
+      discountType: string;
+      discountAmount: number;
+    } | null;
+    voucherCoverage?: {
+      voucherCount: number;
+      mainCoursesCovered: number;
+      value: number;
+      coversAddons: boolean;
+    } | null;
+    grandTotal: number;
+    amountToPay: number;
+    requiresPayment: boolean;
+  };
+}
+
+export interface ScheduledMealOrderData {
+  order: {
+    id?: string;
+    _id?: string;
+    orderNumber: string;
+    status: 'SCHEDULED' | 'PLACED';
+    paymentStatus: 'PENDING' | 'PAID';
+    mealWindow: 'LUNCH' | 'DINNER';
+    scheduledFor: string;
+    kitchen: { id: string; name: string };
+    menuItem: { id: string; name: string };
+    pricing: {
+      subtotal: number;
+      charges: {
+        deliveryFee: number;
+        serviceFee: number;
+        packagingFee: number;
+        handlingFee: number;
+        taxAmount: number;
+        taxBreakdown: any[];
+      };
+      discount: {
+        couponCode: string;
+        discountType: string;
+        discountAmount: number;
+      } | null;
+      voucherCoverage?: {
+        voucherCount: number;
+        mainCoursesCovered: number;
+        value: number;
+      } | null;
+      grandTotal: number;
+      amountToPay: number;
+    };
+  };
+  paymentRequired: boolean;
+}
+
+export interface ScheduledMealListItem {
+  _id: string;
+  orderNumber: string;
+  orderSource?: 'DIRECT' | 'SCHEDULED' | 'AUTO_ORDER';
+  status: string;
+  paymentStatus: string;
+  mealWindow: 'LUNCH' | 'DINNER';
+  menuType: string;
+  scheduledFor: string;
+  isScheduledMeal: boolean;
+  voucherUsage?: { voucherCount: number; mainCoursesCovered: number };
+  items: Array<{
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    isMainCourse: boolean;
+    addons: any[];
+  }>;
+  subtotal: number;
+  charges: {
+    deliveryFee: number;
+    serviceFee: number;
+    packagingFee: number;
+    handlingFee: number;
+    taxAmount: number;
+  };
+  grandTotal: number;
+  amountPaid: number;
+  kitchenId: { _id: string; name: string; logo?: string };
+  deliveryAddress: {
+    addressLine1: string;
+    locality: string;
+    city: string;
+    pincode: string;
+  };
+  specialInstructions?: string;
+  placedAt: string;
+  createdAt: string;
+}
+
+export interface CancelScheduledMealData {
+  orderId: string;
+  orderNumber: string;
+  refundInitiated: boolean;
+  vouchersRestored?: number;
+  warning: string | null;
+}
 
 class ApiService {
   private api: AxiosInstance;
@@ -1199,6 +1557,24 @@ class ApiService {
   }
 
   // ============================================
+  // COUPON ENDPOINTS
+  // ============================================
+
+  // Get available coupons for the current user
+  async getAvailableCoupons(
+    params?: GetAvailableCouponsParams,
+  ): Promise<GetAvailableCouponsResponse> {
+    return this.api.get('/api/coupons/available', { params });
+  }
+
+  // Validate a coupon code for the current order context
+  async validateCoupon(
+    data: ValidateCouponRequest,
+  ): Promise<ValidateCouponResponse> {
+    return this.api.post('/api/coupons/validate', data);
+  }
+
+  // ============================================
   // LEGACY ENDPOINTS (for backward compatibility)
   // ============================================
 
@@ -1330,73 +1706,85 @@ class ApiService {
   }
 
   // ============================================
-  // AUTO-ORDERING ENDPOINTS
+  // AUTO-ORDERING ENDPOINTS (Per-Address Multi-Config)
   // ============================================
 
-  // Update auto-ordering settings for a subscription
-  async updateSubscriptionSettings(
-    subscriptionId: string,
-    data: UpdateSubscriptionSettingsRequest,
-  ): Promise<UpdateSubscriptionSettingsResponse> {
-    console.log('[ApiService] updateSubscriptionSettings - Request:', {
-      subscriptionId,
-      data,
-    });
-    const response = await this.api.put(`/api/subscriptions/${subscriptionId}/settings`, data);
-    console.log('[ApiService] updateSubscriptionSettings - Response:', JSON.stringify(response, null, 2));
+  // Get all auto-order configs (dashboard view)
+  async getAllAutoOrderConfigs(): Promise<AutoOrderSettingsMultiResponse> {
+    console.log('[ApiService] getAllAutoOrderConfigs - Request');
+    const response = await this.api.get('/api/scheduling/auto-order/settings');
+    console.log('[ApiService] getAllAutoOrderConfigs - Response:', JSON.stringify(response, null, 2));
     return response;
   }
 
-  // Pause auto-ordering for a subscription
-  async pauseSubscription(
-    subscriptionId: string,
-    data?: PauseSubscriptionRequest,
-  ): Promise<PauseSubscriptionResponse> {
-    console.log('[ApiService] pauseSubscription - Request:', {
-      subscriptionId,
-      data: data || {},
-    });
-    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/pause`, data || {});
-    console.log('[ApiService] pauseSubscription - Response:', JSON.stringify(response, null, 2));
+  // Get single auto-order config for a specific address
+  async getAutoOrderConfigForAddress(addressId: string): Promise<AutoOrderSettingsSingleResponse> {
+    console.log('[ApiService] getAutoOrderConfigForAddress - Request:', { addressId });
+    const response = await this.api.get('/api/scheduling/auto-order/settings', { params: { addressId } });
+    console.log('[ApiService] getAutoOrderConfigForAddress - Response:', JSON.stringify(response, null, 2));
     return response;
   }
 
-  // Resume auto-ordering after it was paused
-  async resumeSubscription(
-    subscriptionId: string,
-  ): Promise<ResumeSubscriptionResponse> {
-    console.log('[ApiService] resumeSubscription - Request:', {
-      subscriptionId,
-    });
-    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/resume`, {});
-    console.log('[ApiService] resumeSubscription - Response:', JSON.stringify(response, null, 2));
+  // Get 14-day schedule for a specific address
+  async getAutoOrderSchedule(addressId: string): Promise<AutoOrderScheduleResponse> {
+    console.log('[ApiService] getAutoOrderSchedule - Request:', { addressId });
+    const response = await this.api.get('/api/scheduling/auto-order/schedule', { params: { addressId } });
+    console.log('[ApiService] getAutoOrderSchedule - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Create or update auto-order config for an address
+  async updateAutoOrderConfig(
+    data: UpdateAutoOrderConfigRequest,
+  ): Promise<UpdateAutoOrderConfigResponse> {
+    console.log('[ApiService] updateAutoOrderConfig - Request:', { data });
+    const response = await this.api.put('/api/scheduling/auto-order/settings', data);
+    console.log('[ApiService] updateAutoOrderConfig - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Pause auto-ordering (global or per-address)
+  async pauseAutoOrder(
+    data?: PauseAutoOrderRequest,
+  ): Promise<PauseAutoOrderResponse> {
+    console.log('[ApiService] pauseAutoOrder - Request:', { data: data || {} });
+    const response = await this.api.post('/api/scheduling/auto-order/pause', data || {});
+    console.log('[ApiService] pauseAutoOrder - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Resume auto-ordering (global or per-address)
+  async resumeAutoOrder(addressId?: string): Promise<ResumeAutoOrderResponse> {
+    console.log('[ApiService] resumeAutoOrder - Request:', { addressId });
+    const response = await this.api.post('/api/scheduling/auto-order/resume', addressId ? { addressId } : {});
+    console.log('[ApiService] resumeAutoOrder - Response:', JSON.stringify(response, null, 2));
+    return response;
+  }
+
+  // Delete an auto-order config for an address
+  async deleteAutoOrderConfig(addressId: string): Promise<DeleteAutoOrderConfigResponse> {
+    console.log('[ApiService] deleteAutoOrderConfig - Request:', { addressId });
+    const response = await this.api.delete(`/api/scheduling/auto-order/config/${addressId}`);
+    console.log('[ApiService] deleteAutoOrderConfig - Response:', JSON.stringify(response, null, 2));
     return response;
   }
 
   // Skip auto-ordering for a specific meal slot
   async skipMeal(
-    subscriptionId: string,
     data: SkipMealRequest,
   ): Promise<SkipMealResponse> {
-    console.log('[ApiService] skipMeal - Request:', {
-      subscriptionId,
-      data,
-    });
-    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/skip-meal`, data);
+    console.log('[ApiService] skipMeal - Request:', { data });
+    const response = await this.api.post('/api/scheduling/auto-order/skip-meal', data);
     console.log('[ApiService] skipMeal - Response:', JSON.stringify(response, null, 2));
     return response;
   }
 
   // Remove a meal from skipped slots (re-enable auto-ordering for that slot)
   async unskipMeal(
-    subscriptionId: string,
     data: UnskipMealRequest,
   ): Promise<UnskipMealResponse> {
-    console.log('[ApiService] unskipMeal - Request:', {
-      subscriptionId,
-      data,
-    });
-    const response = await this.api.post(`/api/subscriptions/${subscriptionId}/unskip-meal`, data);
+    console.log('[ApiService] unskipMeal - Request:', { data });
+    const response = await this.api.post('/api/scheduling/auto-order/unskip-meal', data);
     console.log('[ApiService] unskipMeal - Response:', JSON.stringify(response, null, 2));
     return response;
   }
@@ -1788,6 +2176,96 @@ class ApiService {
     message: string;
   }> {
     return this.api.delete(`/api/notifications/${notificationId}`);
+  }
+
+  // ============================================
+  // SCHEDULED MEAL ENDPOINTS
+  // ============================================
+
+  // Get available slots for scheduling meals
+  async getScheduledMealSlots(deliveryAddressId: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      slots: ScheduledMealSlot[];
+      activeScheduledMeals: number;
+      maxScheduledMeals: number;
+    };
+  }> {
+    return this.api.get('/api/scheduling/slots', { params: { deliveryAddressId } });
+  }
+
+  // Get pricing preview for a scheduled meal
+  async getScheduledMealPricing(data: {
+    deliveryAddressId: string;
+    mealWindow: string;
+    scheduledDate?: string;
+    items?: Array<{
+      menuItemId: string;
+      quantity: number;
+      addons?: Array<{ addonId: string; quantity: number }>;
+    }>;
+    voucherCount?: number;
+    couponCode?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: ScheduledMealPricingData;
+  }> {
+    return this.api.post('/api/scheduling/meals/pricing', data);
+  }
+
+  // Create a new scheduled meal
+  async createScheduledMeal(data: {
+    deliveryAddressId: string;
+    mealWindow: string;
+    scheduledDate?: string;
+    items?: Array<{
+      menuItemId: string;
+      quantity: number;
+      addons?: Array<{ addonId: string; quantity: number }>;
+    }>;
+    voucherCount?: number;
+    couponCode?: string;
+    specialInstructions?: string;
+    deliveryNotes?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: ScheduledMealOrderData;
+  }> {
+    return this.api.post('/api/scheduling/meals', data);
+  }
+
+  // Get user's scheduled meals list
+  async getMyScheduledMeals(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    deliveryAddressId?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      meals: ScheduledMealListItem[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    };
+  }> {
+    return this.api.get('/api/scheduling/meals', { params });
+  }
+
+  // Cancel a scheduled meal
+  async cancelScheduledMeal(id: string, reason?: string): Promise<{
+    success: boolean;
+    message: string;
+    data: CancelScheduledMealData;
+  }> {
+    return this.api.patch(`/api/scheduling/meals/${id}/cancel`, { reason });
   }
 }
 

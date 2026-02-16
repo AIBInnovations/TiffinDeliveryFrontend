@@ -11,18 +11,22 @@ import apiService, {
   PurchaseSubscriptionResponse,
   CancelSubscriptionResponse,
   CheckVoucherEligibilityResponse,
-  // Auto-ordering types
-  UpdateSubscriptionSettingsRequest,
-  UpdateSubscriptionSettingsResponse,
-  PauseSubscriptionRequest,
-  PauseSubscriptionResponse,
-  ResumeSubscriptionResponse,
+  // Auto-ordering types (per-address multi-config)
+  AutoOrderAddressConfig,
+  AutoOrderSettingsMultiResponse,
+  AutoOrderSettingsSingleResponse,
+  UpdateAutoOrderConfigRequest,
+  UpdateAutoOrderConfigResponse,
+  PauseAutoOrderRequest,
+  PauseAutoOrderResponse,
+  ResumeAutoOrderResponse,
   SkipMealRequest,
   SkipMealResponse,
   UnskipMealRequest,
   UnskipMealResponse,
-  DefaultMealType,
-  MealWindowType,
+  DeleteAutoOrderConfigResponse,
+  AutoOrderScheduleResponse,
+  AutoOrderScheduleDay,
 } from '../services/api.service';
 import { useUser } from './UserContext';
 
@@ -54,12 +58,24 @@ interface SubscriptionContextType {
   refreshAll: () => Promise<void>;
   clearError: () => void;
 
+  // Auto-ordering state (per-address multi-config)
+  autoOrderConfigs: AutoOrderAddressConfig[];
+  globalAutoOrderEnabled: boolean;
+  globalIsPaused: boolean;
+  autoOrderConfigsLoading: boolean;
+
   // Auto-ordering actions
-  updateAutoOrderSettings: (subscriptionId: string, data: UpdateSubscriptionSettingsRequest) => Promise<UpdateSubscriptionSettingsResponse>;
-  pauseAutoOrdering: (subscriptionId: string, data?: PauseSubscriptionRequest) => Promise<PauseSubscriptionResponse>;
-  resumeAutoOrdering: (subscriptionId: string) => Promise<ResumeSubscriptionResponse>;
-  skipMeal: (subscriptionId: string, data: SkipMealRequest) => Promise<SkipMealResponse>;
-  unskipMeal: (subscriptionId: string, data: UnskipMealRequest) => Promise<UnskipMealResponse>;
+  fetchAllAutoOrderConfigs: () => Promise<AutoOrderSettingsMultiResponse>;
+  fetchConfigForAddress: (addressId: string) => Promise<AutoOrderSettingsSingleResponse>;
+  getScheduleForAddress: (addressId: string) => Promise<AutoOrderScheduleResponse>;
+  updateAutoOrderConfig: (data: UpdateAutoOrderConfigRequest) => Promise<UpdateAutoOrderConfigResponse>;
+  toggleGlobalAutoOrder: (enabled: boolean) => Promise<void>;
+  pauseAutoOrder: (data?: PauseAutoOrderRequest) => Promise<PauseAutoOrderResponse>;
+  resumeAutoOrder: (addressId?: string) => Promise<ResumeAutoOrderResponse>;
+  skipMeal: (data: SkipMealRequest) => Promise<SkipMealResponse>;
+  unskipMeal: (data: UnskipMealRequest) => Promise<UnskipMealResponse>;
+  deleteAutoOrderConfig: (addressId: string) => Promise<DeleteAutoOrderConfigResponse>;
+  getConfigForAddress: (addressId: string) => AutoOrderAddressConfig | undefined;
 }
 
 const defaultVoucherSummary: VoucherSummary = {
@@ -90,6 +106,10 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [plansLoading, setPlansLoading] = useState(false);
   const [vouchersLoading, setVouchersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoOrderConfigs, setAutoOrderConfigs] = useState<AutoOrderAddressConfig[]>([]);
+  const [globalAutoOrderEnabled, setGlobalAutoOrderEnabled] = useState(false);
+  const [globalIsPaused, setGlobalIsPaused] = useState(false);
+  const [autoOrderConfigsLoading, setAutoOrderConfigsLoading] = useState(false);
 
   // Clear error
   const clearError = useCallback(() => {
@@ -325,149 +345,192 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   // ============================================
-  // AUTO-ORDERING ACTIONS
+  // AUTO-ORDERING ACTIONS (Per-Address Multi-Config)
   // ============================================
 
-  // Update auto-order settings for a subscription
-  const updateAutoOrderSettings = useCallback(async (
-    subscriptionId: string,
-    data: UpdateSubscriptionSettingsRequest
-  ): Promise<UpdateSubscriptionSettingsResponse> => {
-    console.log('[SubscriptionContext] updateAutoOrderSettings - Starting for subscription:', subscriptionId);
-    setLoading(true);
-    setError(null);
+  // Fetch all auto-order configs (dashboard)
+  const fetchAllAutoOrderConfigs = useCallback(async (): Promise<AutoOrderSettingsMultiResponse> => {
+    console.log('[SubscriptionContext] fetchAllAutoOrderConfigs - Starting');
+    setAutoOrderConfigsLoading(true);
     try {
-      const response = await apiService.updateSubscriptionSettings(subscriptionId, data);
-
-      console.log('[SubscriptionContext] updateAutoOrderSettings - Success');
-      console.log('[SubscriptionContext] updateAutoOrderSettings - Auto-ordering enabled:', response.data.autoOrderingEnabled);
-      console.log('[SubscriptionContext] updateAutoOrderSettings - Default meal type:', response.data.defaultMealType);
-
-      // Refresh subscriptions to get updated data
-      await fetchSubscriptions();
-
+      const response = await apiService.getAllAutoOrderConfigs();
+      console.log('[SubscriptionContext] fetchAllAutoOrderConfigs - Success, configs:', response.data.configs?.length ?? 0);
+      setAutoOrderConfigs(response.data.configs || []);
+      setGlobalAutoOrderEnabled(response.data.autoOrderingEnabled);
+      setGlobalIsPaused(response.data.isPaused);
       return response;
     } catch (err: any) {
-      console.log('[SubscriptionContext] updateAutoOrderSettings - Error:', err.message || err);
-      setError(err.message || 'Failed to update auto-order settings');
+      console.log('[SubscriptionContext] fetchAllAutoOrderConfigs - Error:', err.message || err);
+      setError(err.message || 'Failed to fetch auto-order configs');
       throw err;
     } finally {
-      setLoading(false);
+      setAutoOrderConfigsLoading(false);
     }
-  }, [fetchSubscriptions]);
+  }, []);
 
-  // Pause auto-ordering for a subscription
-  const pauseAutoOrdering = useCallback(async (
-    subscriptionId: string,
-    data?: PauseSubscriptionRequest
-  ): Promise<PauseSubscriptionResponse> => {
-    console.log('[SubscriptionContext] pauseAutoOrdering - Starting for subscription:', subscriptionId);
-    setLoading(true);
-    setError(null);
+  // Fetch single config for an address
+  const fetchConfigForAddress = useCallback(async (addressId: string): Promise<AutoOrderSettingsSingleResponse> => {
+    console.log('[SubscriptionContext] fetchConfigForAddress - Starting:', addressId);
     try {
-      const response = await apiService.pauseSubscription(subscriptionId, data);
-
-      console.log('[SubscriptionContext] pauseAutoOrdering - Success');
-      console.log('[SubscriptionContext] pauseAutoOrdering - Is paused:', response.data.isPaused);
-      console.log('[SubscriptionContext] pauseAutoOrdering - Paused until:', response.data.pausedUntil);
-
-      // Refresh subscriptions to get updated data
-      await fetchSubscriptions();
-
+      const response = await apiService.getAutoOrderConfigForAddress(addressId);
+      console.log('[SubscriptionContext] fetchConfigForAddress - Success');
+      // Update this config in local array
+      if (response.data.config) {
+        setAutoOrderConfigs(prev => {
+          const idx = prev.findIndex(c => c.addressId === addressId);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = response.data.config;
+            return updated;
+          }
+          return [...prev, response.data.config];
+        });
+      }
       return response;
     } catch (err: any) {
-      console.log('[SubscriptionContext] pauseAutoOrdering - Error:', err.message || err);
+      console.log('[SubscriptionContext] fetchConfigForAddress - Error:', err.message || err);
+      throw err;
+    }
+  }, []);
+
+  // Get 14-day schedule for a specific address
+  const getScheduleForAddress = useCallback(async (addressId: string): Promise<AutoOrderScheduleResponse> => {
+    console.log('[SubscriptionContext] getScheduleForAddress - Starting:', addressId);
+    try {
+      const response = await apiService.getAutoOrderSchedule(addressId);
+      console.log('[SubscriptionContext] getScheduleForAddress - Success');
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] getScheduleForAddress - Error:', err.message || err);
+      throw err;
+    }
+  }, []);
+
+  // Create or update auto-order config for an address
+  const updateAutoOrderConfig = useCallback(async (
+    data: UpdateAutoOrderConfigRequest
+  ): Promise<UpdateAutoOrderConfigResponse> => {
+    console.log('[SubscriptionContext] updateAutoOrderConfig - Starting:', data.addressId);
+    setError(null);
+    try {
+      const response = await apiService.updateAutoOrderConfig(data);
+      console.log('[SubscriptionContext] updateAutoOrderConfig - Success');
+      // Refresh all configs to stay in sync
+      await fetchAllAutoOrderConfigs();
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] updateAutoOrderConfig - Error:', err.message || err);
+      setError(err.message || 'Failed to update auto-order config');
+      throw err;
+    }
+  }, [fetchAllAutoOrderConfigs]);
+
+  // Toggle global auto-ordering on/off
+  const toggleGlobalAutoOrder = useCallback(async (enabled: boolean): Promise<void> => {
+    console.log('[SubscriptionContext] toggleGlobalAutoOrder -', enabled);
+    setError(null);
+    try {
+      // Use the first config's addressId or send without addressId for global toggle
+      await apiService.updateAutoOrderConfig({ addressId: '', autoOrderingEnabled: enabled });
+      await fetchAllAutoOrderConfigs();
+    } catch (err: any) {
+      console.log('[SubscriptionContext] toggleGlobalAutoOrder - Error:', err.message || err);
+      setError(err.message || 'Failed to toggle auto-ordering');
+      throw err;
+    }
+  }, [fetchAllAutoOrderConfigs]);
+
+  // Pause auto-ordering (global or per-address)
+  const pauseAutoOrder = useCallback(async (
+    data?: PauseAutoOrderRequest
+  ): Promise<PauseAutoOrderResponse> => {
+    console.log('[SubscriptionContext] pauseAutoOrder - Starting:', data?.addressId || 'global');
+    setError(null);
+    try {
+      const response = await apiService.pauseAutoOrder(data);
+      console.log('[SubscriptionContext] pauseAutoOrder - Success');
+      await fetchAllAutoOrderConfigs();
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] pauseAutoOrder - Error:', err.message || err);
       setError(err.message || 'Failed to pause auto-ordering');
       throw err;
-    } finally {
-      setLoading(false);
     }
-  }, [fetchSubscriptions]);
+  }, [fetchAllAutoOrderConfigs]);
 
-  // Resume auto-ordering after it was paused
-  const resumeAutoOrdering = useCallback(async (
-    subscriptionId: string
-  ): Promise<ResumeSubscriptionResponse> => {
-    console.log('[SubscriptionContext] resumeAutoOrdering - Starting for subscription:', subscriptionId);
-    setLoading(true);
+  // Resume auto-ordering (global or per-address)
+  const resumeAutoOrder = useCallback(async (addressId?: string): Promise<ResumeAutoOrderResponse> => {
+    console.log('[SubscriptionContext] resumeAutoOrder - Starting:', addressId || 'global');
     setError(null);
     try {
-      const response = await apiService.resumeSubscription(subscriptionId);
-
-      console.log('[SubscriptionContext] resumeAutoOrdering - Success');
-      console.log('[SubscriptionContext] resumeAutoOrdering - Is paused:', response.data.isPaused);
-      console.log('[SubscriptionContext] resumeAutoOrdering - Auto-ordering enabled:', response.data.autoOrderingEnabled);
-
-      // Refresh subscriptions to get updated data
-      await fetchSubscriptions();
-
+      const response = await apiService.resumeAutoOrder(addressId);
+      console.log('[SubscriptionContext] resumeAutoOrder - Success');
+      await fetchAllAutoOrderConfigs();
       return response;
     } catch (err: any) {
-      console.log('[SubscriptionContext] resumeAutoOrdering - Error:', err.message || err);
+      console.log('[SubscriptionContext] resumeAutoOrder - Error:', err.message || err);
       setError(err.message || 'Failed to resume auto-ordering');
       throw err;
-    } finally {
-      setLoading(false);
     }
-  }, [fetchSubscriptions]);
+  }, [fetchAllAutoOrderConfigs]);
 
-  // Skip auto-ordering for a specific meal slot
+  // Skip a meal slot for an address
   const skipMeal = useCallback(async (
-    subscriptionId: string,
     data: SkipMealRequest
   ): Promise<SkipMealResponse> => {
-    console.log('[SubscriptionContext] skipMeal - Starting for subscription:', subscriptionId);
-    console.log('[SubscriptionContext] skipMeal - Date:', data.date, 'Meal window:', data.mealWindow);
-    setLoading(true);
+    console.log('[SubscriptionContext] skipMeal -', data.addressId, data.date, data.mealWindow);
     setError(null);
     try {
-      const response = await apiService.skipMeal(subscriptionId, data);
-
+      const response = await apiService.skipMeal(data);
       console.log('[SubscriptionContext] skipMeal - Success');
-      console.log('[SubscriptionContext] skipMeal - Skipped slot:', response.data.skippedSlot);
-      console.log('[SubscriptionContext] skipMeal - Total skipped slots:', response.data.totalSkippedSlots);
-
-      // Refresh subscriptions to get updated data
-      await fetchSubscriptions();
-
+      await fetchAllAutoOrderConfigs();
       return response;
     } catch (err: any) {
       console.log('[SubscriptionContext] skipMeal - Error:', err.message || err);
       setError(err.message || 'Failed to skip meal');
       throw err;
-    } finally {
-      setLoading(false);
     }
-  }, [fetchSubscriptions]);
+  }, [fetchAllAutoOrderConfigs]);
 
-  // Remove a meal from skipped slots (re-enable auto-ordering for that slot)
+  // Unskip a meal slot for an address
   const unskipMeal = useCallback(async (
-    subscriptionId: string,
     data: UnskipMealRequest
   ): Promise<UnskipMealResponse> => {
-    console.log('[SubscriptionContext] unskipMeal - Starting for subscription:', subscriptionId);
-    console.log('[SubscriptionContext] unskipMeal - Date:', data.date, 'Meal window:', data.mealWindow);
-    setLoading(true);
+    console.log('[SubscriptionContext] unskipMeal -', data.addressId, data.date, data.mealWindow);
     setError(null);
     try {
-      const response = await apiService.unskipMeal(subscriptionId, data);
-
+      const response = await apiService.unskipMeal(data);
       console.log('[SubscriptionContext] unskipMeal - Success');
-      console.log('[SubscriptionContext] unskipMeal - Unskipped slot:', response.data.unskippedSlot);
-      console.log('[SubscriptionContext] unskipMeal - Total skipped slots:', response.data.totalSkippedSlots);
-
-      // Refresh subscriptions to get updated data
-      await fetchSubscriptions();
-
+      await fetchAllAutoOrderConfigs();
       return response;
     } catch (err: any) {
       console.log('[SubscriptionContext] unskipMeal - Error:', err.message || err);
       setError(err.message || 'Failed to unskip meal');
       throw err;
-    } finally {
-      setLoading(false);
     }
-  }, [fetchSubscriptions]);
+  }, [fetchAllAutoOrderConfigs]);
+
+  // Delete an auto-order config for an address
+  const deleteAutoOrderConfig = useCallback(async (addressId: string): Promise<DeleteAutoOrderConfigResponse> => {
+    console.log('[SubscriptionContext] deleteAutoOrderConfig -', addressId);
+    setError(null);
+    try {
+      const response = await apiService.deleteAutoOrderConfig(addressId);
+      console.log('[SubscriptionContext] deleteAutoOrderConfig - Success');
+      // Remove from local state immediately
+      setAutoOrderConfigs(prev => prev.filter(c => c.addressId !== addressId));
+      return response;
+    } catch (err: any) {
+      console.log('[SubscriptionContext] deleteAutoOrderConfig - Error:', err.message || err);
+      setError(err.message || 'Failed to delete auto-order config');
+      throw err;
+    }
+  }, []);
+
+  // Synchronous lookup of a config by addressId
+  const getConfigForAddress = useCallback((addressId: string): AutoOrderAddressConfig | undefined => {
+    return autoOrderConfigs.find(c => c.addressId === addressId);
+  }, [autoOrderConfigs]);
 
   // Refresh all data
   const refreshAll = useCallback(async () => {
@@ -495,6 +558,9 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       setVouchers([]);
       setVoucherSummary(defaultVoucherSummary);
       setTotalVouchersAvailable(0);
+      setAutoOrderConfigs([]);
+      setGlobalAutoOrderEnabled(false);
+      setGlobalIsPaused(false);
     }
   }, [isAuthenticated, isGuest, user, fetchSubscriptions, fetchVouchers]);
 
@@ -541,12 +607,24 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     refreshAll,
     clearError,
 
+    // Auto-ordering state (per-address multi-config)
+    autoOrderConfigs,
+    globalAutoOrderEnabled,
+    globalIsPaused,
+    autoOrderConfigsLoading,
+
     // Auto-ordering actions
-    updateAutoOrderSettings,
-    pauseAutoOrdering,
-    resumeAutoOrdering,
+    fetchAllAutoOrderConfigs,
+    fetchConfigForAddress,
+    getScheduleForAddress,
+    updateAutoOrderConfig,
+    toggleGlobalAutoOrder,
+    pauseAutoOrder,
+    resumeAutoOrder,
     skipMeal,
     unskipMeal,
+    deleteAutoOrderConfig,
+    getConfigForAddress,
   };
 
   return (

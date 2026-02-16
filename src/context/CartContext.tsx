@@ -24,6 +24,7 @@ export interface CartItem {
   quantity: number;
   hasVoucher?: boolean;          // Can use voucher for this item
   addons?: CartItemAddon[];      // Nested addons
+  mealWindow?: MealWindow;       // Per-item meal window tag
 }
 
 // Menu type for order
@@ -31,6 +32,9 @@ export type MenuType = 'MEAL_MENU' | 'ON_DEMAND_MENU';
 
 // Meal window for MEAL_MENU orders
 export type MealWindow = 'LUNCH' | 'DINNER';
+
+// Per-slot voucher counts
+export type SlotVoucherCounts = Record<MealWindow, number>;
 
 interface CartContextType {
   // Cart items
@@ -49,9 +53,9 @@ interface CartContextType {
   // Order context
   kitchenId: string | null;
   menuType: MenuType | null;
-  mealWindow: MealWindow | null;
+  mealWindow: MealWindow | null;  // backward compat: returns first selected window
   deliveryAddressId: string | null;
-  voucherCount: number;
+  voucherCount: number;           // backward compat: total across slots
   couponCode: string | null;
   specialInstructions: string;
   deliveryNotes: string;
@@ -65,6 +69,18 @@ interface CartContextType {
   setCouponCode: (code: string | null) => void;
   setSpecialInstructions: (instructions: string) => void;
   setDeliveryNotes: (notes: string) => void;
+
+  // Multi-slot support
+  selectedMealWindows: MealWindow[];
+  toggleMealWindow: (window: MealWindow) => void;
+  addToCartForSlot: (item: CartItem, window: MealWindow) => void;
+  getItemsForSlot: (window: MealWindow) => CartItem[];
+  getOrderItemsForSlot: (window: MealWindow) => OrderItem[];
+  removeItemsForSlot: (window: MealWindow) => void;
+
+  // Per-slot voucher tracking
+  slotVoucherCounts: SlotVoucherCounts;
+  setSlotVoucherCount: (window: MealWindow, count: number) => void;
 
   // Helper to build order items for API
   getOrderItems: () => OrderItem[];
@@ -86,12 +102,51 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Order context state
   const [kitchenId, setKitchenId] = useState<string | null>(null);
   const [menuType, setMenuType] = useState<MenuType | null>(null);
-  const [mealWindow, setMealWindow] = useState<MealWindow | null>(null);
+  const [selectedMealWindowsState, setSelectedMealWindowsState] = useState<MealWindow[]>([]);
   const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
-  const [voucherCount, setVoucherCount] = useState<number>(0);
+  const [slotVoucherCounts, setSlotVoucherCounts] = useState<SlotVoucherCounts>({ LUNCH: 0, DINNER: 0 });
   const [couponCode, setCouponCode] = useState<string | null>(null);
   const [specialInstructions, setSpecialInstructions] = useState<string>('');
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
+
+  // Backward compat: mealWindow returns first selected window
+  const mealWindow: MealWindow | null = selectedMealWindowsState.length > 0
+    ? selectedMealWindowsState[0]
+    : null;
+
+  // Backward compat: voucherCount returns total across slots
+  const voucherCount = slotVoucherCounts.LUNCH + slotVoucherCounts.DINNER;
+
+  // Backward compat: setMealWindow sets a single window
+  const setMealWindow = useCallback((window: MealWindow | null) => {
+    if (window) {
+      setSelectedMealWindowsState([window]);
+    } else {
+      setSelectedMealWindowsState([]);
+    }
+  }, []);
+
+  // Backward compat: setVoucherCount distributes to first selected slot
+  const setVoucherCount = useCallback((count: number) => {
+    const firstSlot = selectedMealWindowsState.length > 0 ? selectedMealWindowsState[0] : 'LUNCH';
+    setSlotVoucherCounts(prev => ({ ...prev, [firstSlot]: count }));
+  }, [selectedMealWindowsState]);
+
+  // Multi-slot: toggle a meal window on/off
+  const toggleMealWindow = useCallback((window: MealWindow) => {
+    setSelectedMealWindowsState(prev => {
+      if (prev.includes(window)) {
+        return prev.filter(w => w !== window);
+      } else {
+        return [...prev, window];
+      }
+    });
+  }, []);
+
+  // Per-slot voucher setter
+  const setSlotVoucherCount = useCallback((window: MealWindow, count: number) => {
+    setSlotVoucherCounts(prev => ({ ...prev, [window]: count }));
+  }, []);
 
   // Load cart from AsyncStorage on mount
   useEffect(() => {
@@ -103,32 +158,47 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ]);
 
         let savedMealWindow: MealWindow | null = null;
+        let savedSelectedWindows: MealWindow[] | null = null;
 
         // Load context first to get meal window
         if (contextData) {
           const context = JSON.parse(contextData);
           savedMealWindow = context.mealWindow;
+          savedSelectedWindows = context.selectedMealWindows;
           if (context.kitchenId) setKitchenId(context.kitchenId);
           if (context.menuType) setMenuType(context.menuType);
-          if (context.mealWindow) setMealWindow(context.mealWindow);
+          // Load multi-slot or fallback to single
+          if (context.selectedMealWindows && Array.isArray(context.selectedMealWindows)) {
+            setSelectedMealWindowsState(context.selectedMealWindows);
+          } else if (context.mealWindow) {
+            setSelectedMealWindowsState([context.mealWindow]);
+          }
           if (context.deliveryAddressId) setDeliveryAddressId(context.deliveryAddressId);
-          if (context.voucherCount) setVoucherCount(context.voucherCount);
+          if (context.slotVoucherCounts) {
+            setSlotVoucherCounts(context.slotVoucherCounts);
+          } else if (context.voucherCount) {
+            // Backward compat: old single voucherCount → assign to first slot
+            const slot = context.mealWindow || 'LUNCH';
+            setSlotVoucherCounts({ LUNCH: 0, DINNER: 0, [slot]: context.voucherCount });
+          }
           if (context.couponCode) setCouponCode(context.couponCode);
           if (context.specialInstructions) setSpecialInstructions(context.specialInstructions);
           if (context.deliveryNotes) setDeliveryNotes(context.deliveryNotes);
           console.log('[CartContext] Loaded cart context from storage');
         }
 
-        // Load cart and reconstruct images based on saved meal window
+        // Load cart and reconstruct images
         if (cartData) {
           const parsedCart = JSON.parse(cartData);
 
-          // Reconstruct image objects based on saved meal window
+          // Reconstruct image objects based on per-item mealWindow or fallback
           const cartWithImages = parsedCart.map((item: any) => ({
             ...item,
-            image: savedMealWindow === 'LUNCH'
+            image: (item.mealWindow || savedMealWindow) === 'LUNCH'
               ? require('../assets/images/homepage/lunch2.png')
               : require('../assets/images/homepage/dinneritem.png'),
+            // Backward compat: tag items without mealWindow
+            mealWindow: item.mealWindow || savedMealWindow || undefined,
           }));
 
           setCartItems(cartWithImages);
@@ -172,8 +242,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           kitchenId,
           menuType,
           mealWindow,
+          selectedMealWindows: selectedMealWindowsState,
           deliveryAddressId,
-          voucherCount,
+          slotVoucherCounts,
           couponCode,
           specialInstructions,
           deliveryNotes,
@@ -186,22 +257,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     saveContext();
-  }, [kitchenId, menuType, mealWindow, deliveryAddressId, voucherCount, couponCode, specialInstructions, deliveryNotes, isLoaded]);
+  }, [kitchenId, menuType, mealWindow, selectedMealWindowsState, deliveryAddressId, slotVoucherCounts, couponCode, specialInstructions, deliveryNotes, isLoaded]);
 
   const addToCart = useCallback((item: CartItem) => {
     console.log('[CartContext] addToCart called with item:', JSON.stringify({
       id: item.id,
       name: item.name,
       addons: item.addons,
+      mealWindow: item.mealWindow,
     }));
     setCartItems(prevItems => {
       console.log('[CartContext] addToCart - prevItems count:', prevItems.length);
-      const existingItem = prevItems.find(i => i.id === item.id);
+      const existingItem = prevItems.find(i => i.id === item.id && i.mealWindow === item.mealWindow);
       if (existingItem) {
         console.log('[CartContext] addToCart - Found existing item, updating with addons');
         // Update quantity AND addons for existing item
         return prevItems.map(i =>
-          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity, addons: item.addons } : i
+          (i.id === item.id && i.mealWindow === item.mealWindow) ? { ...i, quantity: i.quantity + item.quantity, addons: item.addons } : i
         );
       }
       console.log('[CartContext] addToCart - Adding new item with addons:', item.addons?.length || 0);
@@ -209,17 +281,28 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, []);
 
+  // Add item to cart for a specific slot
+  const addToCartForSlot = useCallback((item: CartItem, window: MealWindow) => {
+    const taggedItem = { ...item, mealWindow: window };
+    addToCart(taggedItem);
+  }, [addToCart]);
+
   // Replace cart with a single item (atomic clear + add to avoid race conditions)
   const replaceCart = useCallback((item: CartItem) => {
     console.log('[CartContext] replaceCart called with item:', JSON.stringify({
       id: item.id,
       name: item.name,
       addons: item.addons,
+      mealWindow: item.mealWindow,
     }));
     // Single atomic operation - clear and set new item
     setCartItems([item]);
+    // Set selectedMealWindows to just this item's window
+    if (item.mealWindow) {
+      setSelectedMealWindowsState([item.mealWindow]);
+    }
     // Also reset voucher and coupon when replacing cart
-    setVoucherCount(0);
+    setSlotVoucherCounts({ LUNCH: 0, DINNER: 0 });
     setCouponCode(null);
     setSpecialInstructions('');
     setDeliveryNotes('');
@@ -240,6 +323,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const removeItem = useCallback((id: string) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== id));
   }, []);
+
+  // Remove all items for a specific meal window
+  const removeItemsForSlot = useCallback((window: MealWindow) => {
+    setCartItems(prevItems => prevItems.filter(item => item.mealWindow !== window));
+    // Also clear that slot's vouchers
+    setSlotVoucherCounts(prev => ({ ...prev, [window]: 0 }));
+  }, []);
+
+  // Get items for a specific meal window
+  const getItemsForSlot = useCallback((window: MealWindow): CartItem[] => {
+    return cartItems.filter(item => item.mealWindow === window);
+  }, [cartItems]);
 
   // Update addon quantity for a specific item
   const updateAddonQuantity = useCallback((itemId: string, addonIndex: number, quantity: number) => {
@@ -298,10 +393,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const clearCart = useCallback(async () => {
     setCartItems([]);
     // Also reset voucher and coupon when clearing cart
-    setVoucherCount(0);
+    setSlotVoucherCounts({ LUNCH: 0, DINNER: 0 });
     setCouponCode(null);
     setSpecialInstructions('');
     setDeliveryNotes('');
+    setSelectedMealWindowsState([]);
 
     // Clear from AsyncStorage
     try {
@@ -340,7 +436,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return /^[a-fA-F0-9]{24}$/.test(id);
   };
 
-  // Build order items for API call
+  // Build order items for API call (all items)
   const getOrderItems = useCallback((): OrderItem[] => {
     return cartItems.map(item => {
       // Validate menuItemId
@@ -375,14 +471,41 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [cartItems]);
 
+  // Build order items for a specific slot
+  const getOrderItemsForSlot = useCallback((window: MealWindow): OrderItem[] => {
+    const slotItems = cartItems.filter(item => item.mealWindow === window);
+    return slotItems.map(item => {
+      if (!isValidObjectId(item.id)) {
+        console.warn('[CartContext] Invalid menuItemId:', item.id, '- this may cause API errors');
+      }
+
+      const orderItem: OrderItem = {
+        menuItemId: item.id,
+        quantity: item.quantity,
+      };
+
+      if (item.addons && item.addons.length > 0) {
+        const validAddons = item.addons.filter(addon => isValidObjectId(addon.addonId));
+        if (validAddons.length > 0) {
+          orderItem.addons = validAddons.map(addon => ({
+            addonId: addon.addonId,
+            quantity: addon.quantity,
+          }));
+        }
+      }
+
+      return orderItem;
+    });
+  }, [cartItems]);
+
   // Reset order context after successful order
   const resetOrderContext = useCallback(async () => {
     setCartItems([]);
     setKitchenId(null);
     setMenuType(null);
-    setMealWindow(null);
+    setSelectedMealWindowsState([]);
     // Keep delivery address selected
-    setVoucherCount(0);
+    setSlotVoucherCounts({ LUNCH: 0, DINNER: 0 });
     setCouponCode(null);
     setSpecialInstructions('');
     setDeliveryNotes('');
@@ -404,9 +527,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       kitchenId !== null &&
       menuType !== null &&
       deliveryAddressId !== null &&
-      (menuType === 'ON_DEMAND_MENU' || mealWindow !== null)
+      (menuType === 'ON_DEMAND_MENU' || selectedMealWindowsState.length > 0)
     );
-  }, [cartItems, kitchenId, menuType, mealWindow, deliveryAddressId]);
+  }, [cartItems, kitchenId, menuType, selectedMealWindowsState, deliveryAddressId]);
 
   return (
     <CartContext.Provider
@@ -443,6 +566,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setCouponCode,
         setSpecialInstructions,
         setDeliveryNotes,
+
+        // Multi-slot support
+        selectedMealWindows: selectedMealWindowsState,
+        toggleMealWindow,
+        addToCartForSlot,
+        getItemsForSlot,
+        getOrderItemsForSlot,
+        removeItemsForSlot,
+
+        // Per-slot vouchers
+        slotVoucherCounts,
+        setSlotVoucherCount,
 
         // Helpers
         getOrderItems,

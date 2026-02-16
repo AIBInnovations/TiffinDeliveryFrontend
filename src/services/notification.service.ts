@@ -334,17 +334,61 @@ class NotificationService {
           },
         };
 
-      // Auto-order failed - show failure modal with category-specific action
+      // Auto-order failed - navigate to auto-order settings so user can take action
       case NotificationType.AUTO_ORDER_FAILED:
         console.log('[NotificationService] Handling AUTO_ORDER_FAILED notification');
         return {
-          screen: 'AutoOrderFailure',
+          screen: 'AutoOrderSettings',
           params: {
-            failureCategory: data.failureCategory as AutoOrderFailureCategory,
-            mealWindow: data.mealWindow,
-            message: data.message,
             fromNotification: true,
           },
+        };
+
+      // Auto-order payment required - navigate to order detail for payment
+      case NotificationType.AUTO_ORDER_PAYMENT_REQUIRED:
+        console.log('[NotificationService] Handling AUTO_ORDER_PAYMENT_REQUIRED notification');
+        return {
+          screen: 'OrderDetail',
+          params: {
+            orderId: data.orderId,
+            orderNumber: data.orderNumber,
+            fromNotification: true,
+          },
+        };
+
+      // Auto-order payment expired - navigate to order detail
+      case NotificationType.AUTO_ORDER_PAYMENT_EXPIRED:
+        console.log('[NotificationService] Handling AUTO_ORDER_PAYMENT_EXPIRED notification');
+        return {
+          screen: 'OrderDetail',
+          params: {
+            orderId: data.orderId,
+            orderNumber: data.orderNumber,
+            fromNotification: true,
+          },
+        };
+
+      // Scheduled meal notifications
+      case NotificationType.SCHEDULED_MEAL_CREATED:
+      case NotificationType.SCHEDULED_MEAL_CANCELLED:
+      case NotificationType.SCHEDULED_MEAL_ISSUE:
+        console.log(`[NotificationService] Handling ${type} notification`);
+        return {
+          screen: 'MyScheduledMeals',
+        };
+
+      case NotificationType.SCHEDULED_MEAL_PLACED:
+        console.log('[NotificationService] Handling SCHEDULED_MEAL_PLACED notification');
+        if (data.orderId) {
+          return {
+            screen: 'OrderDetail',
+            params: {
+              orderId: data.orderId,
+            },
+          };
+        }
+        return {
+          screen: 'MyScheduledMeals',
         };
 
       // Specific order status notifications - navigate to order tracking/detail

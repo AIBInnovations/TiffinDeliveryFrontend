@@ -13,6 +13,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -235,7 +236,7 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
           source={require('../../assets/images/myaccount/mealplansbackground.png')}
           style={{
             position: 'absolute',
-            width: 446,
+            width: Dimensions.get('window').width + 34,
             height: 535,
             top: 0,
             left: -17,
@@ -322,13 +323,13 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
         {/* Purchase Vouchers Section */}
         <View
           style={{
-            width: 412,
+            width: '100%',
             backgroundColor: '#FFFFFF',
             borderTopLeftRadius: 33,
             borderTopRightRadius: 33,
             marginTop: -40,
             alignSelf: 'center',
-            paddingHorizontal: 40,
+            paddingHorizontal: 24,
             paddingTop: 24,
             paddingBottom: 24,
           }}
@@ -399,10 +400,10 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
         {/* Choose Your Plan */}
         <View
           style={{
-            width: 412,
+            width: '100%',
             backgroundColor: '#FFFFFF',
             alignSelf: 'center',
-            paddingHorizontal: 40,
+            paddingHorizontal: 24,
             paddingTop: 14,
             paddingBottom: 16,
           }}
@@ -449,9 +450,9 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
                   onPress={() => !isGuest && handleSubscribe(plan)}
                   activeOpacity={0.8}
                   style={{
-                    width: 330,
-                    height: 160,
-                    borderRadius: 42,
+                    width: '100%',
+                    minHeight: 160,
+                    borderRadius: 28,
                     borderWidth: 1,
                     borderColor: '#ff8800',
                     marginBottom: 16,
@@ -613,12 +614,11 @@ const MealPlansScreen: React.FC<Props> = ({ navigation }) => {
         {/* How Vouchers Work */}
         <View
           style={{
-            width: 412,
-            height: 323,
+            width: '100%',
             backgroundColor: '#FFFFFF',
             alignSelf: 'center',
-            borderRadius: 33,
-            paddingHorizontal: 40,
+            borderRadius: 24,
+            paddingHorizontal: 24,
             paddingVertical: 20,
           }}
         >

@@ -5,11 +5,23 @@
  * meal skip checks, and display formatting.
  */
 
+// Import types
+type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+interface DayMealSchedule {
+  lunch: boolean;
+  dinner: boolean;
+}
+
+type WeeklySchedule = {
+  [K in DayOfWeek]?: DayMealSchedule;
+} | null;
+
 // Import Subscription type from api.service
 // Note: Using a partial type to avoid circular dependencies
 interface AutoOrderSubscription {
   autoOrderingEnabled?: boolean;
-  defaultMealType?: 'LUNCH' | 'DINNER' | 'BOTH';
+  weeklySchedule?: WeeklySchedule;
   isPaused?: boolean;
   pausedUntil?: string;
   skippedSlots?: Array<{
@@ -19,166 +31,6 @@ interface AutoOrderSubscription {
     skippedAt?: string;
   }>;
 }
-
-interface TimeWindow {
-  startTime: string; // Format: "HH:mm"
-  endTime: string;
-}
-
-interface OperatingHours {
-  lunch?: TimeWindow;
-  dinner?: TimeWindow;
-  onDemand?: TimeWindow & { isAlwaysOpen: boolean };
-}
-
-/**
- * Calculate the next auto-order time based on subscription settings and operating hours
- *
- * @param subscription The subscription with auto-order settings
- * @param operatingHours Kitchen operating hours
- * @returns Date object for next auto-order, or null if not scheduled
- *
- * Note: Auto-orders are placed approximately 1 hour before the meal window starts.
- * Actual auto-order placement times are determined by kitchen-specific operating hours.
- * If operating hours are not provided, falls back to default times:
- * - LUNCH: 10:00 AM (1 hour before default 11:00 AM window)
- * - DINNER: 6:00 PM (1 hour before default 19:00 PM window)
- */
-export const getNextAutoOrderTime = (
-  subscription: AutoOrderSubscription,
-  operatingHours?: OperatingHours
-): Date | null => {
-  // Return null if auto-ordering is disabled or paused
-  if (!subscription.autoOrderingEnabled || subscription.isPaused) {
-    return null;
-  }
-
-  // Return null if no meal type is set
-  if (!subscription.defaultMealType) {
-    return null;
-  }
-
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-
-  // Helper to calculate auto-order time (1 hour before window start)
-  const calculateAutoOrderTime = (startTime: string): { hour: number; minute: number } => {
-    const [hoursStr, minutesStr] = startTime.split(':');
-    let hours = parseInt(hoursStr, 10);
-    let minutes = parseInt(minutesStr, 10);
-
-    // Subtract 1 hour
-    hours -= 1;
-    if (hours < 0) {
-      hours = 23; // Wrap to previous day
-    }
-
-    return { hour: hours, minute: minutes };
-  };
-
-  // Get lunch auto-order time
-  let lunchAutoOrderHour = 10;
-  let lunchAutoOrderMinute = 0;
-  if (operatingHours?.lunch?.startTime) {
-    const autoOrder = calculateAutoOrderTime(operatingHours.lunch.startTime);
-    lunchAutoOrderHour = autoOrder.hour;
-    lunchAutoOrderMinute = autoOrder.minute;
-  }
-
-  // Get dinner auto-order time
-  let dinnerAutoOrderHour = 18;
-  let dinnerAutoOrderMinute = 0;
-  if (operatingHours?.dinner?.startTime) {
-    const autoOrder = calculateAutoOrderTime(operatingHours.dinner.startTime);
-    dinnerAutoOrderHour = autoOrder.hour;
-    dinnerAutoOrderMinute = autoOrder.minute;
-  }
-
-  let nextOrderTime: Date | null = null;
-
-  // Determine next auto-order based on meal type and current time
-  if (subscription.defaultMealType === 'LUNCH' || subscription.defaultMealType === 'BOTH') {
-    // If before lunch auto-order time today, next order is lunch today
-    if (currentHour < lunchAutoOrderHour || (currentHour === lunchAutoOrderHour && currentMinute < lunchAutoOrderMinute)) {
-      nextOrderTime = new Date(now);
-      nextOrderTime.setHours(lunchAutoOrderHour, lunchAutoOrderMinute, 0, 0);
-      return nextOrderTime;
-    }
-  }
-
-  if (subscription.defaultMealType === 'DINNER' || subscription.defaultMealType === 'BOTH') {
-    // If before dinner auto-order time today, next order is dinner today
-    if (currentHour < dinnerAutoOrderHour || (currentHour === dinnerAutoOrderHour && currentMinute < dinnerAutoOrderMinute)) {
-      nextOrderTime = new Date(now);
-      nextOrderTime.setHours(dinnerAutoOrderHour, dinnerAutoOrderMinute, 0, 0);
-      return nextOrderTime;
-    }
-  }
-
-  // If past all today's auto-order times, next order is tomorrow
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  if (subscription.defaultMealType === 'LUNCH' || subscription.defaultMealType === 'BOTH') {
-    // Next order is lunch tomorrow
-    tomorrow.setHours(lunchAutoOrderHour, lunchAutoOrderMinute, 0, 0);
-    return tomorrow;
-  } else if (subscription.defaultMealType === 'DINNER') {
-    // Next order is dinner tomorrow
-    tomorrow.setHours(dinnerAutoOrderHour, dinnerAutoOrderMinute, 0, 0);
-    return tomorrow;
-  }
-
-  return null;
-};
-
-/**
- * Format next auto-order time for user-friendly display
- *
- * @param subscription The subscription with auto-order settings
- * @param operatingHours Kitchen operating hours
- * @returns Formatted string like "Today at 10:00 AM" or "Tomorrow at 7:00 PM"
- */
-export const formatNextAutoOrderTime = (
-  subscription: AutoOrderSubscription,
-  operatingHours?: OperatingHours
-): string => {
-  const nextTime = getNextAutoOrderTime(subscription, operatingHours);
-
-  if (!nextTime) {
-    return 'Not scheduled';
-  }
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const nextDate = new Date(nextTime.getFullYear(), nextTime.getMonth(), nextTime.getDate());
-
-  // Format time in 12-hour format
-  const hours = nextTime.getHours();
-  const minutes = nextTime.getMinutes();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const displayHours = hours % 12 || 12;
-  const displayMinutes = minutes.toString().padStart(2, '0');
-  const timeStr = `${displayHours}:${displayMinutes} ${ampm}`;
-
-  // Determine day label
-  if (nextDate.getTime() === today.getTime()) {
-    return `Today at ${timeStr}`;
-  } else if (nextDate.getTime() === tomorrow.getTime()) {
-    return `Tomorrow at ${timeStr}`;
-  } else {
-    // For dates beyond tomorrow, show date
-    const dateStr = nextTime.toLocaleDateString('en-IN', {
-      month: 'short',
-      day: 'numeric',
-    });
-    return `${dateStr} at ${timeStr}`;
-  }
-};
 
 /**
  * Check if a specific meal slot is skipped
@@ -252,14 +104,19 @@ export const getAutoOrderStatusText = (subscription: AutoOrderSubscription): str
     return 'Paused';
   }
 
-  // Active status with meal type
-  const mealTypeText = subscription.defaultMealType === 'BOTH'
-    ? 'Both meals'
-    : subscription.defaultMealType === 'LUNCH'
-    ? 'Lunch only'
-    : 'Dinner only';
+  // Active status with meal count
+  const mealCountPerWeek = (() => {
+    let count = 0;
+    if (subscription.weeklySchedule) {
+      Object.values(subscription.weeklySchedule).forEach(day => {
+        if (day?.lunch) count++;
+        if (day?.dinner) count++;
+      });
+    }
+    return count;
+  })();
 
-  return `Active - ${mealTypeText}`;
+  return `Active - ${mealCountPerWeek} meals/week`;
 };
 
 /**
@@ -320,12 +177,21 @@ export const isPastDate = (dateString: string): boolean => {
  *
  * @param hasAddress Whether user has a default address
  * @param hasMealType Whether a meal type is selected
+ * @param hasKitchen Whether a default kitchen is set
  * @returns Object with isValid and error message
  */
 export const validateAutoOrderEnable = (
   hasAddress: boolean,
-  hasMealType: boolean
+  hasMealType: boolean,
+  hasKitchen: boolean = true
 ): { isValid: boolean; error?: string } => {
+  if (!hasKitchen) {
+    return {
+      isValid: false,
+      error: 'A default kitchen is required to enable auto-ordering. Please set up your delivery address so a kitchen can be assigned.',
+    };
+  }
+
   if (!hasAddress) {
     return {
       isValid: false,
@@ -341,4 +207,68 @@ export const validateAutoOrderEnable = (
   }
 
   return { isValid: true };
+};
+
+// ============================================
+// PER-ADDRESS CONFIG UTILITIES
+// ============================================
+
+/**
+ * Get the total meals per week from a weekly schedule
+ */
+export const getConfigMealCount = (weeklySchedule: WeeklySchedule): number => {
+  let count = 0;
+  if (weeklySchedule) {
+    Object.values(weeklySchedule).forEach(day => {
+      if (day?.lunch) count++;
+      if (day?.dinner) count++;
+    });
+  }
+  return count;
+};
+
+/**
+ * Get a human-readable status text for an address config
+ */
+export const getConfigStatusText = (config: {
+  enabled: boolean;
+  isPaused: boolean;
+  pausedUntil?: string | null;
+  weeklySchedule: WeeklySchedule;
+}): string => {
+  if (!config.enabled) return 'Disabled';
+  if (config.isPaused) {
+    if (config.pausedUntil) {
+      const d = new Date(config.pausedUntil);
+      return `Paused until ${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}`;
+    }
+    return 'Paused';
+  }
+  const count = getConfigMealCount(config.weeklySchedule);
+  return `Active - ${count} meals/week`;
+};
+
+/**
+ * Get a short schedule summary for a config card
+ * e.g. "Mon-Fri, Both" or "All Days, Lunch" or "Custom"
+ */
+export const getScheduleSummary = (weeklySchedule: WeeklySchedule): string => {
+  if (!weeklySchedule) return 'No schedule';
+
+  const allDays: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const weekdays: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
+  const activeDays = allDays.filter(day => weeklySchedule[day]?.lunch || weeklySchedule[day]?.dinner);
+  if (activeDays.length === 0) return 'No meals scheduled';
+
+  const hasLunch = activeDays.some(day => weeklySchedule[day]?.lunch);
+  const hasDinner = activeDays.some(day => weeklySchedule[day]?.dinner);
+  const mealLabel = hasLunch && hasDinner ? 'Both meals' : hasLunch ? 'Lunch only' : 'Dinner only';
+
+  const isAllDays = activeDays.length === 7;
+  const isWeekdays = activeDays.length === 5 && weekdays.every(d => activeDays.includes(d));
+
+  if (isAllDays) return `All days, ${mealLabel}`;
+  if (isWeekdays) return `Mon-Fri, ${mealLabel}`;
+  return `${activeDays.length} days, ${mealLabel}`;
 };

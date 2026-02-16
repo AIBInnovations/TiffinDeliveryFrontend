@@ -38,50 +38,92 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
     {
       id: '1',
       question: 'What if my order is delayed?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'If your order is delayed, you can track its real-time status in "My Orders". You\'ll also receive push notifications at every step. If the delay is significant, please contact our support team at +91 98765-43210 and we\'ll resolve it for you immediately.',
       category: 'Delivery',
     },
     {
       id: '2',
       question: 'Can I pause or cancel my meal plan?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'Yes! You can pause auto-ordering anytime from "Auto-Order Settings" in the Account menu. Select a date until when you want to pause, and it will automatically resume after that. To cancel your subscription entirely, go to Meal Plans and use the cancel option. Unused vouchers remain valid until their expiry date.',
       category: 'Account',
     },
     {
       id: '3',
       question: 'What if I want to skip a day?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'You can skip specific meals using the "Skip Meal Calendar". Go to Auto-Order Settings and tap "Skip Next Meal", or access the calendar directly. Select the date and meal window (Lunch or Dinner) you want to skip. Your voucher won\'t be used for skipped slots, and you can unskip anytime before the order cutoff time.',
       category: 'Delivery',
     },
     {
       id: '4',
       question: 'How do I change my delivery address?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'Go to "Saved Addresses" from the Account menu. You can add a new address, edit existing ones, or set a different default address. For auto-ordering, make sure to update the default address in "Auto-Order Settings" as well. Your address must be in a serviceable pincode area.',
       category: 'Delivery',
     },
     {
       id: '5',
       question: 'What payment options are available?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'Tiffsy supports UPI (Google Pay, PhonePe, etc.), credit/debit cards, wallets, and net banking via Razorpay. If you have meal vouchers from a subscription plan, you can also use "Voucher Only" payment where no additional money is charged. If a payment fails, you can retry it from the order details screen.',
       category: 'Account',
     },
     {
       id: '6',
       question: 'Where is my delivery?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'You can track your order in real-time by going to "My Orders" and tapping on your active order. You\'ll see a detailed timeline showing each status: Placed, Accepted, Preparing, Ready, Picked Up, Out for Delivery, and Delivered. Push notifications are also sent at each stage so you stay updated.',
       category: 'Delivery',
     },
     {
       id: '7',
       question: 'Can I edit or cancel my order?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      answer: 'You can cancel an order before the kitchen starts preparing it. Go to "My Orders", open the order, and tap "Cancel Order" if the option is available. Once the kitchen begins preparation, cancellation is no longer possible. If a voucher was used, it will be restored upon successful cancellation. Editing an order after placement is not supported — you\'ll need to cancel and place a new one.',
       category: 'Account',
     },
     {
       id: '8',
-      question: 'What if my order is delayed?',
-      answer: 'Lorem ipsum dolor sit amet consectetur. Elementum nisi sed blandit.',
+      question: 'How do vouchers work?',
+      answer: 'Vouchers are meal credits included with your subscription plan. Each voucher covers one meal. When you place an order, available vouchers are automatically applied to reduce or eliminate payment. You can view all your vouchers (Available, Redeemed, Expired, Restored) in "My Vouchers" from the Account menu. Vouchers have an expiry date, so make sure to use them before they expire!',
+      category: 'Account',
+    },
+    {
+      id: '9',
+      question: 'How does auto-ordering work?',
+      answer: 'Auto-ordering automatically places meal orders based on your weekly schedule. Set it up in "Auto-Order Settings": enable it, choose your default kitchen and address, then select Lunch and/or Dinner for each day of the week. Orders are placed automatically using your vouchers. You can pause, resume, or skip meals anytime.',
+      category: 'Queries',
+    },
+    {
+      id: '10',
+      question: 'What if my auto-order fails?',
+      answer: 'Auto-orders can fail if you have no available vouchers, no default address set, your address is outside the delivery zone, no kitchen is available, or the menu hasn\'t been published yet. You\'ll receive a notification with the failure reason. Check "Auto-Order Settings" to fix the issue and ensure your next auto-order goes through.',
+      category: 'Queries',
+    },
+    {
+      id: '11',
+      question: 'Do you deliver to my area?',
+      answer: 'Tiffsy delivers to specific zones based on pincode. To check if your area is serviceable, go to "Saved Addresses" and try adding your address — the app will verify your pincode. We\'re constantly expanding to new areas, so if your location isn\'t covered yet, check back soon!',
       category: 'Delivery',
+    },
+    {
+      id: '12',
+      question: 'How do I get a refund?',
+      answer: 'For cancelled orders, vouchers are restored immediately. If you paid via UPI/card, monetary refunds are processed within 5-7 business days. For failed payments where the amount was deducted, it\'s auto-refunded within 5-7 business days. For subscription-related refunds, eligibility depends on your plan terms. Contact support for specific refund queries.',
+      category: 'Queries',
+    },
+    {
+      id: '13',
+      question: 'Is my food vegetarian or non-vegetarian?',
+      answer: 'Each menu item is clearly labeled as Veg, Non-Veg, or Vegan. You can also set your dietary preference (Vegetarian, Non-Vegetarian, or Vegan) in your profile under "Edit Profile". The app will show menus tailored to your preference. You can change this setting anytime.',
+      category: 'Quality',
+    },
+    {
+      id: '14',
+      question: 'How is the food quality ensured?',
+      answer: 'Tiffsy partners with trusted local kitchens that prepare fresh, homestyle meals daily. Menus are updated each day to ensure freshness. You can rate your orders after delivery, and your feedback directly helps us maintain and improve food quality across all partner kitchens.',
+      category: 'Quality',
+    },
+    {
+      id: '15',
+      question: 'How do I delete my account?',
+      answer: 'Go to the Account tab, scroll down, and tap "Delete Account". Your account will be scheduled for deletion with a 10-day grace period. During this time, you can contact support to cancel the deletion. After 10 days, all your data will be permanently removed.',
+      category: 'Account',
     },
   ];
 
@@ -155,8 +197,54 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Chat With Us Banner */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ChatSupport')}
+          style={{
+            marginHorizontal: 20,
+            marginTop: 16,
+            backgroundColor: '#ff8800',
+            borderRadius: 16,
+            padding: 18,
+            flexDirection: 'row',
+            alignItems: 'center',
+            shadowColor: '#ff8800',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: 'rgba(255,255,255,0.25)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 14,
+            }}
+          >
+            <Image
+              source={require('../../assets/icons/help2.png')}
+              style={{ width: 28, height: 28, tintColor: 'white' }}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: 'white', fontSize: FONT_SIZES.lg, fontWeight: 'bold' }}>
+              Chat with us
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: FONT_SIZES.sm, marginTop: 2 }}>
+              Get instant answers to your questions
+            </Text>
+          </View>
+          <Text style={{ color: 'white', fontSize: 22 }}>{'\u203A'}</Text>
+        </TouchableOpacity>
+
         {/* Contact Us Section */}
-        <View className="px-5 py-4 bg-white">
+        <View className="px-5 py-4 bg-white" style={{ marginTop: 8 }}>
           <Text className="font-bold text-gray-900 mb-4" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>Contact Us</Text>
 
           <View className="flex-row justify-between">

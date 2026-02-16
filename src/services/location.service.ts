@@ -287,6 +287,35 @@ class LocationService {
   }
 
   /**
+   * Forward geocode an address string to get coordinates
+   * Uses Google Maps Geocoding API
+   */
+  async forwardGeocode(address: string): Promise<LocationCoordinates | null> {
+    try {
+      const GOOGLE_API_KEY = 'AIzaSyCJLEZUNQP8gtDQh-oW3FxgsNCdJHEaYQc';
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_API_KEY}&language=en`
+      );
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
+        console.log('[LocationService] Forward geocoded:', address, '->', location);
+        return {
+          latitude: location.lat,
+          longitude: location.lng,
+        };
+      }
+
+      console.warn('[LocationService] Forward geocode returned no results for:', address);
+      return null;
+    } catch (error) {
+      console.error('[LocationService] Error forward geocoding:', error);
+      return null;
+    }
+  }
+
+  /**
    * Show alert for location permission denied
    */
   showLocationPermissionDeniedAlert() {

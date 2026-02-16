@@ -25,7 +25,6 @@ import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromRespon
 import dataPreloader from '../../services/dataPreloader.service';
 import MealWindowModal from '../../components/MealWindowModal';
 import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
-import { formatNextAutoOrderTime } from '../../utils/autoOrderUtils';
 import NotificationBell from '../../components/NotificationBell';
 import { useResponsive, useScaling } from '../../hooks/useResponsive';
 import { SPACING } from '../../constants/spacing';
@@ -65,7 +64,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setVoucherCount,
   } = useCart();
   const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
-  const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers } = useSubscription();
+  const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers, globalAutoOrderEnabled, autoOrderConfigs } = useSubscription();
   const { fetchUnreadCount, fetchNotifications } = useNotifications();
   const insets = useSafeAreaInsets();
   const { width, isSmallDevice } = useResponsive();
@@ -438,23 +437,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Check for auto-ordering status and show notification
   useFocusEffect(
     useCallback(() => {
-      const hasActiveSub = subscriptions.some(sub => sub.status === 'ACTIVE');
-      if (hasActiveSub) {
+      if (globalAutoOrderEnabled && autoOrderConfigs.length > 0) {
         setShowAutoOrderNotification(true);
       } else {
         setShowAutoOrderNotification(false);
       }
-    }, [subscriptions])
+    }, [globalAutoOrderEnabled, autoOrderConfigs])
   );
 
   // Cycling text animation for auto-order enabled banner
-  const activeAutoOrderSub = useMemo(() =>
-    subscriptions.find(sub => sub.status === 'ACTIVE' && sub.autoOrderingEnabled && !sub.isPaused),
-    [subscriptions]
+  const hasActiveAutoOrder = useMemo(() =>
+    globalAutoOrderEnabled && autoOrderConfigs.some(c => c.enabled),
+    [globalAutoOrderEnabled, autoOrderConfigs]
   );
 
   useEffect(() => {
-    if (!activeAutoOrderSub) return;
+    if (!hasActiveAutoOrder) return;
 
     const interval = setInterval(() => {
       // Animate current text up (out)
@@ -479,7 +477,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [activeAutoOrderSub, autoOrderSlideAnim]);
+  }, [hasActiveAutoOrder, autoOrderSlideAnim]);
 
   // Background data preload - triggers after menu loads successfully
   useFocusEffect(
@@ -674,7 +672,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
     const mealPrice = getMealPrice();
     const mealName = mealItem.name;
-    const mealWindowValue = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
+    const mealWindowValue: 'LUNCH' | 'DINNER' = selectedMeal === 'lunch' ? 'LUNCH' : 'DINNER';
 
     // Set cart context for order creation
     setMenuType('MEAL_MENU');
@@ -705,8 +703,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       subtitle: '1 Thali',
       price: mealPrice,
       quantity: mealQuantity,
-      hasVoucher: mealItem?.canUseVoucher ?? true,
+      hasVoucher: true, // Thalis always support vouchers; cutoff is handled separately in cart
       addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+      mealWindow: mealWindowValue,
     };
 
     console.log('[HomeScreen] updateCartWithAddons - Cart item:', JSON.stringify({
@@ -809,8 +808,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       subtitle: '1 Thali',
       price: mealPrice,
       quantity: mealQuantity,
-      hasVoucher: mealItem.canUseVoucher ?? true,
+      hasVoucher: true, // Thalis always support vouchers; cutoff is handled separately in cart
       addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+      mealWindow: mealWindow as 'LUNCH' | 'DINNER',
     };
 
     console.log('[HomeScreen] Cart item to add:', JSON.stringify({
@@ -971,7 +971,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Location */}
               <TouchableOpacity
-                className="flex-1 items-center mx-3"
+                className="items-center mx-3"
+                style={{ flex: 1, maxWidth: 180 }}
                 onPress={() => navigation.navigate('Address')}
               >
                 <Text className="text-white opacity-90" style={{ fontSize: FONT_SIZES.xs }}>Location</Text>
@@ -985,12 +986,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     </>
                   ) : (
                     <>
-                      <Image
-                        source={require('../../assets/icons/address3.png')}
-                        style={{ width: SPACING.iconSm, height: SPACING.iconSm, tintColor: 'white' }}
-                        resizeMode="contain"
-                      />
-                      <Text className="text-white font-semibold ml-1" style={{ fontSize: FONT_SIZES.sm }} numberOfLines={1}>
+                      <Text className="text-white font-semibold" style={{ fontSize: FONT_SIZES.sm }} numberOfLines={1}>
                         {getDisplayLocation()}
                       </Text>
                       <Image
@@ -1003,10 +999,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
 
-              {/* Right Actions: Notification Bell & Voucher */}
-              <View className="flex-row items-center" style={{ gap: SPACING.md }}>
+              {/* Right Actions */}
+              <View className="flex-row items-center" style={{ gap: SPACING.sm + 2 }}>
                 {/* Notification Bell */}
-                <NotificationBell color="white" size={SPACING.iconSize} />
+                <NotificationBell color="white" size={SPACING.iconSize - 2} />
 
                 {/* Voucher Button */}
                 <TouchableOpacity
@@ -1015,23 +1011,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     flexDirection: 'row',
                     alignItems: 'center',
                     backgroundColor: 'white',
-                    borderRadius: SPACING.lg,
-                    paddingVertical: SPACING.xs + 1,
-                    paddingHorizontal: SPACING.sm,
-                    gap: 4,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 3,
+                    borderRadius: SPACING.md,
+                    paddingVertical: SPACING.xs,
+                    paddingHorizontal: SPACING.sm - 2,
+                    gap: 3,
                   }}
                 >
                   <Image
                     source={require('../../assets/icons/voucher5.png')}
-                    style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
+                    style={{ width: SPACING.iconSm, height: SPACING.iconSm }}
                     resizeMode="contain"
                   />
-                  <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: '#ff8800' }}>
+                  <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: 'bold', color: '#ff8800' }}>
                     {usableVouchers}
                   </Text>
                 </TouchableOpacity>
@@ -1039,169 +1030,157 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
           </View>
+        </View>
 
-          {/* Promotional Carousel */}
-          <View style={{ marginTop: SPACING.xs, paddingBottom: SPACING.lg }}>
-            <ScrollView
-              ref={carouselRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                setActiveCarouselIndex(index);
+        {/* Content area with background design */}
+        <View style={{ position: 'relative', marginTop: -30 }}>
+          {/* Background Image - covers carousel, buttons, and thali */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none">
+            <Image
+              source={require('../../assets/images/homepage/homebackground.png')}
+              style={{
+                width: '100%',
+                height: '100%',
+                opacity: 0.17,
               }}
-              decelerationRate="fast"
-            >
-              {carouselImages.map((image, index) => (
+              resizeMode="cover"
+            />
+          </View>
+
+        {/* Promotional Carousel - Outside Header */}
+        <View style={{ marginTop: SPACING.md + 30 }}>
+          <ScrollView
+            ref={carouselRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
+              setActiveCarouselIndex(index);
+            }}
+            decelerationRate="fast"
+          >
+            {carouselImages.map((image, index) => (
+              <View
+                key={index}
+                style={{
+                  width: width,
+                  height: 140,
+                  paddingHorizontal: SPACING.lg,
+                }}
+              >
                 <View
-                  key={index}
                   style={{
-                    width: width,
-                    height: 130,
-                    paddingHorizontal: SPACING.md,
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: SPACING.lg,
+                    overflow: 'hidden',
+                    backgroundColor: 'white',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 3,
                   }}
                 >
-                  <View
+                  <Image
+                    source={image}
                     style={{
                       width: '100%',
                       height: '100%',
-                      borderRadius: SPACING.lg,
-                      overflow: 'hidden',
-                      backgroundColor: 'white',
                     }}
-                  >
-                    <Image
-                      source={image}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                      }}
-                      resizeMode="contain"
-                    />
-                  </View>
+                    resizeMode="contain"
+                  />
                 </View>
-              ))}
-            </ScrollView>
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Dot Indicators */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: SPACING.sm }}>
+            {carouselImages.map((_, index) => (
+              <View
+                key={index}
+                style={{
+                  width: activeCarouselIndex === index ? 20 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: activeCarouselIndex === index ? '#ff8800' : '#D1D5DB',
+                  marginHorizontal: 3,
+                }}
+              />
+            ))}
           </View>
+        </View>
+
+        {/* Quick Action Buttons */}
+        <View
+          style={{
+            flexDirection: 'row',
+            marginHorizontal: SPACING.lg,
+            marginTop: SPACING.md,
+            gap: SPACING.sm,
+          }}
+        >
+          {/* Scheduled Ordering */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('MealCalendar')}
+            style={{
+              flex: 1,
+              backgroundColor: '#FFFFFF',
+              borderRadius: SPACING.md,
+              paddingVertical: SPACING.md,
+              paddingHorizontal: SPACING.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.06,
+              shadowRadius: 3,
+              elevation: 2,
+            }}
+          >
+            <MaterialCommunityIcons name="calendar-clock" size={24} color="#ff8800" style={{ marginRight: SPACING.xs }} />
+            <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: '600', color: '#1F2937', flex: 1 }} numberOfLines={1}>
+              Schedule Order
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          {/* Auto Orders */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('AutoOrderSettings')}
+            style={{
+              flex: 1,
+              backgroundColor: '#FFFFFF',
+              borderRadius: SPACING.md,
+              paddingVertical: SPACING.md,
+              paddingHorizontal: SPACING.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.06,
+              shadowRadius: 3,
+              elevation: 2,
+            }}
+          >
+            <MaterialCommunityIcons name="toggle-switch-outline" size={24} color="#ff8800" style={{ marginRight: SPACING.xs }} />
+            <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: '600', color: '#1F2937', flex: 1 }} numberOfLines={1}>
+              Auto Orders
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
         </View>
 
         {/* White Container with Meal Options and Image */}
         <View className="mb-6" style={{ position: 'relative', overflow: 'visible', marginTop: SPACING.md }}>
-          {/* Background Image */}
-          <Image
-            source={require('../../assets/images/homepage/homebackground.png')}
-            style={{
-              position: 'absolute',
-              top: -100,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              height: '150%',
-              opacity: 0.17,
-            }}
-            resizeMode="cover"
-          />
-
-          {/* Auto-Order Notification Banner - Over Background */}
-          {showAutoOrderNotification && (() => {
-            const activeSub = subscriptions.find(sub => sub.status === 'ACTIVE');
-            if (!activeSub) return null;
-
-            const isAutoOrderEnabled = activeSub.autoOrderingEnabled && !activeSub.isPaused;
-
-            if (isAutoOrderEnabled) {
-              // Enabled state: cycling text with navigation to Profile
-              const nextOrderTime = formatNextAutoOrderTime(activeSub);
-              const mealType = activeSub.defaultMealType === 'LUNCH' ? 'Lunch' : activeSub.defaultMealType === 'DINNER' ? 'Dinner' : 'Next meal';
-              const textLines = [
-                `${mealType} ${nextOrderTime}`,
-                'Manage auto-order settings',
-              ];
-              const textHeight = 18;
-
-              return (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('Account')}
-                  style={{ marginHorizontal: SPACING.md, marginTop: SPACING.md }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: SPACING.md,
-                      paddingVertical: SPACING.sm,
-                      paddingHorizontal: SPACING.md,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      borderLeftWidth: 3,
-                      borderLeftColor: '#ff8800',
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 2,
-                      elevation: 2,
-                    }}
-                  >
-                    <View style={{ backgroundColor: '#10B981', width: 6, height: 6, borderRadius: 3, marginRight: 6 }} />
-                    <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: '#1F2937', marginRight: 4 }}>Auto-Order Active</Text>
-                    <View style={{ flex: 1, height: textHeight, overflow: 'hidden' }}>
-                      <Animated.View
-                        style={{
-                          transform: [{
-                            translateY: autoOrderSlideAnim.interpolate({
-                              inputRange: [-1, 0, 1],
-                              outputRange: [-textHeight, 0, textHeight],
-                            }),
-                          }],
-                        }}
-                      >
-                        <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280', height: textHeight, lineHeight: textHeight }} numberOfLines={1}>
-                          {textLines[autoOrderTextIndex]}
-                        </Text>
-                      </Animated.View>
-                    </View>
-                    <MaterialCommunityIcons name="chevron-right" size={18} color="#9CA3AF" style={{ marginLeft: 4 }} />
-                  </View>
-                </TouchableOpacity>
-              );
-            } else {
-              // Disabled state: prompt to enable auto-order
-              return (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('AutoOrderSettings', { subscriptionId: activeSub._id })}
-                  style={{ marginHorizontal: SPACING.md, marginTop: SPACING.md }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: SPACING.md,
-                      paddingVertical: SPACING.sm,
-                      paddingHorizontal: SPACING.md,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      borderLeftWidth: 3,
-                      borderLeftColor: '#D1D5DB',
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 2,
-                      elevation: 2,
-                    }}
-                  >
-                    <View style={{ backgroundColor: '#D1D5DB', width: 6, height: 6, borderRadius: 3, marginRight: 6 }} />
-                    <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280', flex: 1 }} numberOfLines={1}>
-                      Enable auto-order to never miss a meal
-                    </Text>
-                    <Text style={{ color: '#ff8800', fontSize: FONT_SIZES.xs, fontWeight: '600', marginLeft: 4 }}>Enable</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={16} color="#ff8800" style={{ marginLeft: 2 }} />
-                  </View>
-                </TouchableOpacity>
-              );
-            }
-          })()}
 
           {/* Meal Type Tabs - commented out to prevent manual switching */}
           {/* <View className="flex-row justify-center pt-10 mb-6">
@@ -1283,6 +1262,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
         </View>
+
+        </View>{/* End background design wrapper */}
 
         {/* Special Thali, Details and Add-ons Container */}
         <View
@@ -1379,31 +1360,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   borderRadius: SPACING['3xl'],
                   width: SPACING['5xl'] * 3.125,
                   height: SPACING['2xl'] + SPACING.xl + 1,
-                  paddingHorizontal: SPACING.xl + 4,
+                  paddingHorizontal: SPACING.lg,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden',
                 }}
               >
-                <View
-                  style={{
-                    width: SPACING['2xl'] + SPACING.xl + 1,
-                    height: SPACING['2xl'] + SPACING.xl + 1,
-                    borderRadius: SPACING['2xl'] + 4,
-                    backgroundColor: 'rgba(255, 148, 92, 1)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: -(SPACING['3xl']),
-                  }}
-                >
-                  <Image
-                    source={require('../../assets/icons/cart3.png')}
-                    style={{ width: SPACING.lg + 4, height: SPACING.lg + 4, tintColor: 'rgba(255, 255, 255, 1)' }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600', marginLeft: SPACING.md }}>Add to Cart</Text>
+                <MaterialCommunityIcons name="cart-plus" size={18} color="white" style={{ marginRight: 6 }} />
+                <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600' }}>Add to Cart</Text>
               </TouchableOpacity>
             ) : (
               <View
@@ -1474,6 +1438,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     opacity: isLoadingMenu ? 0.5 : 1,
                   }}
                 >
+                  <MaterialCommunityIcons name="flash" size={18} color="#ff8800" style={{ marginRight: 4 }} />
                   <Text
                     style={{
                       color: 'rgba(255, 136, 0, 1)',
@@ -1547,127 +1512,85 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               addOns.map((item) => (
                 <View
                   key={item.id}
-                  className="flex-row items-center justify-between py-2"
+                  className="flex-row items-center py-3"
+                  style={{ borderBottomWidth: 0.5, borderBottomColor: '#F3F4F6' }}
                 >
-                  {/* Item Image and Info */}
-                  <View className="flex-row items-center flex-1">
-                    <Image
-                      source={item.image}
-                      style={{ width: SPACING.iconXl + 16, height: SPACING.iconXl + 16, borderRadius: (SPACING.iconXl + 16) / 2 }}
-                      resizeMode="cover"
-                    />
-                    <View className="ml-4 flex-1">
-                      <Text className="font-semibold text-gray-900" style={{ fontSize: FONT_SIZES.base }}>
-                        {item.name}
-                      </Text>
-                      <Text className="text-gray-500 mt-0.5" style={{ fontSize: FONT_SIZES.sm }}>
-                        {item.quantity} <Text className="font-semibold text-gray-900">+ ₹{item.price}.00</Text>
-                      </Text>
-                    </View>
+                  {/* Item Image */}
+                  <Image
+                    source={item.image}
+                    style={{ width: SPACING.iconXl + 16, height: SPACING.iconXl + 16, borderRadius: (SPACING.iconXl + 16) / 2 }}
+                    resizeMode="contain"
+                  />
+
+                  {/* Item Info */}
+                  <View className="ml-3 flex-1">
+                    <Text className="font-semibold text-gray-900" style={{ fontSize: FONT_SIZES.base }}>
+                      {item.name}
+                    </Text>
+                    <Text className="text-gray-500 mt-0.5" style={{ fontSize: FONT_SIZES.sm }}>
+                      {item.quantity}  <Text className="font-semibold text-gray-900">+ ₹{item.price.toFixed(2)}</Text>
+                    </Text>
                   </View>
 
-                  {/* Quantity Controls and Add Button */}
-                  <View className="flex-row items-center">
-                    <Animated.View
+                  {item.selected ? (
+                    /* Quantity Controls (visible when selected) */
+                    <View
                       style={{
-                        opacity: item.selected ? 1 : 0,
-                        transform: [
-                          {
-                            scale: item.selected ? 1 : 0.8,
-                          },
-                        ],
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#FFF7ED',
+                        borderRadius: 16,
+                        paddingVertical: 4,
+                        paddingHorizontal: 6,
+                        borderWidth: 1,
+                        borderColor: '#ff8800',
                       }}
                     >
-                      {item.selected && (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            backgroundColor: '#FFF7ED',
-                            borderRadius: 18,
-                            paddingVertical: 8,
-                            paddingHorizontal: 8,
-                            borderWidth: 1,
-                            borderColor: '#ff8800',
-                            minWidth: 60,
-                          }}
-                        >
-                          <TouchableOpacity
-                            onPress={() => updateQuantity(item.id, false)}
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: 10,
-                              backgroundColor: 'white',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderWidth: 1,
-                              borderColor: '#ff8800',
-                            }}
-                          >
-                            <Text style={{ color: '#ff8800', fontSize: 14, fontWeight: '600' }}>−</Text>
-                          </TouchableOpacity>
-                          <Text
-                            style={{
-                              marginHorizontal: 8,
-                              fontWeight: '600',
-                              fontSize: FONT_SIZES.sm,
-                              color: '#ff8800',
-                              minWidth: 12,
-                              textAlign: 'center',
-                            }}
-                          >
-                            {item.count}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => updateQuantity(item.id, true)}
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: 10,
-                              backgroundColor: '#ff8800',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>+</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </Animated.View>
-                    {!item.selected && (
-                      <Animated.View
+                      <TouchableOpacity
+                        onPress={() => updateQuantity(item.id, false)}
                         style={{
-                          opacity: !item.selected ? 1 : 0,
-                          transform: [
-                            {
-                              scale: !item.selected ? 1 : 0.8,
-                            },
-                          ],
+                          width: 20,
+                          height: 20,
+                          borderRadius: 10,
+                          backgroundColor: 'white',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 1,
+                          borderColor: '#ff8800',
                         }}
                       >
-                        <TouchableOpacity
-                          onPress={() => toggleAddOn(item.id)}
-                          style={{
-                            paddingHorizontal: 16,
-                            paddingVertical: 8,
-                            borderRadius: 18,
-                            backgroundColor: '#ff8800',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            shadowColor: '#ff8800',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 4,
-                            elevation: 3,
-                            minWidth: 60,
-                          }}
-                        >
-                          <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600' }}>Add</Text>
-                        </TouchableOpacity>
-                      </Animated.View>
-                    )}
-                  </View>
+                        <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '600' }}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '700', marginHorizontal: 6 }}>{item.count}</Text>
+                      <TouchableOpacity
+                        onPress={() => updateQuantity(item.id, true)}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 10,
+                          backgroundColor: '#ff8800',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    /* Checkbox (visible when not selected) */
+                    <TouchableOpacity
+                      onPress={() => toggleAddOn(item.id)}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 4,
+                        borderWidth: 1.5,
+                        borderColor: '#D1D5DB',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    />
+                  )}
                 </View>
               ))
             ) : addOnsExpanded ? (
@@ -1707,7 +1630,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   : require('../../assets/images/homepage/dinneritem.png')
               }
               style={{ width: SPACING['5xl'], height: SPACING['5xl'], borderRadius: SPACING['5xl'] / 2 }}
-              resizeMode="cover"
+              resizeMode="contain"
             />
             <View className="ml-3 flex-1" style={{ marginRight: 10 }}>
               <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.base }} numberOfLines={1}>{getMealName()}</Text>

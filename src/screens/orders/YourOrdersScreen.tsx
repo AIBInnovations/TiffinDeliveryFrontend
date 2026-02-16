@@ -19,7 +19,6 @@ import { useAlert } from '../../context/AlertContext';
 import apiService, { Order, OrderStatus } from '../../services/api.service';
 import dataPreloader from '../../services/dataPreloader.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
-import { getMealCutoffTime } from '../../utils/timeUtils';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING } from '../../constants/spacing';
 
@@ -135,7 +134,6 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedOrderForCancel, setSelectedOrderForCancel] = useState<Order | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Fetch current orders
   const fetchCurrentOrders = async () => {
@@ -207,7 +205,25 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // Fetch history orders with pagination
+  // Helper to extract orders from API response (handles multiple formats)
+  const extractOrdersFromResponse = (response: any): { orders: Order[]; hasMore: boolean } => {
+    const isSuccess = response.success === true || (response as any).message === true;
+    const responseData = response.data && typeof response.data === 'object' && 'orders' in response.data
+      ? response.data
+      : (response as any).error || response.data;
+
+    if (isSuccess && responseData && responseData.orders) {
+      const hasMore = responseData.pagination
+        ? responseData.pagination.page < responseData.pagination.totalPages
+        : false;
+      return { orders: responseData.orders, hasMore };
+    } else if (isSuccess && responseData && Array.isArray(responseData)) {
+      return { orders: responseData, hasMore: false };
+    }
+    return { orders: [], hasMore: false };
+  };
+
+  // Fetch history orders with pagination using status filters
   const fetchHistoryOrders = async (page: number = 1, append: boolean = false) => {
     try {
       if (!append) {
@@ -215,57 +231,51 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         setHistoryLoading(true);
       }
       console.log('[YourOrdersScreen] Fetching history orders - Page:', page);
-      // Note: Backend doesn't support comma-separated status values
-      // Fetch all orders and filter client-side
-      const response = await apiService.getMyOrders({ page, limit: 20 });
-      console.log('[YourOrdersScreen] History API Response:', JSON.stringify(response, null, 2));
 
-      // Handle different response formats from backend
-      const isSuccess = response.success === true || (response as any).message === true;
-      const responseData = response.data && typeof response.data === 'object' && 'orders' in response.data
-        ? response.data
-        : (response as any).error || response.data;
+      // Use status filters to fetch only history orders directly from the API
+      // This ensures we get actual delivered/cancelled orders instead of fetching
+      // all orders and filtering client-side (which missed most history orders)
+      const apiCalls: Promise<any>[] = [
+        apiService.getMyOrders({ page, limit: 50, status: 'DELIVERED' }),
+      ];
 
-      if (isSuccess && responseData && responseData.orders) {
-        const history = responseData.orders.filter((order: Order) =>
-          HISTORY_STATUSES.includes(order.status)
-        );
-        console.log('[YourOrdersScreen] History orders count:', history.length);
+      // On first load, also fetch cancelled and rejected orders
+      if (page === 1) {
+        apiCalls.push(apiService.getMyOrders({ page: 1, limit: 50, status: 'CANCELLED' }));
+        apiCalls.push(apiService.getMyOrders({ page: 1, limit: 50, status: 'REJECTED' }));
+      }
 
-        if (append) {
-          setHistoryOrders(prev => [...prev, ...history]);
-        } else {
-          setHistoryOrders(history);
-        }
+      const results = await Promise.allSettled(apiCalls);
 
-        // Check if there are more pages
-        const pagination = responseData.pagination;
-        if (pagination) {
-          setHistoryHasMore(pagination.page < pagination.totalPages);
-        } else {
-          setHistoryHasMore(false);
-        }
-        setHistoryPage(page);
-      } else if (isSuccess && responseData && Array.isArray(responseData)) {
-        // Handle case where data is directly an array of orders
-        const history = responseData.filter((order: Order) =>
-          HISTORY_STATUSES.includes(order.status)
-        );
-        console.log('[YourOrdersScreen] History orders count (array):', history.length);
+      let allHistory: Order[] = [];
+      let deliveredHasMore = false;
 
-        if (append) {
-          setHistoryOrders(prev => [...prev, ...history]);
-        } else {
-          setHistoryOrders(history);
-        }
-        setHistoryHasMore(false);
-        setHistoryPage(page);
-      } else {
-        console.log('[YourOrdersScreen] Failed to load history orders - Response:', response);
-        if (!append) {
-          setHistoryError('Failed to load order history');
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === 'fulfilled') {
+          const extracted = extractOrdersFromResponse(result.value);
+          allHistory = [...allHistory, ...extracted.orders];
+          // Track pagination only for delivered orders (index 0) since they're most common
+          if (i === 0) {
+            deliveredHasMore = extracted.hasMore;
+          }
         }
       }
+
+      // Sort by date (newest first)
+      allHistory.sort((a: Order, b: Order) =>
+        new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
+      console.log('[YourOrdersScreen] History orders count:', allHistory.length);
+
+      if (append) {
+        setHistoryOrders(prev => [...prev, ...allHistory]);
+      } else {
+        setHistoryOrders(allHistory);
+      }
+
+      setHistoryHasMore(deliveredHasMore);
+      setHistoryPage(page);
     } catch (error: any) {
       console.error('[YourOrdersScreen] Error fetching history orders:', error.message || error);
       if (!append) {
@@ -286,6 +296,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   // Refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    dataPreloader.invalidateCache('orders');
     await fetchAllOrders();
     setRefreshing(false);
   }, []);
@@ -308,51 +319,33 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
 
-      // First check cache for instant display
+      // Use cache for current orders only (instant display)
       const cachedOrders = dataPreloader.getCachedOrders();
       if (cachedOrders && !dataPreloader.isCacheExpired('orders')) {
-        console.log('[YourOrdersScreen] 🚀 Cache hit - displaying instantly, skipping API fetch');
+        console.log('[YourOrdersScreen] 🚀 Cache hit - using for current orders');
         const current = cachedOrders.filter((order: Order) =>
           CURRENT_STATUSES.includes(order.status)
         );
-        const history = cachedOrders.filter((order: Order) =>
-          HISTORY_STATUSES.includes(order.status)
-        );
         setCurrentOrders(current);
-        setHistoryOrders(history);
         setCurrentLoading(false);
-        setHistoryLoading(false);
-        hasLoadedDataRef.current = true; // Mark as loaded
-        return; // Don't fetch from API
+      } else {
+        // Cache miss - fetch current orders from API
+        fetchCurrentOrders();
       }
 
-      // Cache miss - fetch from API
-      console.log('[YourOrdersScreen] Cache miss - fetching from API');
-      fetchAllOrders().then(() => {
-        hasLoadedDataRef.current = true; // Mark as loaded after fetch
-      });
+      // Always fetch history orders from API with status filters
+      // (cache only stores ~50 orders which may not include enough history orders)
+      fetchHistoryOrders(1, false);
+
+      hasLoadedDataRef.current = true;
     }, [])
   );
 
   // Open cancel modal
-  const handleOpenCancelModal = async (order: Order) => {
+  const handleOpenCancelModal = (order: Order) => {
     console.log('[YourOrdersScreen] Opening cancel modal for order:', order.orderNumber);
     setSelectedOrderForCancel(order);
     setShowCancelModal(true);
-
-    // Fetch kitchen operating hours
-    const kitchenId = typeof order.kitchenId === 'string' ? order.kitchenId : order.kitchenId?._id;
-    if (kitchenId) {
-      try {
-        const kitchenResponse = await apiService.getKitchenMenu(kitchenId, order.menuType);
-        const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
-        if (kitchenData?.operatingHours) {
-          setKitchenOperatingHours(kitchenData.operatingHours);
-        }
-      } catch (err) {
-        console.log('[YourOrdersScreen] Failed to fetch kitchen operating hours:', err);
-      }
-    }
   };
 
   // Cancel order handler
@@ -376,22 +369,22 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         setSelectedOrderForCancel(null);
 
         const message = responseData?.message ||
-          (typeof response.data === 'string' ? response.data : null) ||
-          `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
+          (typeof response.data === 'string' ? response.data : 'Order cancelled successfully.');
 
         showAlert('Order Cancelled', message, [
           { text: 'OK', onPress: () => fetchAllOrders() },
         ], 'success');
       } else {
-        // Error message is in response.data when message is false
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[YourOrdersScreen] Cancel failed:', errorMessage);
+        setShowCancelModal(false);
         showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (error: any) {
       console.error('[YourOrdersScreen] Cancel error:', error.message || error);
+      setShowCancelModal(false);
       showAlert('Error', error.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
@@ -466,7 +459,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               )}
             </View>
-            {order.isAutoOrder && (
+            {(order.isAutoOrder || order.orderSource === 'AUTO_ORDER') && (
               <View
                 className="px-2.5 py-1 rounded-full flex-row items-center"
                 style={{
@@ -480,6 +473,22 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               >
                 <Text className="text-white text-xs mr-1">⚡</Text>
                 <Text className="text-xs font-bold text-white">Auto</Text>
+              </View>
+            )}
+            {order.orderSource === 'SCHEDULED' && (
+              <View
+                className="px-2.5 py-1 rounded-full flex-row items-center"
+                style={{
+                  backgroundColor: '#3B82F6',
+                  shadowColor: '#3B82F6',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
+              >
+                <Text className="text-white text-xs mr-1">📅</Text>
+                <Text className="text-xs font-bold text-white">Scheduled</Text>
               </View>
             )}
           </View>
@@ -569,7 +578,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               )}
             </View>
-            {order.isAutoOrder && (
+            {(order.isAutoOrder || order.orderSource === 'AUTO_ORDER') && (
               <View
                 className="px-2.5 py-1.5 rounded-full flex-row items-center"
                 style={{
@@ -583,6 +592,22 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
               >
                 <Text className="text-white text-xs mr-1">⚡</Text>
                 <Text className="text-xs font-bold text-white">Auto</Text>
+              </View>
+            )}
+            {order.orderSource === 'SCHEDULED' && (
+              <View
+                className="px-2.5 py-1.5 rounded-full flex-row items-center"
+                style={{
+                  backgroundColor: '#3B82F6',
+                  shadowColor: '#3B82F6',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
+              >
+                <Text className="text-white text-xs mr-1">📅</Text>
+                <Text className="text-xs font-bold text-white">Scheduled</Text>
               </View>
             )}
           </View>
@@ -844,17 +869,17 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </>
         ) : activeTab === 'History' ? (
-          // History Orders Layout (non-auto orders)
+          // History Orders Layout (all completed/cancelled orders)
           <>
             {historyLoading && historyOrders.length === 0 ? (
               renderLoading()
             ) : historyError ? (
               renderError(historyError, () => fetchHistoryOrders(1, false))
-            ) : historyOrders.filter(o => !o.isAutoOrder).length === 0 ? (
+            ) : historyOrders.length === 0 ? (
               renderEmpty('No order history')
             ) : (
               <>
-                {historyOrders.filter(o => !o.isAutoOrder).map(renderHistoryOrderCard)}
+                {historyOrders.map(renderHistoryOrderCard)}
 
                 {/* Load More Button */}
                 {historyHasMore && (
@@ -887,12 +912,29 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           <>
             {currentLoading || historyLoading ? (
               renderLoading()
-            ) : [...currentOrders, ...historyOrders].filter(o => o.isAutoOrder).length === 0 ? (
-              renderEmpty('No auto-orders found')
+            ) : [...currentOrders, ...historyOrders].filter(o => o.isAutoOrder || o.orderSource === 'AUTO_ORDER').length === 0 ? (
+              <View className="items-center justify-center py-16">
+                <Image
+                  source={require('../../assets/icons/cart3.png')}
+                  style={{ width: 60, height: 60, tintColor: '#D1D5DB', marginBottom: 16 }}
+                  resizeMode="contain"
+                />
+                <Text className="text-base font-semibold text-gray-500 mb-2">No auto-orders yet</Text>
+                <Text className="text-sm text-gray-400 text-center px-8 mb-6" style={{ lineHeight: 20 }}>
+                  Set up auto-ordering from your Account to get meals delivered automatically
+                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Account')}
+                  className="rounded-full px-6 py-2.5"
+                  style={{ backgroundColor: '#ff8800' }}
+                >
+                  <Text className="text-white font-semibold text-sm">Go to Auto-Order Settings</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <>
-                {currentOrders.filter(o => o.isAutoOrder).map(renderCurrentOrderCard)}
-                {historyOrders.filter(o => o.isAutoOrder).map(renderHistoryOrderCard)}
+                {currentOrders.filter(o => o.isAutoOrder || o.orderSource === 'AUTO_ORDER').map(renderCurrentOrderCard)}
+                {historyOrders.filter(o => o.isAutoOrder || o.orderSource === 'AUTO_ORDER').map(renderHistoryOrderCard)}
               </>
             )}
           </>
@@ -908,15 +950,10 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         onClose={() => {
           setShowCancelModal(false);
           setSelectedOrderForCancel(null);
-          setKitchenOperatingHours(null);
         }}
         onConfirm={handleCancelOrder}
         orderNumber={selectedOrderForCancel?.orderNumber}
         isLoading={isCancelling}
-        voucherCount={selectedOrderForCancel?.voucherUsage?.voucherCount ?? 0}
-        amountPaid={selectedOrderForCancel?.amountPaid ?? 0}
-        mealWindow={selectedOrderForCancel?.mealWindow}
-        cutoffTime={selectedOrderForCancel?.mealWindow ? getMealCutoffTime(kitchenOperatingHours, selectedOrderForCancel.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
     </View>
   );

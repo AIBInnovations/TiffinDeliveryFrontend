@@ -19,7 +19,6 @@ import { useAlert } from '../../context/AlertContext';
 import apiService, { Order, OrderStatus, KitchenSummary } from '../../services/api.service';
 import CancelOrderModal from '../../components/CancelOrderModal';
 import RateOrderModal from '../../components/RateOrderModal';
-import { getMealCutoffTime } from '../../utils/timeUtils';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES, LINE_HEIGHTS } from '../../constants/typography';
@@ -121,7 +120,6 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
 
   // Modal states
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -163,20 +161,6 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       if (orderData && orderData._id) {
         console.log('[OrderDetailScreen] Order fetched successfully:', orderData.orderNumber);
         setOrder(orderData);
-
-        // Fetch kitchen operating hours
-        const kitchenId = typeof orderData.kitchenId === 'string' ? orderData.kitchenId : orderData.kitchenId?._id;
-        if (kitchenId) {
-          try {
-            const kitchenResponse = await apiService.getKitchenMenu(kitchenId, orderData.menuType);
-            const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
-            if (kitchenData?.operatingHours) {
-              setKitchenOperatingHours(kitchenData.operatingHours);
-            }
-          } catch (err) {
-            console.log('[OrderDetailScreen] Failed to fetch kitchen operating hours:', err);
-          }
-        }
       } else {
         // Extract error message from various possible formats
         let errorMsg = 'Failed to load order details';
@@ -232,22 +216,22 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         setShowCancelModal(false);
 
         const successMessage = responseData?.message ||
-          (typeof response.data === 'string' ? response.data : null) ||
-          `Order cancelled.${responseData?.vouchersRestored ? ` ${responseData.vouchersRestored} voucher(s) restored.` : ''}`;
+          (typeof response.data === 'string' ? response.data : 'Order cancelled successfully.');
 
         showAlert('Order Cancelled', successMessage, [
           { text: 'OK', onPress: () => fetchOrder() },
         ], 'success');
       } else {
-        // Error message is in response.data when message is false
         const errorMessage = typeof response.data === 'string'
           ? response.data
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[OrderDetailScreen] Cancel failed:', errorMessage);
+        setShowCancelModal(false);
         showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderDetailScreen] Cancel error:', err.message || err);
+      setShowCancelModal(false);
       showAlert('Error', err.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
@@ -435,7 +419,7 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         {/* Auto-Order Info Section */}
-        {order.isAutoOrder && (
+        {(order.isAutoOrder || order.orderSource === 'AUTO_ORDER') && (
           <View className="px-5 py-4 mb-2" style={{ backgroundColor: '#F3E8FF' }}>
             <View className="flex-row items-center mb-2">
               <View
@@ -454,6 +438,31 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text className="text-xs" style={{ color: '#7C3AED', fontWeight: '500' }}>
               Auto-orders are placed to ensure you never miss a meal during your subscription period.
             </Text>
+          </View>
+        )}
+
+        {/* Scheduled Order Info Section */}
+        {order.orderSource === 'SCHEDULED' && (
+          <View className="px-5 py-4 mb-2" style={{ backgroundColor: '#DBEAFE' }}>
+            <View className="flex-row items-center mb-2">
+              <View
+                className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                style={{ backgroundColor: '#3B82F6' }}
+              >
+                <Text className="text-lg">📅</Text>
+              </View>
+              <Text className="text-lg font-bold" style={{ color: '#1E40AF' }}>
+                Scheduled Order
+              </Text>
+            </View>
+            <Text className="text-sm" style={{ color: '#1E40AF', marginBottom: 4 }}>
+              This meal was pre-scheduled for delivery.
+            </Text>
+            {order.scheduledFor && (
+              <Text className="text-xs" style={{ color: '#2563EB', fontWeight: '500' }}>
+                Scheduled for: {new Date(order.scheduledFor).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </Text>
+            )}
           </View>
         )}
 
@@ -692,10 +701,6 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         onConfirm={handleCancelOrder}
         orderNumber={order.orderNumber}
         isLoading={isCancelling}
-        voucherCount={order.voucherUsage?.voucherCount ?? 0}
-        amountPaid={order.amountPaid}
-        mealWindow={order.mealWindow}
-        cutoffTime={order.mealWindow ? getMealCutoffTime(kitchenOperatingHours, order.mealWindow.toLowerCase() as 'lunch' | 'dinner') || undefined : undefined}
       />
 
       {/* Rate Order Modal */}

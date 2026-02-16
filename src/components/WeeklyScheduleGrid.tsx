@@ -29,9 +29,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const toggleMeal = (day: DayOfWeek, meal: 'lunch' | 'dinner') => {
     if (disabled) return;
 
-    const updatedSchedule: WeeklySchedule = { ...schedule };
-
-    if (!updatedSchedule) {
+    // Check if schedule is null/undefined BEFORE spreading
+    if (!schedule) {
       // Initialize schedule if null - BOTH fields are required
       const newSchedule: WeeklySchedule = {};
       newSchedule[day] = {
@@ -41,6 +40,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       onChange(newSchedule);
       return;
     }
+
+    const updatedSchedule: WeeklySchedule = { ...schedule };
 
     // Get current day values or default to false for both
     const currentDay = updatedSchedule[day] || { lunch: false, dinner: false };

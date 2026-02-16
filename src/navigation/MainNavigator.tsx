@@ -19,8 +19,12 @@ import VouchersScreen from '../screens/account/VouchersScreen';
 import OnDemandScreen from '../screens/ondemand/OnDemandScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import AutoOrderSettingsScreen from '../screens/subscription/AutoOrderSettingsScreen';
+import AutoOrderConfigScreen from '../screens/subscription/AutoOrderConfigScreen';
 import SkipMealCalendarScreen from '../screens/subscription/SkipMealCalendarScreen';
-import AutoOrderFailureScreen from '../screens/notifications/AutoOrderFailureScreen';
+import ScheduledMealPricingScreen from '../screens/scheduled-meals/ScheduledMealPricingScreen';
+import MyScheduledMealsScreen from '../screens/scheduled-meals/MyScheduledMealsScreen';
+import ChatSupportScreen from '../screens/account/ChatSupportScreen';
+import MealCalendarScreen from '../screens/scheduled-meals/MealCalendarScreen';
 import BottomNavBar from '../components/BottomNavBar';
 import { MainTabParamList } from '../types/navigation';
 
@@ -80,8 +84,12 @@ const MainNavigatorContent = () => {
         <Stack.Screen name="Vouchers" component={VouchersScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="AutoOrderSettings" component={AutoOrderSettingsScreen} />
+        <Stack.Screen name="AutoOrderConfig" component={AutoOrderConfigScreen} />
         <Stack.Screen name="SkipMealCalendar" component={SkipMealCalendarScreen} />
-        <Stack.Screen name="AutoOrderFailure" component={AutoOrderFailureScreen} />
+        <Stack.Screen name="ScheduledMealPricing" component={ScheduledMealPricingScreen} />
+        <Stack.Screen name="MyScheduledMeals" component={MyScheduledMealsScreen} />
+        <Stack.Screen name="ChatSupport" component={ChatSupportScreen} />
+        <Stack.Screen name="MealCalendar" component={MealCalendarScreen} />
       </Stack.Navigator>
       {showNavBar && <BottomNavBar activeTab={activeTab} />}
     </View>

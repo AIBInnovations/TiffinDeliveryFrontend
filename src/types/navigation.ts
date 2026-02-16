@@ -52,9 +52,13 @@ export type MainTabParamList = {
   BulkOrders: undefined;
   Vouchers: undefined;  // View all vouchers with status filters
   OnDemand: undefined;  // On-Demand screen (Coming Soon)
-  AutoOrderSettings: { subscriptionId: string };  // Auto-order settings management
-  SkipMealCalendar: { subscriptionId: string };  // Skip meal calendar interface
-  AutoOrderFailure: { failureCategory: string; mealWindow: string; message?: string };  // Auto-order failure handling
+  AutoOrderSettings: undefined;  // Auto-order dashboard (lists all address configs)
+  AutoOrderConfig: { addressId?: string };  // Create (no addressId) or edit (with addressId) auto-order config
+  SkipMealCalendar: { addressId: string };  // Skip meal calendar for a specific address config
+  ScheduledMealPricing: { deliveryAddressId: string; mealWindow: 'LUNCH' | 'DINNER'; scheduledDate: string; voucherCount?: number };  // Meal pricing preview
+  MyScheduledMeals: undefined;  // List of user's scheduled meals
+  MealCalendar: undefined;  // Unified meal calendar view
+  ChatSupport: undefined;  // Chat support screen with hardcoded responses
 };
 
 // Root navigation props

@@ -11,235 +11,66 @@ import {
   StyleSheet,
   Image,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useAddress } from '../../context/AddressContext';
-import {
-  formatNextAutoOrderTime,
-  getAutoOrderStatusText,
-  formatShortDate,
-  validateAutoOrderEnable,
-} from '../../utils/autoOrderUtils';
-import apiService, { WeeklySchedule, DefaultMealType } from '../../services/api.service';
-import { useResponsive } from '../../hooks/useResponsive';
+import { getConfigMealCount, getScheduleSummary } from '../../utils/autoOrderUtils';
+import { AutoOrderAddressConfig } from '../../services/api.service';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
-import WeeklyScheduleGrid from '../../components/WeeklyScheduleGrid';
-import WeeklyScheduleQuickSets from '../../components/WeeklyScheduleQuickSets';
+import { MainTabParamList } from '../../types/navigation';
 
-type Props = StackScreenProps<any, 'AutoOrderSettings'>;
+type Props = StackScreenProps<MainTabParamList, 'AutoOrderSettings'>;
 
-const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { subscriptionId } = route.params || {};
-  const { subscriptions, updateAutoOrderSettings, pauseAutoOrdering, resumeAutoOrdering, usableVouchers } = useSubscription();
-  const { addresses, getMainAddress } = useAddress();
-  const { isSmallDevice, width, height, scale, fontScale } = useResponsive();
+const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
+  const {
+    autoOrderConfigs,
+    globalAutoOrderEnabled,
+    autoOrderConfigsLoading,
+    fetchAllAutoOrderConfigs,
+    toggleGlobalAutoOrder,
+  } = useSubscription();
+  const { addresses } = useAddress();
 
-  // Responsive size functions
-  const responsiveSize = (size: number) => size * scale;
-  const responsiveFontSize = (size: number) => size * fontScale;
-
-  // Find the subscription
-  const subscription = subscriptions.find(s => s._id === subscriptionId);
-  const defaultAddress = getMainAddress();
-
-  // Local state
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [selectedMealType, setSelectedMealType] = useState<'LUNCH' | 'DINNER' | 'BOTH'>('BOTH');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPauseModal, setShowPauseModal] = useState(false);
-  const [pauseDate, setPauseDate] = useState<Date | null>(null);
-  const [pauseReason, setPauseReason] = useState('');
-  const [pauseMealType, setPauseMealType] = useState<'LUNCH' | 'DINNER' | 'BOTH'>('BOTH');
-  const [kitchenOperatingHours, setKitchenOperatingHours] = useState<any>(null);
-
-  // Weekly schedule state
-  const [useWeeklySchedule, setUseWeeklySchedule] = useState(false);
-  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(null);
-
-  // Modal states for success and error messages
+  const [refreshing, setRefreshing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
 
-  // Initialize state from subscription
+  // Fetch configs on mount
   useEffect(() => {
-    if (subscription) {
-      setIsEnabled(subscription.autoOrderingEnabled || false);
-      setSelectedMealType(subscription.defaultMealType || 'BOTH');
+    fetchAllAutoOrderConfigs().catch(() => {});
+  }, []);
 
-      // Initialize weekly schedule state
-      const hasWeeklySchedule = subscription.weeklySchedule !== null && subscription.weeklySchedule !== undefined;
-      setUseWeeklySchedule(hasWeeklySchedule);
-      setWeeklySchedule(subscription.weeklySchedule || null);
-    }
-  }, [subscription]);
-
-  // Fetch kitchen operating hours
+  // Refresh on focus (when returning from config screen)
   useEffect(() => {
-    const fetchKitchenOperatingHours = async () => {
-      // Get kitchen ID from subscription (try different possible field names)
-      const defaultKitchenId = (subscription as any)?.defaultKitchenId || (subscription as any)?.kitchenId;
-
-      if (defaultKitchenId) {
-        try {
-          console.log('[AutoOrderSettingsScreen] Fetching operating hours for kitchen:', defaultKitchenId);
-          const kitchenResponse = await apiService.getKitchenMenu(defaultKitchenId, 'MEAL_MENU');
-          const kitchenData = (kitchenResponse as any)?.data?.kitchen || (kitchenResponse as any)?.kitchen;
-
-          if (kitchenData?.operatingHours) {
-            console.log('[AutoOrderSettingsScreen] Operating hours fetched:', kitchenData.operatingHours);
-            setKitchenOperatingHours(kitchenData.operatingHours);
-          }
-        } catch (err) {
-          console.log('[AutoOrderSettingsScreen] Failed to fetch kitchen operating hours:', err);
-        }
-      }
-    };
-
-    fetchKitchenOperatingHours();
-  }, [subscription]);
-
-  // Loading state
-  if (!subscription) {
-    return (
-      <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
-        <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
-        <ActivityIndicator size="large" color="#ff8800" />
-        <Text className="mt-4 text-gray-600">Loading subscription...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Initialize weekly schedule from defaultMealType
-  const initializeWeeklySchedule = (mealType: DefaultMealType): WeeklySchedule => {
-    const days: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'> = [
-      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
-    ];
-
-    const schedule: WeeklySchedule = {};
-    days.forEach(day => {
-      schedule[day] = {
-        lunch: mealType === 'LUNCH' || mealType === 'BOTH',
-        dinner: mealType === 'DINNER' || mealType === 'BOTH',
-      };
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchAllAutoOrderConfigs().catch(() => {});
     });
+    return unsubscribe;
+  }, [navigation, fetchAllAutoOrderConfigs]);
 
-    return schedule;
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchAllAutoOrderConfigs();
+    } catch {}
+    setRefreshing(false);
+  }, [fetchAllAutoOrderConfigs]);
 
-  // Handle weekly schedule toggle
-  const handleWeeklyScheduleToggle = async (value: boolean) => {
-    setUseWeeklySchedule(value);
-
-    if (value) {
-      // Initialize schedule from current defaultMealType
-      const initialSchedule = initializeWeeklySchedule(selectedMealType);
-      setWeeklySchedule(initialSchedule);
-
-      // Save to backend if already enabled
-      if (isEnabled) {
-        setIsLoading(true);
-        try {
-          await updateAutoOrderSettings(subscription!._id, {
-            autoOrderingEnabled: true,
-            defaultMealType: selectedMealType,
-            defaultAddressId: defaultAddress?._id,
-            weeklySchedule: initialSchedule,
-          });
-        } catch (error: any) {
-          setModalTitle('Error');
-          setModalMessage(error.message || 'Failed to enable weekly schedule');
-          setShowErrorModal(true);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    } else {
-      // Clear weekly schedule (revert to defaultMealType)
-      setWeeklySchedule(null);
-
-      // Save to backend if already enabled
-      if (isEnabled) {
-        setIsLoading(true);
-        try {
-          await updateAutoOrderSettings(subscription!._id, {
-            autoOrderingEnabled: true,
-            defaultMealType: selectedMealType,
-            defaultAddressId: defaultAddress?._id,
-            weeklySchedule: null,
-          });
-        } catch (error: any) {
-          setModalTitle('Error');
-          setModalMessage(error.message || 'Failed to disable weekly schedule');
-          setShowErrorModal(true);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    }
-  };
-
-  // Handle weekly schedule change
-  const handleWeeklyScheduleChange = async (newSchedule: WeeklySchedule) => {
-    setWeeklySchedule(newSchedule);
-
-    // Auto-save if already enabled
-    if (isEnabled) {
-      setIsLoading(true);
-      try {
-        await updateAutoOrderSettings(subscription!._id, {
-          autoOrderingEnabled: true,
-          defaultMealType: selectedMealType,
-          defaultAddressId: defaultAddress?._id,
-          weeklySchedule: newSchedule,
-        });
-      } catch (error: any) {
-        setModalTitle('Error');
-        setModalMessage(error.message || 'Failed to update weekly schedule');
-        setShowErrorModal(true);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  // Handle enable/disable toggle
-  const handleToggleEnabled = async (value: boolean) => {
-    // Validate before enabling
-    if (value) {
-      const validation = validateAutoOrderEnable(
-        !!defaultAddress,
-        !!selectedMealType
-      );
-
-      if (!validation.isValid) {
-        setModalTitle('Cannot Enable Auto-Ordering');
-        setModalMessage(validation.error);
-        setShowErrorModal(true);
-        return;
-      }
-    }
-
+  // Handle master toggle
+  const handleToggleGlobal = async (value: boolean) => {
     setIsLoading(true);
     try {
-      await updateAutoOrderSettings(subscription._id, {
-        autoOrderingEnabled: value,
-        defaultMealType: selectedMealType,
-        defaultAddressId: defaultAddress?._id,
-        weeklySchedule: useWeeklySchedule ? weeklySchedule : undefined,
-      });
-      setIsEnabled(value);
+      await toggleGlobalAutoOrder(value);
       setModalTitle('Success');
-      setModalMessage(
-        value
-          ? 'Auto-ordering has been enabled'
-          : 'Auto-ordering has been disabled'
-      );
+      setModalMessage(value ? 'Auto-ordering has been enabled' : 'Auto-ordering has been disabled');
       setShowSuccessModal(true);
     } catch (error: any) {
       setModalTitle('Error');
@@ -250,136 +81,56 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   };
 
-  // Handle meal type selection
-  const handleMealTypeSelect = async (mealType: 'LUNCH' | 'DINNER' | 'BOTH') => {
-    setSelectedMealType(mealType);
-
-    // Auto-save if already enabled
-    if (isEnabled) {
-      setIsLoading(true);
-      try {
-        await updateAutoOrderSettings(subscription._id, {
-          autoOrderingEnabled: true,
-          defaultMealType: mealType,
-          defaultAddressId: defaultAddress?._id,
-          weeklySchedule: useWeeklySchedule ? weeklySchedule : undefined,
-        });
-      } catch (error: any) {
-        setModalTitle('Error');
-        setModalMessage(error.message || 'Failed to update meal preference');
-        setShowErrorModal(true);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+  // Get status badge color
+  const getStatusColor = (config: AutoOrderAddressConfig) => {
+    if (!config.enabled) return { bg: '#F3F4F6', text: '#6B7280', label: 'Disabled' };
+    return { bg: '#D1FAE5', text: '#059669', label: 'Active' };
   };
 
-  // Handle pause
-  const handlePause = async () => {
-    setIsLoading(true);
-    try {
-      if (pauseMealType === 'BOTH') {
-        // Pause entire subscription
-        await pauseAutoOrdering(subscription._id, {
-          pauseReason: pauseReason || `Paused both lunch and dinner`,
-          pauseUntil: pauseDate?.toISOString(),
-        });
-        setModalMessage('Auto-ordering has been paused for both lunch and dinner');
-      } else {
-        // Pause specific meal type by changing defaultMealType
-        const newMealType = pauseMealType === 'LUNCH' ? 'DINNER' : 'LUNCH';
-        await updateAutoOrderSettings(subscription._id, {
-          autoOrderingEnabled: true,
-          defaultMealType: newMealType,
-          defaultAddressId: defaultAddress?._id,
-        });
-        setModalMessage(`Auto-ordering has been paused for ${pauseMealType.toLowerCase()}. Only ${newMealType.toLowerCase()} will be auto-ordered.`);
-      }
-
-      setShowPauseModal(false);
-      setPauseReason('');
-      setPauseDate(null);
-      setPauseMealType('BOTH');
-      setModalTitle('Success');
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      setModalTitle('Error');
-      setModalMessage(error.message || 'Failed to pause auto-ordering');
-      setShowErrorModal(true);
-    } finally {
-      setIsLoading(false);
+  // Total meals across all configs
+  const totalMealsPerWeek = autoOrderConfigs.reduce((sum, config) => {
+    if (config.enabled) {
+      return sum + getConfigMealCount(config.weeklySchedule);
     }
-  };
+    return sum;
+  }, 0);
 
-  // Handle resume
-  const handleResume = async () => {
-    setIsLoading(true);
-    try {
-      await resumeAutoOrdering(subscription._id);
-      setModalTitle('Success');
-      setModalMessage('Auto-ordering has been resumed');
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      setModalTitle('Error');
-      setModalMessage(error.message || 'Failed to resume auto-ordering');
-      setShowErrorModal(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const activeConfigCount = autoOrderConfigs.filter(c => c.enabled).length;
 
-  // Navigate to skip meals calendar
-  const navigateToSkipCalendar = () => {
-    navigation.navigate('SkipMealCalendar', { subscriptionId: subscription._id });
-  };
+  // Merge all saved addresses with their configs (if any)
+  const mergedAddresses = addresses.map(addr => {
+    const config = autoOrderConfigs.find(c => c.addressId === addr.id);
+    return { address: addr, config };
+  });
+  // Also include configs whose address isn't in the local addresses list (edge case)
+  const orphanConfigs = autoOrderConfigs.filter(
+    c => !addresses.some(a => a.id === c.addressId)
+  );
+  const allItems = [
+    ...mergedAddresses,
+    ...orphanConfigs.map(c => ({ address: null, config: c })),
+  ];
 
-  // Helper to get auto-order time display for meal cards
-  const getAutoOrderTimeDisplay = (mealType: 'LUNCH' | 'DINNER'): string => {
-    if (!kitchenOperatingHours) {
-      // Default times if operating hours not loaded yet
-      return mealType === 'LUNCH' ? 'Daily at 10:00 AM' : 'Daily at 6:00 PM';
-    }
-
-    // Calculate auto-order time (1 hour before meal window start)
-    const calculateAutoOrderTime = (startTime: string): string => {
-      const [hoursStr, minutesStr] = startTime.split(':');
-      let hours = parseInt(hoursStr, 10);
-      const minutes = parseInt(minutesStr, 10);
-
-      // Subtract 1 hour
-      hours -= 1;
-      if (hours < 0) {
-        hours = 23; // Wrap to previous day
-      }
-
-      // Format in 12-hour format
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 || 12;
-      const displayMinutes = minutes.toString().padStart(2, '0');
-
-      return `Daily at ${displayHours}:${displayMinutes} ${ampm}`;
-    };
-
-    if (mealType === 'LUNCH' && kitchenOperatingHours?.lunch?.startTime) {
-      return calculateAutoOrderTime(kitchenOperatingHours.lunch.startTime);
-    } else if (mealType === 'DINNER' && kitchenOperatingHours?.dinner?.startTime) {
-      return calculateAutoOrderTime(kitchenOperatingHours.dinner.startTime);
-    }
-
-    // Fallback to defaults
-    return mealType === 'LUNCH' ? 'Daily at 10:00 AM' : 'Daily at 6:00 PM';
-  };
+  // Loading state
+  if (autoOrderConfigsLoading && autoOrderConfigs.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
+        <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
+        <ActivityIndicator size="large" color="#ff8800" />
+        <Text className="mt-4 text-gray-600">Loading auto-order settings...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container} className="flex-1 bg-white">
+    <View style={styles.container} className="flex-1 bg-white">
       <StatusBar barStyle="light-content" backgroundColor="#ff8800" />
+      <SafeAreaView style={{ backgroundColor: '#ff8800' }} edges={['top']} />
+
       {/* Header */}
       <View
         className="bg-orange-400 px-5 py-4"
-        style={{
-          borderBottomLeftRadius: 30,
-          borderBottomRightRadius: 30
-        }}
+        style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}
       >
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
@@ -411,12 +162,12 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView
         className="flex-1 bg-gray-50"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: SPACING['4xl'] * 2,
-          paddingTop: SPACING.lg
-        }}
+        contentContainerStyle={{ paddingBottom: SPACING['4xl'] * 2, paddingTop: SPACING.lg }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ff8800']} />
+        }
       >
-        {/* Hero Status Card with Toggle */}
+        {/* Master Toggle Card */}
         <View
           className="mx-4 mb-5 rounded-3xl overflow-hidden"
           style={{
@@ -427,1267 +178,289 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
             elevation: 5,
           }}
         >
-          {/* Gradient Background Effect */}
           <View
             className="p-5"
-            style={{
-              backgroundColor: isEnabled ? '#ff8800' : '#9CA3AF',
-            }}
+            style={{ backgroundColor: globalAutoOrderEnabled ? '#ff8800' : '#9CA3AF' }}
           >
             {/* Toggle Row */}
-            <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center justify-between mb-2">
               <View className="flex-1 mr-4">
-                <Text
-                  className="text-xl font-bold text-white mb-2"
-                  numberOfLines={1}
-                >
+                <Text className="text-xl font-bold text-white mb-1" numberOfLines={1}>
                   Auto-Ordering
                 </Text>
-                <Text
-                  className="text-sm text-white opacity-90"
-                  numberOfLines={2}
-                >
-                  {isEnabled ? 'Your meals are on autopilot' : 'Enable to automate your orders'}
+                <Text className="text-sm text-white opacity-90" numberOfLines={2}>
+                  {globalAutoOrderEnabled
+                    ? `${activeConfigCount} address${activeConfigCount !== 1 ? 'es' : ''} active · ${totalMealsPerWeek} meals/week`
+                    : 'Enable to automate your orders'}
                 </Text>
               </View>
               <Switch
-                value={isEnabled}
-                onValueChange={handleToggleEnabled}
+                value={globalAutoOrderEnabled}
+                onValueChange={handleToggleGlobal}
                 trackColor={{ false: '#E5E7EB', true: '#ffffff40' }}
-                thumbColor={'#ffffff'}
+                thumbColor="#ffffff"
                 disabled={isLoading}
                 style={{ transform: [{ scale: 1.1 }] }}
               />
             </View>
 
-            {/* Status Info */}
-            {isEnabled && (
-              <View className="mt-2">
-                <View
-                  className="bg-white/20 rounded-2xl p-4"
-                >
-                  <View className="flex-row items-center justify-between mb-3">
-                    <View className="flex-1">
-                      <Text
-                        className="text-xs text-white/80 mb-1"
-                      >
-                        Current Plan
-                      </Text>
-                      <Text
-                        className="text-base font-bold text-white"
-                        numberOfLines={1}
-                      >
-                        {getAutoOrderStatusText(subscription)}
-                      </Text>
-                    </View>
-                    {!subscription.isPaused && (
-                      <View
-                        className="rounded-full px-3 py-1"
-                        style={{ backgroundColor: '#10B981' }}
-                      >
-                        <Text
-                          className="text-xs font-semibold text-white"
-                        >
-                          Active
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+          </View>
+        </View>
 
-                  {/* Active Meals Display */}
-                  <View className="pt-3 border-t border-white/20 mb-3">
-                    <Text className="text-xs text-white/80 mb-2">
-                      {useWeeklySchedule ? 'Weekly Schedule' : 'Auto-Ordering'}
-                    </Text>
-                    {useWeeklySchedule ? (
-                      <View className="flex-row items-center flex-wrap">
-                        <View style={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                          borderRadius: 12,
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          marginRight: 8,
-                          marginBottom: 4,
-                          flexDirection: 'row',
-                          alignItems: 'center'
-                        }}>
-                          <MaterialCommunityIcons name="calendar-week" size={14} color="white" style={{ marginRight: 4 }} />
-                          <Text className="text-xs font-semibold text-white">
-                            {(() => {
-                              let count = 0;
-                              if (weeklySchedule) {
-                                Object.values(weeklySchedule).forEach(day => {
-                                  if (day?.lunch) count++;
-                                  if (day?.dinner) count++;
-                                });
-                              }
-                              return `${count} meals/week`;
-                            })()}
-                          </Text>
-                        </View>
-                        {subscription.isPaused && (
-                          <View style={{
-                            backgroundColor: 'rgba(245, 158, 11, 0.9)',
-                            borderRadius: 12,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            marginBottom: 4
-                          }}>
-                            <Text className="text-xs font-semibold text-white">Paused</Text>
-                          </View>
-                        )}
-                      </View>
-                    ) : (
-                      <View className="flex-row items-center">
-                        {selectedMealType === 'BOTH' || selectedMealType === 'LUNCH' ? (
-                          <View style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                            borderRadius: 12,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            marginRight: 8,
-                            flexDirection: 'row',
-                            alignItems: 'center'
-                          }}>
-                            <MaterialCommunityIcons name="white-balance-sunny" size={14} color="white" style={{ marginRight: 4 }} />
-                            <Text className="text-xs font-semibold text-white">Lunch</Text>
-                          </View>
-                        ) : null}
-                        {selectedMealType === 'BOTH' || selectedMealType === 'DINNER' ? (
-                          <View style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                            borderRadius: 12,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            flexDirection: 'row',
-                            alignItems: 'center'
-                          }}>
-                            <MaterialCommunityIcons name="moon-waning-crescent" size={14} color="white" style={{ marginRight: 4 }} />
-                            <Text className="text-xs font-semibold text-white">Dinner</Text>
-                          </View>
-                        ) : null}
-                        {subscription.isPaused && (
-                          <View style={{
-                            backgroundColor: 'rgba(245, 158, 11, 0.9)',
-                            borderRadius: 12,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            marginLeft: 8
-                          }}>
-                            <Text className="text-xs font-semibold text-white">All Paused</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Next Order Countdown */}
-                  {!subscription.isPaused && (
-                    <View
-                      className="pt-3 border-t border-white/20"
-                    >
-                      <Text
-                        className="text-xs text-white/80 mb-1"
-                      >
-                        Next Auto-Order
-                      </Text>
-                      <Text
-                        className="text-sm font-bold text-white"
-                        numberOfLines={1}
-                      >
-                        {formatNextAutoOrderTime(subscription, kitchenOperatingHours)}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+        {/* Address Configs Section */}
+        <View className="mx-4 mb-4">
+          <View className="flex-row items-center mb-4">
+            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+            <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
+              Your Addresses
+            </Text>
+            {autoOrderConfigs.length > 0 && (
+              <View className="bg-orange-100 rounded-full px-3 py-1">
+                <Text className="text-xs font-bold text-orange-600">
+                  {autoOrderConfigs.length}
+                </Text>
               </View>
             )}
           </View>
-        </View>
 
-        {/* Meal Preferences */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-              Choose Your Meals
-            </Text>
-          </View>
-          <Text className="text-sm text-gray-600 mb-5 pl-1" numberOfLines={2}>
-            Select which meals to auto-order daily
-          </Text>
-
-          {/* Lunch Card */}
-          <TouchableOpacity
-            onPress={() => handleMealTypeSelect('LUNCH')}
-            disabled={isLoading}
-            activeOpacity={0.7}
-            style={{ marginBottom: SPACING.md, minHeight: TOUCH_TARGETS.large }}
-          >
+          {/* Address Cards */}
+          {allItems.length === 0 ? (
+            /* No addresses at all */
             <View
-              style={{
-                backgroundColor: 'white',
-                borderRadius: SPACING.lg,
-                padding: isSmallDevice ? SPACING.md : SPACING.lg,
-                borderWidth: 2,
-                borderColor: selectedMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
-                shadowColor: selectedMealType === 'LUNCH' ? '#ff8800' : '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: selectedMealType === 'LUNCH' ? 0.2 : 0.08,
-                shadowRadius: 8,
-                elevation: selectedMealType === 'LUNCH' ? 4 : 2,
-              }}
-            >
-              <View className="flex-row items-center">
-                {/* Icon */}
-                <View
-                  style={{
-                    width: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
-                    height: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
-                    borderRadius: SPACING.lg,
-                    backgroundColor: selectedMealType === 'LUNCH' ? '#FFF7ED' : '#F9FAFB',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: SPACING.lg
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name="white-balance-sunny"
-                    size={SPACING.iconXl}
-                    color={selectedMealType === 'LUNCH' ? '#F97316' : '#9CA3AF'}
-                  />
-                </View>
-
-                {/* Content */}
-                <View className="flex-1" style={{ marginRight: SPACING.sm }}>
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.h4,
-                      fontWeight: 'bold',
-                      color: '#111827',
-                      marginBottom: SPACING.xs
-                    }}
-                    numberOfLines={1}
-                  >
-                    Lunch Only
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.xs,
-                      color: '#4B5563'
-                    }}
-                    numberOfLines={1}
-                  >
-                    {getAutoOrderTimeDisplay('LUNCH')}
-                  </Text>
-                </View>
-
-                {/* Radio Button */}
-                <View
-                  style={{
-                    width: SPACING.xl,
-                    height: SPACING.xl,
-                    borderRadius: 999,
-                    backgroundColor: selectedMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {selectedMealType === 'LUNCH' && (
-                    <View
-                      style={{
-                        width: SPACING.sm,
-                        height: SPACING.sm,
-                        borderRadius: 999,
-                        backgroundColor: 'white'
-                      }}
-                    />
-                  )}
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Dinner Card */}
-          <TouchableOpacity
-            onPress={() => handleMealTypeSelect('DINNER')}
-            disabled={isLoading}
-            activeOpacity={0.7}
-            style={{ marginBottom: SPACING.md, minHeight: TOUCH_TARGETS.large }}
-          >
-            <View
-              style={{
-                backgroundColor: 'white',
-                borderRadius: SPACING.lg,
-                padding: isSmallDevice ? SPACING.md : SPACING.lg,
-                borderWidth: 2,
-                borderColor: selectedMealType === 'DINNER' ? '#ff8800' : '#E5E7EB',
-                shadowColor: selectedMealType === 'DINNER' ? '#ff8800' : '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: selectedMealType === 'DINNER' ? 0.2 : 0.08,
-                shadowRadius: 8,
-                elevation: selectedMealType === 'DINNER' ? 4 : 2,
-              }}
-            >
-              <View className="flex-row items-center">
-                {/* Icon */}
-                <View
-                  style={{
-                    width: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
-                    height: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
-                    borderRadius: SPACING.lg,
-                    backgroundColor: selectedMealType === 'DINNER' ? '#EDE9FE' : '#F9FAFB',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: SPACING.lg
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name="moon-waning-crescent"
-                    size={SPACING.iconXl}
-                    color={selectedMealType === 'DINNER' ? '#8B5CF6' : '#9CA3AF'}
-                  />
-                </View>
-
-                {/* Content */}
-                <View className="flex-1" style={{ marginRight: SPACING.sm }}>
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.h4,
-                      fontWeight: 'bold',
-                      color: '#111827',
-                      marginBottom: SPACING.xs
-                    }}
-                    numberOfLines={1}
-                  >
-                    Dinner Only
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.xs,
-                      color: '#4B5563'
-                    }}
-                    numberOfLines={1}
-                  >
-                    {getAutoOrderTimeDisplay('DINNER')}
-                  </Text>
-                </View>
-
-                {/* Radio Button */}
-                <View
-                  style={{
-                    width: SPACING.xl,
-                    height: SPACING.xl,
-                    borderRadius: 999,
-                    backgroundColor: selectedMealType === 'DINNER' ? '#ff8800' : '#E5E7EB',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {selectedMealType === 'DINNER' && (
-                    <View
-                      style={{
-                        width: SPACING.sm,
-                        height: SPACING.sm,
-                        borderRadius: 999,
-                        backgroundColor: 'white'
-                      }}
-                    />
-                  )}
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Both Meals Card */}
-          <TouchableOpacity
-            onPress={() => handleMealTypeSelect('BOTH')}
-            disabled={isLoading}
-            activeOpacity={0.7}
-            style={{ minHeight: TOUCH_TARGETS.large }}
-          >
-            <View
-              style={{
-                backgroundColor: 'white',
-                borderRadius: SPACING.lg,
-                padding: isSmallDevice ? SPACING.md : SPACING.lg,
-                borderWidth: 2,
-                borderColor: selectedMealType === 'BOTH' ? '#ff8800' : '#E5E7EB',
-                shadowColor: selectedMealType === 'BOTH' ? '#ff8800' : '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: selectedMealType === 'BOTH' ? 0.2 : 0.08,
-                shadowRadius: 8,
-                elevation: selectedMealType === 'BOTH' ? 4 : 2,
-              }}
-            >
-              <View className="flex-row items-center">
-                {/* Icon */}
-                <View
-                  style={{
-                    width: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
-                    height: isSmallDevice ? SPACING['3xl'] : SPACING['4xl'],
-                    borderRadius: SPACING.lg,
-                    backgroundColor: selectedMealType === 'BOTH' ? '#FEF3C7' : '#F9FAFB',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: SPACING.lg
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name="food"
-                    size={SPACING.iconXl}
-                    color={selectedMealType === 'BOTH' ? '#D97706' : '#9CA3AF'}
-                  />
-                </View>
-
-                {/* Content */}
-                <View className="flex-1" style={{ marginRight: SPACING.sm }}>
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.h4,
-                      fontWeight: 'bold',
-                      color: '#111827',
-                      marginBottom: SPACING.xs
-                    }}
-                    numberOfLines={1}
-                  >
-                    Both Meals
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: FONT_SIZES.xs,
-                      color: '#4B5563'
-                    }}
-                    numberOfLines={1}
-                  >
-                    Lunch & Dinner daily
-                  </Text>
-                </View>
-
-                {/* Radio Button */}
-                <View
-                  style={{
-                    width: SPACING.xl,
-                    height: SPACING.xl,
-                    borderRadius: 999,
-                    backgroundColor: selectedMealType === 'BOTH' ? '#ff8800' : '#E5E7EB',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {selectedMealType === 'BOTH' && (
-                    <View
-                      style={{
-                        width: SPACING.sm,
-                        height: SPACING.sm,
-                        borderRadius: 999,
-                        backgroundColor: 'white'
-                      }}
-                    />
-                  )}
-                </View>
-              </View>
-
-              {/* Popular Badge */}
-              {selectedMealType === 'BOTH' && (
-                <View
-                  style={{
-                    marginTop: SPACING.md,
-                    paddingTop: SPACING.md,
-                    borderTopWidth: 1,
-                    borderTopColor: '#FED7AA'
-                  }}
-                >
-                  <View className="flex-row items-center">
-                    <View
-                      style={{
-                        backgroundColor: '#FFEDD5',
-                        borderRadius: 999,
-                        paddingHorizontal: SPACING.md,
-                        paddingVertical: SPACING.xs
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: FONT_SIZES.xs,
-                          fontWeight: '600',
-                          color: '#EA580C'
-                        }}
-                      >
-                        Most Popular
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Weekly Schedule Section */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center">
-              <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-              <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-                Weekly Schedule
-              </Text>
-            </View>
-            <Switch
-              value={useWeeklySchedule}
-              onValueChange={handleWeeklyScheduleToggle}
-              trackColor={{ false: '#E5E7EB', true: '#FED7AA' }}
-              thumbColor={useWeeklySchedule ? '#ff8800' : '#f4f3f4'}
-              disabled={isLoading}
-              style={{ transform: [{ scale: 0.9 }] }}
-            />
-          </View>
-
-          {!useWeeklySchedule && (
-            <Text className="text-sm text-gray-600 mb-3 pl-1" numberOfLines={2}>
-              Using simple mode: Auto-order {selectedMealType === 'BOTH' ? 'both meals' : selectedMealType.toLowerCase()} every day
-            </Text>
-          )}
-
-          {useWeeklySchedule && (
-            <>
-              <Text className="text-sm text-gray-600 mb-4 pl-1" numberOfLines={3}>
-                Customize which days and meals to auto-order each week
-              </Text>
-
-              {/* Quick Set Buttons */}
-              <WeeklyScheduleQuickSets
-                onSelectPattern={handleWeeklyScheduleChange}
-                disabled={isLoading || !isEnabled}
-              />
-
-              {/* Weekly Schedule Grid */}
-              <WeeklyScheduleGrid
-                schedule={weeklySchedule}
-                onChange={handleWeeklyScheduleChange}
-                disabled={isLoading || !isEnabled}
-              />
-            </>
-          )}
-        </View>
-
-        {/* Default Address */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-              Delivery Address
-            </Text>
-          </View>
-
-          {defaultAddress ? (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Address')}
-              activeOpacity={0.7}
-              style={{
-                backgroundColor: 'white',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(20),
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              <View className="flex-row items-start">
-                {/* Location Icon */}
-                <View
-                  style={{
-                    width: responsiveSize(48),
-                    height: responsiveSize(48),
-                    borderRadius: responsiveSize(12),
-                    backgroundColor: '#FFF7ED',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: responsiveSize(16)
-                  }}
-                >
-                  <Image
-                    source={require('../../assets/icons/address3.png')}
-                    style={{
-                      width: responsiveSize(24),
-                      height: responsiveSize(24),
-                      tintColor: '#ff8800'
-                    }}
-                    resizeMode="contain"
-                  />
-                </View>
-
-                {/* Address Details */}
-                <View className="flex-1">
-                  <View className="flex-row items-center justify-between" style={{ marginBottom: responsiveSize(8) }}>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(16),
-                        fontWeight: 'bold',
-                        color: '#111827',
-                        flex: 1
-                      }}
-                    >
-                      {defaultAddress.label || 'Home'}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(20),
-                        color: '#9CA3AF',
-                        marginLeft: responsiveSize(8)
-                      }}
-                    >
-                      ›
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(14),
-                      color: '#4B5563',
-                      lineHeight: responsiveFontSize(20)
-                    }}
-                    numberOfLines={1}
-                  >
-                    {[defaultAddress.addressLine1, defaultAddress.addressLine2].filter(Boolean).join(', ')}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(13),
-                      color: '#6B7280',
-                      marginTop: responsiveSize(4)
-                    }}
-                    numberOfLines={1}
-                  >
-                    {[defaultAddress.locality, defaultAddress.city, defaultAddress.state, defaultAddress.pincode].filter(Boolean).join(', ')}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Address')}
-              activeOpacity={0.7}
               style={{
                 backgroundColor: '#FFF7ED',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(24),
+                borderRadius: 16,
+                padding: 24,
                 borderWidth: 2,
                 borderStyle: 'dashed',
                 borderColor: '#FED7AA',
-                shadowColor: '#ff8800',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 2,
+                alignItems: 'center',
               }}
             >
-              <View className="items-center">
-                <View
-                  style={{
-                    width: responsiveSize(56),
-                    height: responsiveSize(56),
-                    borderRadius: 999,
-                    backgroundColor: '#FFEDD5',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: responsiveSize(12)
-                  }}
-                >
-                  <Image
-                    source={require('../../assets/icons/address3.png')}
-                    style={{
-                      width: responsiveSize(28),
-                      height: responsiveSize(28),
-                      tintColor: '#ff8800'
-                    }}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text
-                  style={{
-                    fontSize: responsiveFontSize(16),
-                    fontWeight: 'bold',
-                    color: '#111827',
-                    marginBottom: responsiveSize(4)
-                  }}
-                  numberOfLines={1}
-                >
-                  Add Delivery Address
-                </Text>
-                <Text
-                  style={{
-                    fontSize: responsiveFontSize(14),
-                    color: '#4B5563',
-                    textAlign: 'center'
-                  }}
-                  numberOfLines={2}
-                >
-                  Set your default address for auto-orders
-                </Text>
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: '#FFEDD5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                <MaterialCommunityIcons name="map-marker-plus-outline" size={28} color="#ff8800" />
               </View>
-            </TouchableOpacity>
+              <Text style={{ fontSize: FONT_SIZES.lg, fontWeight: 'bold', color: '#111827', marginBottom: 4 }}>
+                No Addresses
+              </Text>
+              <Text style={{ fontSize: FONT_SIZES.sm, color: '#6B7280', textAlign: 'center', marginBottom: 16 }}>
+                Add a delivery address first to set up auto-ordering
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Address' as any)}
+                style={{
+                  backgroundColor: '#ff8800',
+                  borderRadius: 25,
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                }}
+              >
+                <Text style={{ fontSize: FONT_SIZES.base, fontWeight: 'bold', color: 'white' }}>
+                  Add Address
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            allItems.map((item) => {
+              const config = item.config;
+              const addrId = config?.addressId || item.address?.id;
+              const addrLine1 = config?.address?.addressLine1 || item.address?.addressLine1 || 'Unknown';
+              const addrCity = config?.address?.city || item.address?.city || '';
+              const addrLabel = item.address?.label;
+
+              if (config) {
+                // Address WITH config — show full status card
+                const status = getStatusColor(config);
+                const mealCount = getConfigMealCount(config.weeklySchedule);
+                const scheduleSummary = getScheduleSummary(config.weeklySchedule);
+
+                return (
+                  <TouchableOpacity
+                    key={config._id}
+                    onPress={() => navigation.navigate('AutoOrderConfig', { addressId: config.addressId })}
+                    activeOpacity={0.7}
+                    style={{
+                      backgroundColor: 'white',
+                      borderRadius: 16,
+                      padding: 16,
+                      marginBottom: 12,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 8,
+                      elevation: 2,
+                    }}
+                  >
+                    <View className="flex-row items-start">
+                      <View
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 12,
+                          backgroundColor: '#FFF7ED',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 12,
+                        }}
+                      >
+                        <MaterialCommunityIcons name="map-marker" size={24} color="#ff8800" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View className="flex-row items-center justify-between mb-1">
+                          <Text
+                            style={{ fontSize: FONT_SIZES.lg, fontWeight: 'bold', color: '#111827', flex: 1 }}
+                            numberOfLines={1}
+                          >
+                            {addrLabel || addrLine1}
+                          </Text>
+                          <Text style={{ fontSize: 20, color: '#9CA3AF', marginLeft: 8 }}>›</Text>
+                        </View>
+                        <Text style={{ fontSize: FONT_SIZES.sm, color: '#6B7280', marginBottom: 8 }} numberOfLines={1}>
+                          {addrLine1}{addrCity ? `, ${addrCity}` : ''}
+                        </Text>
+                        <View className="flex-row items-center flex-wrap" style={{ gap: 6 }}>
+                          <View style={{ backgroundColor: status.bg, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: status.text }}>
+                              {status.label}
+                            </Text>
+                          </View>
+                          {config.enabled && (
+                            <View style={{ backgroundColor: '#EFF6FF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                              <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: '#3B82F6' }}>
+                                {mealCount} meals/week
+                              </Text>
+                            </View>
+                          )}
+                          {config.enabled && (
+                            <View style={{ backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                              <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280' }}>
+                                {scheduleSummary}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              } else {
+                // Address WITHOUT config — show "Not Set Up" card
+                return (
+                  <TouchableOpacity
+                    key={addrId}
+                    onPress={() => navigation.navigate('AutoOrderConfig', { addressId: addrId })}
+                    activeOpacity={0.7}
+                    style={{
+                      backgroundColor: 'white',
+                      borderRadius: 16,
+                      padding: 16,
+                      marginBottom: 12,
+                      borderWidth: 1.5,
+                      borderStyle: 'dashed',
+                      borderColor: '#E5E7EB',
+                    }}
+                  >
+                    <View className="flex-row items-center">
+                      <View
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 12,
+                          backgroundColor: '#F3F4F6',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 12,
+                        }}
+                      >
+                        <MaterialCommunityIcons name="map-marker-outline" size={24} color="#9CA3AF" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{ fontSize: FONT_SIZES.lg, fontWeight: 'bold', color: '#111827' }}
+                          numberOfLines={1}
+                        >
+                          {addrLabel || addrLine1}
+                        </Text>
+                        <Text style={{ fontSize: FONT_SIZES.sm, color: '#6B7280', marginTop: 2 }} numberOfLines={1}>
+                          {addrLine1}{addrCity ? `, ${addrCity}` : ''}
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: '#FFF7ED', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 }}>
+                        <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: '#ff8800' }}>
+                          Set Up
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }
+            })
           )}
         </View>
 
         {/* Quick Actions */}
-        <View className="mx-4 mb-4">
-          <View className="flex-row items-center mb-4">
-            <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-              Quick Actions
-            </Text>
-          </View>
+        {globalAutoOrderEnabled && autoOrderConfigs.length > 0 && (
+          <View className="mx-4 mb-4">
+            <View className="flex-row items-center mb-4">
+              <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
+              <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
+                Quick Actions
+              </Text>
+            </View>
 
-          {/* Pause/Resume Button */}
-          {!subscription.isPaused ? (
+            {/* View Calendar */}
             <TouchableOpacity
-              onPress={() => setShowPauseModal(true)}
-              disabled={isLoading || !isEnabled}
+              onPress={() => navigation.navigate('MealCalendar')}
               activeOpacity={0.7}
-              style={{ marginBottom: responsiveSize(12) }}
-            >
-              <View
-                style={{
-                  backgroundColor: isEnabled ? 'white' : '#F9FAFB',
-                  borderRadius: responsiveSize(16),
-                  padding: responsiveSize(20),
-                  borderWidth: 2,
-                  borderColor: isEnabled ? '#FBBF24' : '#E5E7EB',
-                  shadowColor: isEnabled ? '#FBBF24' : '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: isEnabled ? 0.15 : 0.05,
-                  shadowRadius: 8,
-                  elevation: isEnabled ? 3 : 1,
-                }}
-              >
-                <View className="flex-row items-center">
-                  <View
-                    style={{
-                      width: responsiveSize(48),
-                      height: responsiveSize(48),
-                      borderRadius: responsiveSize(12),
-                      backgroundColor: isEnabled ? '#FFFBEB' : '#F3F4F6',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: responsiveSize(16)
-                    }}
-                  >
-                    <View className="flex-row">
-                      <View
-                        style={{
-                          width: responsiveSize(6),
-                          height: responsiveSize(16),
-                          borderRadius: 999,
-                          marginRight: responsiveSize(4),
-                          backgroundColor: isEnabled ? '#F59E0B' : '#9CA3AF'
-                        }}
-                      />
-                      <View
-                        style={{
-                          width: responsiveSize(6),
-                          height: responsiveSize(16),
-                          borderRadius: 999,
-                          backgroundColor: isEnabled ? '#F59E0B' : '#9CA3AF'
-                        }}
-                      />
-                    </View>
-                  </View>
-                  <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(16),
-                        fontWeight: 'bold',
-                        color: isEnabled ? '#111827' : '#9CA3AF'
-                      }}
-                      numberOfLines={1}
-                    >
-                      Pause Auto-Ordering
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(12),
-                        marginTop: responsiveSize(4),
-                        color: isEnabled ? '#4B5563' : '#9CA3AF'
-                      }}
-                      numberOfLines={2}
-                    >
-                      {isEnabled ? 'Temporarily stop automatic orders' : 'Enable auto-ordering first'}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(20),
-                      color: isEnabled ? '#F59E0B' : '#D1D5DB'
-                    }}
-                  >
-                    ›
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={handleResume}
-              disabled={isLoading}
-              activeOpacity={0.7}
-              style={{ marginBottom: responsiveSize(12) }}
             >
               <View
                 style={{
                   backgroundColor: 'white',
-                  borderRadius: responsiveSize(16),
-                  padding: responsiveSize(20),
+                  borderRadius: 16,
+                  padding: 16,
                   borderWidth: 2,
-                  borderColor: '#10B981',
-                  shadowColor: '#10B981',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 8,
-                  elevation: 3,
+                  borderColor: '#3B82F6',
+                  flexDirection: 'row',
+                  alignItems: 'center',
                 }}
               >
-                <View className="flex-row items-center">
-                  <View
-                    style={{
-                      width: responsiveSize(48),
-                      height: responsiveSize(48),
-                      borderRadius: responsiveSize(12),
-                      backgroundColor: '#ECFDF5',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: responsiveSize(16)
-                    }}
-                  >
-                    <View style={{
-                      width: 0,
-                      height: 0,
-                      borderLeftWidth: responsiveSize(12),
-                      borderRightWidth: 0,
-                      borderTopWidth: responsiveSize(8),
-                      borderBottomWidth: responsiveSize(8),
-                      borderLeftColor: '#10B981',
-                      borderRightColor: 'transparent',
-                      borderTopColor: 'transparent',
-                      borderBottomColor: 'transparent',
-                      marginLeft: responsiveSize(2)
-                    }} />
-                  </View>
-                  <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(16),
-                        fontWeight: 'bold',
-                        color: '#111827'
-                      }}
-                      numberOfLines={1}
-                    >
-                      Resume Auto-Ordering
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(12),
-                        color: '#4B5563',
-                        marginTop: responsiveSize(4)
-                      }}
-                      numberOfLines={1}
-                    >
-                      Restart your automatic orders
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(20),
-                      color: '#10B981'
-                    }}
-                  >
-                    ›
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Skip Meals Button */}
-          <TouchableOpacity
-            onPress={navigateToSkipCalendar}
-            disabled={isLoading || !isEnabled}
-            activeOpacity={0.7}
-          >
-            <View
-              style={{
-                backgroundColor: isEnabled ? 'white' : '#F9FAFB',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(20),
-                borderWidth: 2,
-                borderColor: isEnabled ? '#3B82F6' : '#E5E7EB',
-                shadowColor: isEnabled ? '#3B82F6' : '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isEnabled ? 0.15 : 0.05,
-                shadowRadius: 8,
-                elevation: isEnabled ? 3 : 1,
-              }}
-            >
-              <View className="flex-row items-center">
                 <View
                   style={{
-                    width: responsiveSize(48),
-                    height: responsiveSize(48),
-                    borderRadius: responsiveSize(12),
-                    backgroundColor: isEnabled ? '#EFF6FF' : '#F3F4F6',
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#EFF6FF',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: responsiveSize(16)
+                    marginRight: 12,
                   }}
                 >
-                  <View>
-                    <View className="flex-row" style={{ marginBottom: responsiveSize(2) }}>
-                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, marginRight: responsiveSize(2), backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                      <View style={{ width: responsiveSize(4), height: responsiveSize(4), borderRadius: 999, backgroundColor: isEnabled ? '#3B82F6' : '#9CA3AF' }} />
-                    </View>
-                    <View
-                      style={{
-                        width: responsiveSize(24),
-                        height: responsiveSize(20),
-                        borderRadius: responsiveSize(4),
-                        borderWidth: 2,
-                        borderColor: isEnabled ? '#3B82F6' : '#9CA3AF'
-                      }}
-                    />
-                  </View>
+                  <MaterialCommunityIcons name="calendar-month" size={24} color="#3B82F6" />
                 </View>
-                <View className="flex-1" style={{ marginRight: responsiveSize(8) }}>
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(16),
-                      fontWeight: 'bold',
-                      color: isEnabled ? '#111827' : '#9CA3AF'
-                    }}
-                    numberOfLines={1}
-                  >
-                    Manage Skipped Meals
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: FONT_SIZES.lg, fontWeight: 'bold', color: '#111827' }}>
+                    View Calendar
                   </Text>
-                  <Text
-                    style={{
-                      fontSize: responsiveFontSize(12),
-                      marginTop: responsiveSize(4),
-                      color: isEnabled ? '#4B5563' : '#9CA3AF'
-                    }}
-                    numberOfLines={2}
-                  >
-                    {isEnabled ? 'Skip specific days when needed' : 'Enable auto-ordering first'}
+                  <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280', marginTop: 2 }}>
+                    See your scheduled meals
                   </Text>
                 </View>
-                <Text
-                  style={{
-                    fontSize: responsiveFontSize(20),
-                    color: isEnabled ? '#3B82F6' : '#D1D5DB'
-                  }}
-                >
-                  ›
-                </Text>
+                <Text style={{ fontSize: 20, color: '#3B82F6' }}>›</Text>
               </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Skipped Meals List (if any) */}
-        {subscription.skippedSlots && subscription.skippedSlots.length > 0 && (
-          <View className="mx-4 mb-4">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-                <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-                  Upcoming Skips
-                </Text>
-              </View>
-              <View className="bg-orange-100 rounded-full px-3 py-1">
-                <Text className="text-xs font-bold text-orange-600">
-                  {subscription.skippedSlots.length}
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={{
-                backgroundColor: 'white',
-                borderRadius: responsiveSize(16),
-                padding: responsiveSize(16),
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              {subscription.skippedSlots.slice(0, 3).map((slot, index) => (
-                <View
-                  key={index}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: responsiveSize(12),
-                    borderBottomWidth: index < Math.min(2, subscription.skippedSlots.length - 1) ? 1 : 0,
-                    borderBottomColor: '#F3F4F6'
-                  }}
-                >
-                  <View
-                    style={{
-                      width: responsiveSize(48),
-                      height: responsiveSize(48),
-                      borderRadius: responsiveSize(12),
-                      backgroundColor: slot.mealWindow === 'LUNCH' ? '#FFF7ED' : '#EDE9FE',
-                      marginRight: responsiveSize(12),
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(24),
-                        fontWeight: 'bold',
-                        color: slot.mealWindow === 'LUNCH' ? '#F97316' : '#8B5CF6'
-                      }}
-                    >
-                      {slot.mealWindow === 'LUNCH' ? 'L' : 'D'}
-                    </Text>
-                  </View>
-                  <View className="flex-1">
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(14),
-                        fontWeight: 'bold',
-                        color: '#111827'
-                      }}
-                      numberOfLines={1}
-                    >
-                      {slot.mealWindow === 'LUNCH' ? 'Lunch' : 'Dinner'}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(12),
-                        color: '#4B5563',
-                        marginTop: responsiveSize(4)
-                      }}
-                      numberOfLines={1}
-                    >
-                      {formatShortDate(slot.date)}
-                    </Text>
-                    {slot.reason && (
-                      <Text
-                        style={{
-                          fontSize: responsiveFontSize(12),
-                          color: '#6B7280',
-                          marginTop: responsiveSize(4)
-                        }}
-                        numberOfLines={1}
-                      >
-                        {slot.reason}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-
-              {subscription.skippedSlots.length > 3 && (
-                <TouchableOpacity
-                  onPress={navigateToSkipCalendar}
-                  activeOpacity={0.7}
-                  style={{
-                    marginTop: responsiveSize(12),
-                    paddingTop: responsiveSize(12),
-                    borderTopWidth: 1,
-                    borderTopColor: '#F3F4F6'
-                  }}
-                >
-                  <View className="flex-row items-center justify-center">
-                    <Text
-                      style={{
-                        fontSize: responsiveFontSize(14),
-                        fontWeight: '600',
-                        color: '#ff8800',
-                        marginRight: responsiveSize(8)
-                      }}
-                    >
-                      View All {subscription.skippedSlots.length} Skips
-                    </Text>
-                    <Text style={{ color: '#ff8800', fontSize: responsiveFontSize(16) }}>›</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
-
-      {/* Pause Modal */}
-      <Modal
-        visible={showPauseModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPauseModal(false)}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setShowPauseModal(false)}
-        >
-          <Pressable
-            style={styles.modalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Pause Auto-Ordering</Text>
-              <Text style={styles.modalMessage}>
-                Select which meals you want to pause. You can resume anytime.
-              </Text>
-
-              {/* Meal Type Selection */}
-              <View style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 12 }}>
-                  Pause which meals?
-                </Text>
-
-                {/* Lunch Option */}
-                <TouchableOpacity
-                  onPress={() => setPauseMealType('LUNCH')}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: pauseMealType === 'LUNCH' ? '#FFF7ED' : '#F9FAFB',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 10,
-                    borderWidth: 2,
-                    borderColor: pauseMealType === 'LUNCH' ? '#ff8800' : '#E5E7EB',
-                  }}
-                >
-                  <View style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: pauseMealType === 'LUNCH' ? '#ff8800' : '#D1D5DB',
-                    backgroundColor: pauseMealType === 'LUNCH' ? '#ff8800' : 'white',
-                    marginRight: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    {pauseMealType === 'LUNCH' && (
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Lunch Only</Text>
-                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Continue dinner auto-orders</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Dinner Option */}
-                <TouchableOpacity
-                  onPress={() => setPauseMealType('DINNER')}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: pauseMealType === 'DINNER' ? '#F3E8FF' : '#F9FAFB',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 10,
-                    borderWidth: 2,
-                    borderColor: pauseMealType === 'DINNER' ? '#8B5CF6' : '#E5E7EB',
-                  }}
-                >
-                  <View style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: pauseMealType === 'DINNER' ? '#8B5CF6' : '#D1D5DB',
-                    backgroundColor: pauseMealType === 'DINNER' ? '#8B5CF6' : 'white',
-                    marginRight: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    {pauseMealType === 'DINNER' && (
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Dinner Only</Text>
-                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Continue lunch auto-orders</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Both Option */}
-                <TouchableOpacity
-                  onPress={() => setPauseMealType('BOTH')}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: pauseMealType === 'BOTH' ? '#FEF3C7' : '#F9FAFB',
-                    borderRadius: 12,
-                    padding: 16,
-                    borderWidth: 2,
-                    borderColor: pauseMealType === 'BOTH' ? '#F59E0B' : '#E5E7EB',
-                  }}
-                >
-                  <View style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: pauseMealType === 'BOTH' ? '#F59E0B' : '#D1D5DB',
-                    backgroundColor: pauseMealType === 'BOTH' ? '#F59E0B' : 'white',
-                    marginRight: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    {pauseMealType === 'BOTH' && (
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: 'white' }} />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>Both Meals</Text>
-                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Pause all auto-orders</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <Text className="text-xs text-gray-400 text-center mb-4">
-                Tip: To skip specific dates, use "Manage Skipped Meals" instead.
-              </Text>
-
-              {/* Pause button */}
-              <TouchableOpacity
-                onPress={handlePause}
-                disabled={isLoading}
-                style={styles.modalButton}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={styles.modalButtonText}>
-                    {pauseMealType === 'BOTH' ? 'Pause Both' : `Pause ${pauseMealType === 'LUNCH' ? 'Lunch' : 'Dinner'}`}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setShowPauseModal(false);
-                  setPauseMealType('BOTH');
-                }}
-                style={[styles.modalButton, styles.modalButtonSecondary]}
-              >
-                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {/* Loading Overlay */}
       {isLoading && (
@@ -1700,27 +473,13 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
 
       {/* Success Modal */}
-      <Modal
-        visible={showSuccessModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setShowSuccessModal(false)}
-        >
-          <Pressable
-            style={styles.modalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
+      <Modal visible={showSuccessModal} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowSuccessModal(false)}>
+          <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{modalTitle}</Text>
               <Text style={styles.modalMessage}>{modalMessage}</Text>
-              <TouchableOpacity
-                onPress={() => setShowSuccessModal(false)}
-                style={styles.modalButton}
-              >
+              <TouchableOpacity onPress={() => setShowSuccessModal(false)} style={styles.modalButton}>
                 <Text style={styles.modalButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
@@ -1729,34 +488,20 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       </Modal>
 
       {/* Error Modal */}
-      <Modal
-        visible={showErrorModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowErrorModal(false)}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setShowErrorModal(false)}
-        >
-          <Pressable
-            style={styles.modalContainer}
-            onPress={(e) => e.stopPropagation()}
-          >
+      <Modal visible={showErrorModal} transparent animationType="fade" onRequestClose={() => setShowErrorModal(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowErrorModal(false)}>
+          <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{modalTitle}</Text>
               <Text style={styles.modalMessage}>{modalMessage}</Text>
-              <TouchableOpacity
-                onPress={() => setShowErrorModal(false)}
-                style={[styles.modalButton, { backgroundColor: '#EF4444' }]}
-              >
+              <TouchableOpacity onPress={() => setShowErrorModal(false)} style={[styles.modalButton, { backgroundColor: '#EF4444' }]}>
                 <Text style={styles.modalButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -1808,16 +553,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.base,
     fontWeight: 'bold',
     color: 'white',
-  },
-  modalButtonSecondary: {
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  modalButtonTextSecondary: {
-    fontSize: FONT_SIZES.base,
-    fontWeight: '600',
-    color: '#6B7280',
   },
   loadingOverlay: {
     position: 'absolute',

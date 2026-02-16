@@ -2,13 +2,13 @@
 import React from 'react';
 import { SafeAreaView, View, Text, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
-import { MainTabParamList } from '../../types/navigation';
 import AutoOrderFailureModal from '../../components/AutoOrderFailureModal';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
 
-type Props = StackScreenProps<MainTabParamList, 'AutoOrderFailure'>;
+// This screen is deprecated - AUTO_ORDER_FAILED notifications now route to AutoOrderSettings
+type Props = StackScreenProps<any, 'AutoOrderFailure'>;
 
 /**
  * Screen wrapper for Auto-Order Failure notifications

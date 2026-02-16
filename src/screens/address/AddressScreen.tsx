@@ -18,6 +18,7 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useAddress, Address } from '../../context/AddressContext';
 import { useAlert } from '../../context/AlertContext';
+import locationService from '../../services/location.service';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
@@ -88,6 +89,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState<AddressFormData>(emptyFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formCoordinates, setFormCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isCheckingPincode, setIsCheckingPincode] = useState(false);
   const [pincodeServiceable, setPincodeServiceable] = useState<boolean | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -130,6 +132,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
   const resetForm = () => {
     setFormData(emptyFormData);
+    setFormCoordinates(null);
     setPincodeServiceable(null);
   };
 
@@ -190,6 +193,13 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
     setIsSubmitting(true);
     try {
+      // Get coordinates: use GPS coordinates if available, otherwise forward geocode the address
+      let coordinates = formCoordinates;
+      if (!coordinates) {
+        const fullAddress = `${formData.addressLine1}, ${formData.locality}, ${formData.city}, ${formData.state}, ${formData.pincode}`;
+        coordinates = await locationService.forwardGeocode(fullAddress);
+      }
+
       await createAddressOnServer({
         label: formData.label,
         addressLine1: formData.addressLine1,
@@ -202,6 +212,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
         contactName: formData.contactName,
         contactPhone: formData.contactPhone,
         isMain: addresses.length === 0, // First address is default
+        coordinates: coordinates || undefined,
       });
       setShowAddModal(false);
       resetForm();
@@ -227,6 +238,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
       contactName: address.contactName || '',
       contactPhone: address.contactPhone || '',
     });
+    setFormCoordinates(address.coordinates || null);
     setPincodeServiceable(address.isServiceable ?? null);
     setShowEditModal(true);
   };
@@ -285,6 +297,13 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
 
     setIsSubmitting(true);
     try {
+      // Get coordinates: use existing if available, otherwise forward geocode
+      let coordinates = formCoordinates;
+      if (!coordinates) {
+        const fullAddress = `${formData.addressLine1}, ${formData.locality}, ${formData.city}, ${formData.state}, ${formData.pincode}`;
+        coordinates = await locationService.forwardGeocode(fullAddress);
+      }
+
       await updateAddressOnServer(editingAddress.id, {
         label: formData.label,
         addressLine1: formData.addressLine1,
@@ -296,6 +315,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
         pincode: formData.pincode,
         contactName: formData.contactName,
         contactPhone: formData.contactPhone,
+        coordinates: coordinates || undefined,
       });
       setShowEditModal(false);
       setEditingAddress(null);
@@ -654,6 +674,9 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
                   );
                   return;
                 }
+
+                // Store GPS coordinates
+                setFormCoordinates(location.coordinates);
 
                 // Auto-fill form with location data
                 setFormData({

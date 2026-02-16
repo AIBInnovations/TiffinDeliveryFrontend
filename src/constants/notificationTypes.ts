@@ -23,6 +23,8 @@ export enum NotificationType {
   // Auto-ordering notifications
   AUTO_ORDER_SUCCESS = 'AUTO_ORDER_SUCCESS',
   AUTO_ORDER_FAILED = 'AUTO_ORDER_FAILED',
+  AUTO_ORDER_PAYMENT_REQUIRED = 'AUTO_ORDER_PAYMENT_REQUIRED',
+  AUTO_ORDER_PAYMENT_EXPIRED = 'AUTO_ORDER_PAYMENT_EXPIRED',
 
   // Subscription notifications
   VOUCHER_EXPIRY_REMINDER = 'VOUCHER_EXPIRY_REMINDER',
@@ -32,6 +34,12 @@ export enum NotificationType {
   MENU_UPDATE = 'MENU_UPDATE',
   PROMOTIONAL = 'PROMOTIONAL',
   ADMIN_PUSH = 'ADMIN_PUSH',
+
+  // Scheduled meal notifications
+  SCHEDULED_MEAL_CREATED = 'SCHEDULED_MEAL_CREATED',
+  SCHEDULED_MEAL_PLACED = 'SCHEDULED_MEAL_PLACED',
+  SCHEDULED_MEAL_CANCELLED = 'SCHEDULED_MEAL_CANCELLED',
+  SCHEDULED_MEAL_ISSUE = 'SCHEDULED_MEAL_ISSUE',
 
   // Legacy/generic (for backward compatibility)
   ORDER_STATUS_CHANGE = 'ORDER_STATUS_CHANGE',
@@ -48,6 +56,8 @@ export enum AutoOrderFailureCategory {
   NO_KITCHEN = 'NO_KITCHEN',                             // No kitchen available for the area
   NO_MENU_ITEM = 'NO_MENU_ITEM',                         // Menu not available yet
   VOUCHER_REDEMPTION_FAILED = 'VOUCHER_REDEMPTION_FAILED', // Transaction failed
+  KITCHEN_NOT_SERVING_ZONE = 'KITCHEN_NOT_SERVING_ZONE', // Kitchen doesn't serve the zone
+  ORDER_CREATION_FAILED = 'ORDER_CREATION_FAILED',       // Order creation failed
   UNKNOWN = 'UNKNOWN',                                   // Generic failure
 }
 
@@ -98,11 +108,19 @@ export const NotificationChannelMapping: Record<NotificationType, string> = {
   [NotificationType.ORDER_DELIVERED]: NotificationChannels.ORDERS,
   [NotificationType.ORDER_CANCELLED]: NotificationChannels.ORDERS,
   [NotificationType.AUTO_ORDER_SUCCESS]: NotificationChannels.ORDERS,
+  [NotificationType.AUTO_ORDER_PAYMENT_REQUIRED]: NotificationChannels.ORDERS,
+  [NotificationType.AUTO_ORDER_PAYMENT_EXPIRED]: NotificationChannels.ORDERS,
 
   // Subscription notifications → subscriptions_channel
   [NotificationType.AUTO_ORDER_FAILED]: NotificationChannels.SUBSCRIPTIONS,
   [NotificationType.VOUCHER_EXPIRY_REMINDER]: NotificationChannels.SUBSCRIPTIONS,
   [NotificationType.SUBSCRIPTION_CREATED]: NotificationChannels.SUBSCRIPTIONS,
+
+  // Scheduled meal notifications → orders_channel
+  [NotificationType.SCHEDULED_MEAL_CREATED]: NotificationChannels.ORDERS,
+  [NotificationType.SCHEDULED_MEAL_PLACED]: NotificationChannels.ORDERS,
+  [NotificationType.SCHEDULED_MEAL_CANCELLED]: NotificationChannels.ORDERS,
+  [NotificationType.SCHEDULED_MEAL_ISSUE]: NotificationChannels.ORDERS,
 
   // General notifications → general_channel
   [NotificationType.MENU_UPDATE]: NotificationChannels.GENERAL,
@@ -125,5 +143,7 @@ export const getChannelForType = (type: NotificationType): string => {
  */
 export const isAutoOrderNotification = (type: NotificationType): boolean => {
   return type === NotificationType.AUTO_ORDER_SUCCESS ||
-         type === NotificationType.AUTO_ORDER_FAILED;
+         type === NotificationType.AUTO_ORDER_FAILED ||
+         type === NotificationType.AUTO_ORDER_PAYMENT_REQUIRED ||
+         type === NotificationType.AUTO_ORDER_PAYMENT_EXPIRED;
 };

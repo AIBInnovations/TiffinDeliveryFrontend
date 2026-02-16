@@ -15,7 +15,7 @@ const { width } = Dimensions.get('window');
 // Splash UI component - just the visual
 export const SplashView = () => (
   <LinearGradient
-    colors={['#F7941D', '#F15A24']}
+    colors={['#ff6636', '#fd9e2f']}
     start={{ x: 0, y: 0 }}
     end={{ x: 1, y: 1 }}
     style={styles.container}

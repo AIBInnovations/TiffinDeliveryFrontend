@@ -19,9 +19,17 @@ const WeeklyScheduleQuickSets: React.FC<WeeklyScheduleQuickSetsProps> = ({
 }) => {
   const createPattern = (days: DayOfWeek[], lunch: boolean, dinner: boolean): WeeklySchedule => {
     const schedule: WeeklySchedule = {};
-    days.forEach(day => {
-      schedule[day] = { lunch, dinner };
+
+    // IMPORTANT: Always create a complete 7-day schedule
+    // Set selected days to the pattern, and non-selected days to false
+    ALL_DAYS.forEach(day => {
+      if (days.includes(day)) {
+        schedule[day] = { lunch, dinner };
+      } else {
+        schedule[day] = { lunch: false, dinner: false };
+      }
     });
+
     return schedule;
   };
 

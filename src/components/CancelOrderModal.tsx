@@ -16,49 +16,7 @@ interface CancelOrderModalProps {
   onConfirm: (reason: string) => Promise<void> | void;
   orderNumber?: string;
   isLoading?: boolean;
-  // Voucher context props
-  voucherCount?: number;
-  amountPaid?: number;
-  mealWindow?: 'LUNCH' | 'DINNER';
-  isAfterCutoff?: boolean;
-  /**
-   * Optional cutoff time in "HH:mm" format (e.g., "14:00")
-   * If provided, this will be used to determine if the order is past cutoff
-   * If not provided, falls back to default cutoff times (11:00 for LUNCH, 21:00 for DINNER)
-   */
-  cutoffTime?: string;
 }
-
-// Helper to check if current time is after cutoff
-const checkIfAfterCutoff = (
-  mealWindow?: 'LUNCH' | 'DINNER',
-  cutoffTime?: string
-): boolean => {
-  if (!mealWindow) return false;
-
-  const now = new Date();
-  const currentHours = now.getHours();
-  const currentMinutes = now.getMinutes();
-  const currentTotalMinutes = currentHours * 60 + currentMinutes;
-
-  // If custom cutoff time provided, use it
-  if (cutoffTime) {
-    const [cutoffHoursStr, cutoffMinutesStr] = cutoffTime.split(':');
-    const cutoffHours = parseInt(cutoffHoursStr, 10);
-    const cutoffMinutes = parseInt(cutoffMinutesStr, 10);
-
-    if (!isNaN(cutoffHours) && !isNaN(cutoffMinutes)) {
-      const cutoffTotalMinutes = cutoffHours * 60 + cutoffMinutes;
-      return currentTotalMinutes >= cutoffTotalMinutes;
-    }
-  }
-
-  // Default cutoff times: LUNCH: 11:00, DINNER: 21:00
-  if (mealWindow === 'LUNCH' && currentHours >= 11) return true;
-  if (mealWindow === 'DINNER' && currentHours >= 21) return true;
-
-  return false;
-};
 
 const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
   visible,
@@ -66,17 +24,9 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
   onConfirm,
   orderNumber,
   isLoading = false,
-  voucherCount = 0,
-  amountPaid = 0,
-  mealWindow,
-  isAfterCutoff,
-  cutoffTime,
 }) => {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  // Determine if after cutoff (use prop if provided, otherwise calculate)
-  const afterCutoff = isAfterCutoff ?? checkIfAfterCutoff(mealWindow, cutoffTime);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -97,45 +47,8 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
     console.log('[CancelOrderModal] Confirming cancellation');
     console.log('  - Order:', orderNumber);
     console.log('  - Reason:', reason.trim());
-    console.log('  - Voucher count:', voucherCount);
-    console.log('  - After cutoff:', afterCutoff);
     await onConfirm(reason.trim());
   };
-
-  // Determine message based on order type
-  const getWarningContent = () => {
-    if (voucherCount > 0) {
-      // Voucher order
-      if (afterCutoff) {
-        // After cutoff - vouchers won't be restored
-        return {
-          isWarning: true,
-          title: 'Important Warning',
-          message: `Your ${voucherCount} voucher(s) will NOT be restored because the meal window has closed.${
-            amountPaid > 0 ? `\n\nYour payment of Rs${amountPaid.toFixed(2)} will be refunded within 5-7 business days.` : ''
-          }`,
-        };
-      } else {
-        // Before cutoff - vouchers will be restored
-        return {
-          isWarning: false,
-          title: 'Voucher Restoration',
-          message: `${voucherCount} voucher(s) will be restored to your account.`,
-        };
-      }
-    } else {
-      // Non-voucher order
-      return {
-        isWarning: false,
-        title: 'Cancellation Policy',
-        message: amountPaid > 0
-          ? `Your refund of Rs${amountPaid.toFixed(2)} will be processed within 5-7 business days.`
-          : 'Are you sure you want to cancel this order?',
-      };
-    }
-  };
-
-  const warningContent = getWarningContent();
 
   return (
     <Modal
@@ -161,14 +74,10 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
             </Text>
           )}
 
-          {/* Warning/Info Box */}
+          {/* Info Box */}
           <View
             className="rounded-xl p-4 mb-4"
-            style={{
-              backgroundColor: warningContent.isWarning ? '#FEF3C7' : '#F0FDF4',
-              borderWidth: warningContent.isWarning ? 1 : 0,
-              borderColor: '#F59E0B',
-            }}
+            style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B' }}
           >
             <View className="flex-row items-start">
               <Image
@@ -176,7 +85,7 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
                 style={{
                   width: 20,
                   height: 20,
-                  tintColor: warningContent.isWarning ? '#D97706' : '#16A34A',
+                  tintColor: '#D97706',
                   marginRight: 8,
                   marginTop: 2,
                 }}
@@ -185,15 +94,15 @@ const CancelOrderModal: React.FC<CancelOrderModalProps> = ({
               <View className="flex-1">
                 <Text
                   className="font-semibold mb-1"
-                  style={{ color: warningContent.isWarning ? '#92400E' : '#166534' }}
+                  style={{ color: '#92400E' }}
                 >
-                  {warningContent.title}
+                  Are you sure?
                 </Text>
                 <Text
                   className="text-sm"
-                  style={{ color: warningContent.isWarning ? '#A16207' : '#15803D', lineHeight: 20 }}
+                  style={{ color: '#A16207', lineHeight: 20 }}
                 >
-                  {warningContent.message}
+                  This action cannot be undone. Please tell us why you want to cancel.
                 </Text>
               </View>
             </View>
