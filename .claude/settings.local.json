@@ -34,7 +34,8 @@
       "Bash(tasklist:*)",
       "Bash(wmic process:*)",
       "Bash(taskkill:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(npx react-native bundle:*)"
     ]
   }
 }

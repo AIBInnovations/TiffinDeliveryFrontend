@@ -75,10 +75,15 @@ const MyScheduledMealsScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const response = await apiService.getMyScheduledMeals({ page: pageNum, limit: 10 });
       if (response.success) {
+        // Filter out past meals (before today)
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const filtered = response.data.meals.filter(m => new Date(m.scheduledFor) >= todayStart);
+
         if (isRefresh || pageNum === 1) {
-          setMeals(response.data.meals);
+          setMeals(filtered);
         } else {
-          setMeals(prev => [...prev, ...response.data.meals]);
+          setMeals(prev => [...prev, ...filtered]);
         }
         setTotalPages(response.data.pagination.pages);
         setPage(pageNum);
@@ -176,7 +181,6 @@ const MyScheduledMealsScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderMealCard = ({ item }: { item: ScheduledMealListItem }) => {
     const thaliName = item.items?.[0]?.name || 'Thali Meal';
-    const kitchenName = item.kitchenId?.name || 'Kitchen';
     const isCancellable = CANCELLABLE_STATUSES.includes(item.status);
 
     return (
@@ -210,10 +214,12 @@ const MyScheduledMealsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Row 2: Kitchen */}
+          {/* Row 2: Delivery Address */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm }}>
-            <MaterialCommunityIcons name="store-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
-            <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280' }}>{kitchenName}</Text>
+            <MaterialCommunityIcons name="map-marker-outline" size={14} color="#6B7280" style={{ marginRight: 4 }} />
+            <Text style={{ fontSize: FONT_SIZES.xs, color: '#6B7280' }} numberOfLines={1}>
+              {item.deliveryAddress?.addressLine1}{item.deliveryAddress?.locality ? `, ${item.deliveryAddress.locality}` : ''}
+            </Text>
           </View>
 
           {/* Row 3: Date + Meal Window */}

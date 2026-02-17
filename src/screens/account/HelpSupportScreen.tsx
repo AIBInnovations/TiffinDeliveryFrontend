@@ -74,7 +74,7 @@ const HelpSupportScreen: React.FC<Props> = ({ navigation }) => {
     {
       id: '7',
       question: 'Can I edit or cancel my order?',
-      answer: 'You can cancel an order before the kitchen starts preparing it. Go to "My Orders", open the order, and tap "Cancel Order" if the option is available. Once the kitchen begins preparation, cancellation is no longer possible. If a voucher was used, it will be restored upon successful cancellation. Editing an order after placement is not supported — you\'ll need to cancel and place a new one.',
+      answer: 'You can cancel an order within 1 minute of placing it. A cancel button with a countdown timer will appear on the order confirmation screen. Once the 1-minute window expires, cancellation is no longer possible. If vouchers were used, they will be restored upon successful cancellation. Editing an order after placement is not supported — you\'ll need to cancel and place a new one.',
       category: 'Account',
     },
     {

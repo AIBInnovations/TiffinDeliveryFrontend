@@ -56,7 +56,7 @@ const RESPONSE_RULES: ResponseRule[] = [
   },
   {
     keywords: ['cancel order', 'cancel my order', 'want to cancel', 'order cancel'],
-    response: 'To cancel an order:\n\n1. Go to "My Orders"\n2. Open the order you want to cancel\n3. If cancellation is available, you\'ll see a "Cancel Order" option\n\nPlease note: Orders can only be cancelled before the kitchen starts preparing them. Once preparation begins, cancellation may not be available. If your voucher was used, it will be restored upon cancellation.',
+    response: 'To cancel an order:\n\n1. After placing an order, a cancel button with a countdown timer appears\n2. You have 1 minute from the time of placing the order to cancel\n3. Once the 1-minute window expires, the cancel option is no longer available\n\nIf vouchers were used, they will be restored upon successful cancellation.',
     quickReplies: ['Refund', 'Vouchers', 'Contact support'],
   },
   {

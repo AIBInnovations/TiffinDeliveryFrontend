@@ -16,7 +16,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { MainTabParamList } from '../../types/navigation';
 import { usePayment } from '../../context/PaymentContext';
 import { useAlert } from '../../context/AlertContext';
-import apiService, { ScheduledMealPricingData } from '../../services/api.service';
+import apiService, { ScheduledMealPricingData, AddonItem } from '../../services/api.service';
+import AddonSelector, { SelectedAddon } from '../../components/AddonSelector';
 import { useResponsive, useScaling } from '../../hooks/useResponsive';
 import { SPACING } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
@@ -57,7 +58,13 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const fetchPricing = useCallback(async (coupon?: string) => {
+  // Add-on state
+  const [availableAddons, setAvailableAddons] = useState<AddonItem[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
+  const [addonsLoading, setAddonsLoading] = useState(false);
+  const [addonsFetched, setAddonsFetched] = useState(false);
+
+  const fetchPricing = useCallback(async (coupon?: string, itemsOverride?: Array<{ menuItemId: string; quantity: number; addons?: Array<{ addonId: string; quantity: number }> }>) => {
     try {
       setError(null);
       const response = await apiService.getScheduledMealPricing({
@@ -66,6 +73,7 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
         scheduledDate,
         voucherCount: voucherCount || undefined,
         couponCode: coupon || undefined,
+        ...(itemsOverride ? { items: itemsOverride } : {}),
       });
       if (response.success) {
         setPricingData(response.data);
@@ -83,6 +91,96 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
     fetchPricing();
   }, [fetchPricing]);
 
+  // Fetch available add-ons once pricing loads (need kitchen.id)
+  useEffect(() => {
+    console.log('[ScheduledMealPricing] Addon fetch check:', {
+      hasKitchen: !!pricingData?.kitchen,
+      kitchenId: pricingData?.kitchen?.id,
+      addonsFetched,
+    });
+    if (!pricingData?.kitchen?.id || addonsFetched) return;
+
+    const fetchAddons = async () => {
+      setAddonsLoading(true);
+      try {
+        console.log('[ScheduledMealPricing] Fetching addons for kitchen:', pricingData.kitchen.id, 'mealWindow:', mealWindow);
+        const menuResponse = await apiService.getKitchenMenu(pricingData.kitchen.id, 'MEAL_MENU');
+        console.log('[ScheduledMealPricing] Kitchen menu response:', JSON.stringify(menuResponse.data?.mealMenu ? {
+          hasLunch: !!menuResponse.data.mealMenu.lunch,
+          hasDinner: !!menuResponse.data.mealMenu.dinner,
+          lunchAddons: menuResponse.data.mealMenu.lunch?.addonIds?.length || 0,
+          dinnerAddons: menuResponse.data.mealMenu.dinner?.addonIds?.length || 0,
+        } : 'no mealMenu'));
+        const mealMenu = menuResponse.data.mealMenu;
+        const menuItem = mealWindow === 'LUNCH' ? mealMenu.lunch : mealMenu.dinner;
+        const addons = menuItem?.addonIds || [];
+        console.log('[ScheduledMealPricing] Available addons:', addons.length, addons.map(a => a.name));
+        setAvailableAddons(addons);
+      } catch (err) {
+        console.log('[ScheduledMealPricing] Failed to fetch addons:', err);
+        setAvailableAddons([]);
+      } finally {
+        setAddonsLoading(false);
+        setAddonsFetched(true);
+      }
+    };
+
+    fetchAddons();
+  }, [pricingData?.kitchen?.id, mealWindow, addonsFetched]);
+
+  // Build items array with addons for pricing/creation
+  const buildItemsWithAddons = useCallback(() => {
+    if (!pricingData) return undefined;
+    if (selectedAddons.length === 0) return undefined;
+    return pricingData.items.map(item => ({
+      menuItemId: item.menuItemId,
+      quantity: item.quantity,
+      addons: selectedAddons.map(a => ({ addonId: a.addonId, quantity: a.quantity })),
+    }));
+  }, [pricingData, selectedAddons]);
+
+  // Re-fetch pricing when addons change
+  const handleAddonsChanged = useCallback((newAddons: SelectedAddon[]) => {
+    if (!pricingData) return;
+    const items = newAddons.length > 0
+      ? pricingData.items.map(item => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          addons: newAddons.map(a => ({ addonId: a.addonId, quantity: a.quantity })),
+        }))
+      : undefined;
+    fetchPricing(appliedCoupon || undefined, items);
+  }, [pricingData, appliedCoupon, fetchPricing]);
+
+  // Add-on handlers
+  const selectedAddonsRef = React.useRef(selectedAddons);
+  selectedAddonsRef.current = selectedAddons;
+
+  const handleAddonAdd = useCallback((addon: AddonItem) => {
+    const prev = selectedAddonsRef.current;
+    if (prev.find(a => a.addonId === addon._id)) return;
+    const next = [...prev, { addonId: addon._id, name: addon.name, quantity: 1, unitPrice: addon.price }];
+    setSelectedAddons(next);
+    handleAddonsChanged(next);
+  }, [handleAddonsChanged]);
+
+  const handleAddonRemove = useCallback((addonId: string) => {
+    const next = selectedAddonsRef.current.filter(a => a.addonId !== addonId);
+    setSelectedAddons(next);
+    handleAddonsChanged(next);
+  }, [handleAddonsChanged]);
+
+  const handleAddonQuantityChange = useCallback((addonId: string, quantity: number) => {
+    let next: SelectedAddon[];
+    if (quantity <= 0) {
+      next = selectedAddonsRef.current.filter(a => a.addonId !== addonId);
+    } else {
+      next = selectedAddonsRef.current.map(a => a.addonId === addonId ? { ...a, quantity } : a);
+    }
+    setSelectedAddons(next);
+    handleAddonsChanged(next);
+  }, [handleAddonsChanged]);
+
   const handleApplyCoupon = useCallback(async () => {
     if (!couponCode.trim()) return;
 
@@ -96,6 +194,7 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
         scheduledDate,
         voucherCount: voucherCount || undefined,
         couponCode: couponCode.trim().toUpperCase(),
+        ...(buildItemsWithAddons() ? { items: buildItemsWithAddons() } : {}),
       });
 
       if (response.success) {
@@ -114,15 +213,15 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
     } finally {
       setIsApplyingCoupon(false);
     }
-  }, [couponCode, deliveryAddressId, mealWindow, scheduledDate, voucherCount]);
+  }, [couponCode, deliveryAddressId, mealWindow, scheduledDate, voucherCount, buildItemsWithAddons]);
 
   const handleRemoveCoupon = useCallback(async () => {
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponError(null);
     setIsLoading(true);
-    await fetchPricing();
-  }, [fetchPricing]);
+    await fetchPricing(undefined, buildItemsWithAddons());
+  }, [fetchPricing, buildItemsWithAddons]);
 
   const handleScheduleAndPay = useCallback(async () => {
     if (!pricingData || isCreating) return;
@@ -137,6 +236,7 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
         couponCode: appliedCoupon || undefined,
         specialInstructions: specialInstructions.trim() || undefined,
         deliveryNotes: deliveryNotes.trim() || undefined,
+        ...(buildItemsWithAddons() ? { items: buildItemsWithAddons() } : {}),
       });
 
       if (!response.success) {
@@ -188,7 +288,7 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
     } finally {
       setIsCreating(false);
     }
-  }, [pricingData, isCreating, deliveryAddressId, mealWindow, scheduledDate, voucherCount, appliedCoupon, specialInstructions, deliveryNotes, processOrderPayment, showAlert, navigation]);
+  }, [pricingData, isCreating, deliveryAddressId, mealWindow, scheduledDate, voucherCount, appliedCoupon, specialInstructions, deliveryNotes, processOrderPayment, showAlert, navigation, buildItemsWithAddons]);
 
   if (isLoading) {
     return (
@@ -297,6 +397,20 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
               ))}
             </View>
           </View>
+
+          {/* Add-ons Section */}
+          {(addonsLoading || availableAddons.length > 0) && (
+            <View style={{ marginHorizontal: SPACING.lg, marginBottom: SPACING.lg, backgroundColor: '#FFFFFF', borderRadius: 16, padding: SPACING.lg, borderWidth: 1, borderColor: '#E5E7EB' }}>
+              <AddonSelector
+                availableAddons={availableAddons}
+                selectedAddons={selectedAddons}
+                onAdd={handleAddonAdd}
+                onRemove={handleAddonRemove}
+                onQuantityChange={handleAddonQuantityChange}
+                loading={addonsLoading}
+              />
+            </View>
+          )}
 
           {/* Price Breakdown */}
           <View style={{ paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg }}>

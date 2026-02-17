@@ -358,6 +358,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       setAutoOrderConfigs(response.data.configs || []);
       setGlobalAutoOrderEnabled(response.data.autoOrderingEnabled);
       setGlobalIsPaused(response.data.isPaused);
+
+      // Auto-enable global flag if it's off but configs exist (global toggle was removed from UI)
+      if (!response.data.autoOrderingEnabled && response.data.configs?.length > 0) {
+        console.log('[SubscriptionContext] Auto-enabling global autoOrderingEnabled (toggle removed from UI)');
+        apiService.updateAutoOrderConfig({ addressId: '', autoOrderingEnabled: true } as any).then(() => {
+          setGlobalAutoOrderEnabled(true);
+        }).catch(() => {});
+      }
+
       return response;
     } catch (err: any) {
       console.log('[SubscriptionContext] fetchAllAutoOrderConfigs - Error:', err.message || err);
@@ -429,16 +438,21 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const toggleGlobalAutoOrder = useCallback(async (enabled: boolean): Promise<void> => {
     console.log('[SubscriptionContext] toggleGlobalAutoOrder -', enabled);
     setError(null);
+    // Optimistically update UI
+    const previousEnabled = globalAutoOrderEnabled;
+    setGlobalAutoOrderEnabled(enabled);
     try {
-      // Use the first config's addressId or send without addressId for global toggle
-      await apiService.updateAutoOrderConfig({ addressId: '', autoOrderingEnabled: enabled });
+      // No addressId for global toggle
+      await apiService.updateAutoOrderConfig({ addressId: '', autoOrderingEnabled: enabled } as any);
       await fetchAllAutoOrderConfigs();
     } catch (err: any) {
       console.log('[SubscriptionContext] toggleGlobalAutoOrder - Error:', err.message || err);
+      // Rollback UI to previous state on failure
+      setGlobalAutoOrderEnabled(previousEnabled);
       setError(err.message || 'Failed to toggle auto-ordering');
       throw err;
     }
-  }, [fetchAllAutoOrderConfigs]);
+  }, [fetchAllAutoOrderConfigs, globalAutoOrderEnabled]);
 
   // Pause auto-ordering (global or per-address)
   const pauseAutoOrder = useCallback(async (

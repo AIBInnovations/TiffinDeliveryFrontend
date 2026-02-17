@@ -64,7 +64,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setVoucherCount,
   } = useCart();
   const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
-  const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers, globalAutoOrderEnabled, autoOrderConfigs } = useSubscription();
+  const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers, autoOrderConfigs } = useSubscription();
   const { fetchUnreadCount, fetchNotifications } = useNotifications();
   const insets = useSafeAreaInsets();
   const { width, isSmallDevice } = useResponsive();
@@ -437,18 +437,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Check for auto-ordering status and show notification
   useFocusEffect(
     useCallback(() => {
-      if (globalAutoOrderEnabled && autoOrderConfigs.length > 0) {
+      if (autoOrderConfigs.some(c => c.enabled)) {
         setShowAutoOrderNotification(true);
       } else {
         setShowAutoOrderNotification(false);
       }
-    }, [globalAutoOrderEnabled, autoOrderConfigs])
+    }, [autoOrderConfigs])
   );
 
   // Cycling text animation for auto-order enabled banner
   const hasActiveAutoOrder = useMemo(() =>
-    globalAutoOrderEnabled && autoOrderConfigs.some(c => c.enabled),
-    [globalAutoOrderEnabled, autoOrderConfigs]
+    autoOrderConfigs.some(c => c.enabled),
+    [autoOrderConfigs]
   );
 
   useEffect(() => {
@@ -1418,38 +1418,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             )}
 
-              {/* Buy Now Button */}
-              {!showCartModal && (
-                <TouchableOpacity
-                  onPress={handleBuyNow}
-                  activeOpacity={0.7}
-                  disabled={isLoadingMenu}
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 1)',
-                    borderWidth: 2,
-                    borderColor: 'rgba(255, 136, 0, 1)',
-                    borderRadius: SPACING['3xl'],
-                    width: SPACING['5xl'] * 3.125,
-                    height: SPACING['2xl'] + SPACING.xl + 1,
-                    paddingHorizontal: SPACING.xl + 4,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: isLoadingMenu ? 0.5 : 1,
-                  }}
-                >
-                  <MaterialCommunityIcons name="flash" size={18} color="#ff8800" style={{ marginRight: 4 }} />
-                  <Text
-                    style={{
-                      color: 'rgba(255, 136, 0, 1)',
-                      fontSize: FONT_SIZES.sm,
-                      fontWeight: '600',
-                    }}
-                  >
-                    Buy Now
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {/* Buy Now Button - hidden for now */}
             </View>
           </View>
 

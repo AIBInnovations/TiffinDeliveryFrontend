@@ -281,11 +281,19 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[OrderTracking] Cancel failed:', errorMessage);
         setShowCancelModal(false);
+        // Hide cancel button after failed attempt (window likely expired)
+        if (order) {
+          setOrder({ ...order, canCancel: false });
+        }
         showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderTracking] Error cancelling order:', err.message);
       setShowCancelModal(false);
+      // Hide cancel button after error (window likely expired)
+      if (order) {
+        setOrder({ ...order, canCancel: false });
+      }
       showAlert('Error', err.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
@@ -859,8 +867,8 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Cancel Order Button - Only show if order can be cancelled */}
-        {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && (order?.canCancel !== false) && (
+        {/* Cancel Order Button - Only show if order can be cancelled (within 1-min window) */}
+        {!isCancelledOrRejected && tracking?.status !== 'DELIVERED' && order?.canCancel === true && (
           <View style={{ paddingHorizontal: isSmallDevice ? SPACING.lg : SPACING.xl, marginBottom: SPACING.md }}>
             <TouchableOpacity
               onPress={handleCancelOrder}

@@ -227,11 +227,19 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[OrderDetailScreen] Cancel failed:', errorMessage);
         setShowCancelModal(false);
+        // Hide cancel button after failed attempt (window likely expired)
+        if (order) {
+          setOrder({ ...order, canCancel: false });
+        }
         showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (err: any) {
       console.error('[OrderDetailScreen] Cancel error:', err.message || err);
       setShowCancelModal(false);
+      // Hide cancel button after error (window likely expired)
+      if (order) {
+        setOrder({ ...order, canCancel: false });
+      }
       showAlert('Error', err.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);

@@ -19,10 +19,12 @@ import { MainTabParamList } from '../../types/navigation';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useAddress } from '../../context/AddressContext';
 import { useAlert } from '../../context/AlertContext';
+import { useCart } from '../../context/CartContext';
 import apiService, {
   AutoOrderScheduleDay,
   ScheduledMealSlot,
   ScheduledMealListItem,
+  extractKitchensFromResponse,
 } from '../../services/api.service';
 import { formatShortDate, isPastDate } from '../../utils/autoOrderUtils';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
@@ -57,6 +59,7 @@ const MealCalendarScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { skipMeal, unskipMeal, getScheduleForAddress } = useSubscription();
   const { addresses, selectedAddressId } = useAddress();
+  const { replaceCart, setDeliveryAddressId, setKitchenId } = useCart();
   const { showAlert } = useAlert();
 
   // Local date string (YYYY-MM-DD) to avoid UTC timezone mismatch
@@ -301,15 +304,61 @@ const MealCalendarScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [selectedDate, currentAddressId, unskipMeal, showAlert, fetchAndMergeData]);
 
-  // Schedule a new meal
-  const handleScheduleMeal = useCallback((mealWindow: 'LUNCH' | 'DINNER') => {
+  // Schedule a new meal — resolve kitchen, populate cart, navigate to CartScreen
+  const [isScheduleLoading, setIsScheduleLoading] = useState(false);
+  const handleScheduleMeal = useCallback(async (mealWindow: 'LUNCH' | 'DINNER') => {
     if (!selectedDate || !currentAddressId) return;
-    navigation.navigate('ScheduledMealPricing', {
-      deliveryAddressId: currentAddressId,
-      mealWindow,
-      scheduledDate: selectedDate,
-    });
-  }, [selectedDate, currentAddressId, navigation]);
+    setIsScheduleLoading(true);
+    try {
+      // 1. Resolve kitchen for this address
+      const kitchenResponse = await apiService.getAddressKitchens(currentAddressId, 'MEAL_MENU');
+      const kitchenList = extractKitchensFromResponse(kitchenResponse);
+      if (kitchenList.length === 0) {
+        showAlert('No Kitchen', 'No kitchen is available for this address.', undefined, 'error');
+        return;
+      }
+      const kitchen = kitchenList.find((k: any) => k.type === 'TIFFSY') || kitchenList[0];
+
+      // 2. Fetch kitchen menu
+      const menuResponse = await apiService.getKitchenMenu(kitchen._id, 'MEAL_MENU');
+      const menuItem = mealWindow === 'LUNCH'
+        ? menuResponse.data.mealMenu.lunch
+        : menuResponse.data.mealMenu.dinner;
+
+      if (!menuItem) {
+        showAlert('Not Available', `No ${mealWindow.toLowerCase()} menu available for this kitchen.`, undefined, 'error');
+        return;
+      }
+
+      // 3. Populate cart with the main course
+      setKitchenId(kitchen._id);
+      setDeliveryAddressId(currentAddressId);
+      replaceCart({
+        id: menuItem._id,
+        name: menuItem.name,
+        image: mealWindow === 'LUNCH'
+          ? require('../../assets/images/homepage/lunch2.png')
+          : require('../../assets/images/homepage/dinneritem.png'),
+        subtitle: '1 Thali',
+        price: menuItem.price,
+        quantity: 1,
+        hasVoucher: true,
+        mealWindow,
+      });
+
+      // 4. Navigate to Cart in scheduling mode
+      setTimeout(() => {
+        navigation.navigate('Cart', {
+          scheduledDate: selectedDate,
+          deliveryAddressId: currentAddressId,
+        });
+      }, 100);
+    } catch (err: any) {
+      showAlert('Error', err.message || 'Failed to load menu. Please try again.', undefined, 'error');
+    } finally {
+      setIsScheduleLoading(false);
+    }
+  }, [selectedDate, currentAddressId, navigation, showAlert, replaceCart, setDeliveryAddressId, setKitchenId]);
 
   // Render a slot card in the bottom panel
   const renderSlotCard = (mealWindow: 'LUNCH' | 'DINNER') => {
@@ -491,14 +540,19 @@ const MealCalendarScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             onPress={() => handleScheduleMeal(mealWindow)}
+            disabled={isScheduleLoading}
             style={{
               borderRadius: 10,
               paddingVertical: SPACING.sm,
               alignItems: 'center',
-              backgroundColor: '#ff8800',
+              backgroundColor: isScheduleLoading ? '#fbb36b' : '#ff8800',
             }}
           >
-            <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: '600', color: 'white' }}>Schedule a Meal</Text>
+            {isScheduleLoading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={{ fontSize: FONT_SIZES.sm, fontWeight: '600', color: 'white' }}>Schedule a Meal</Text>
+            )}
           </TouchableOpacity>
         </View>
       );

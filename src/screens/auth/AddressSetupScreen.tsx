@@ -14,6 +14,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAddress } from '../../context/AddressContext';
 import { useUser } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
+import locationService from '../../services/location.service';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
@@ -97,7 +98,10 @@ const AddressSetupScreen: React.FC = () => {
         return;
       }
 
-      // Serviceability check passed, create the address
+      // Serviceability check passed — geocode address to get coordinates
+      const fullAddress = `${addressForm.addressLine1}, ${addressForm.locality}, ${addressForm.city}, ${addressForm.state}, ${addressForm.pincode}`;
+      const coordinates = await locationService.forwardGeocode(fullAddress);
+
       await createAddressOnServer({
         label: addressForm.label,
         pincode: addressForm.pincode,
@@ -110,6 +114,7 @@ const AddressSetupScreen: React.FC = () => {
         contactName: addressForm.contactName,
         contactPhone: '+91' + addressForm.contactPhone,
         isMain: true,
+        coordinates: coordinates || undefined,
       });
 
       // Address created successfully, exit address setup flow

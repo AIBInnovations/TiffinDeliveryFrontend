@@ -23,10 +23,12 @@ import { useAlert } from '../../context/AlertContext';
 import OrderSuccessModal from '../../components/OrderSuccessModal';
 import apiService, {
   PricingBreakdown,
+  PricingCharges,
   VoucherEligibility,
   Order,
   AddonItem,
 } from '../../services/api.service';
+import AddonSelector from '../../components/AddonSelector';
 import CouponSheet from '../../components/CouponSheet';
 import dataPreloader from '../../services/dataPreloader.service';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -80,9 +82,13 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { isSmallDevice } = useResponsive();
 
+  // Scheduling mode detection
+  const scheduledDate = route.params?.scheduledDate;
+  const isSchedulingMode = !!scheduledDate;
+
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
-    deliveryAddressId || getMainAddress()?.id || (addresses.length > 0 ? addresses[0].id : '')
+    route.params?.deliveryAddressId || deliveryAddressId || getMainAddress()?.id || (addresses.length > 0 ? addresses[0].id : '')
   );
 
   // Per-slot pricing state
@@ -124,9 +130,6 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Voucher auto-apply state
   const [hasAutoApplied, setHasAutoApplied] = useState(false);
-
-  // Addons expand state
-  const [addonsExpanded, setAddonsExpanded] = useState(false);
 
   // Payment summary expand state
   const [summaryExpanded, setSummaryExpanded] = useState(false);
@@ -213,7 +216,11 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       const fetchMenuData = async () => {
-        if (!kitchenId) return;
+        if (!kitchenId) {
+          console.log('[CartScreen] No kitchenId, skipping menu fetch');
+          return;
+        }
+        console.log('[CartScreen] Fetching menu data for kitchen:', kitchenId);
         try {
           const menuResponse = await apiService.getKitchenMenu(kitchenId, 'MEAL_MENU');
           if (menuResponse.data) {
@@ -222,11 +229,16 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
             // Cache menu items for slot toggling
             setMenuItemCache({ lunch, dinner });
 
-            // Update three-state cutoff
-            setLunchCutoff(mapCutoffState(lunch));
-            setDinnerCutoff(mapCutoffState(dinner));
+            // Update three-state cutoff (skip in scheduling mode — future dates have no cutoff)
+            if (!isSchedulingMode) {
+              setLunchCutoff(mapCutoffState(lunch));
+              setDinnerCutoff(mapCutoffState(dinner));
+            }
 
             // Update per-slot addons
+            const lunchAddonCount = lunch?.addonIds?.length || 0;
+            const dinnerAddonCount = dinner?.addonIds?.length || 0;
+            console.log(`[CartScreen] Addons found - Lunch: ${lunchAddonCount}, Dinner: ${dinnerAddonCount}`);
             if (lunch?.addonIds && lunch.addonIds.length > 0) {
               setLunchAddons(lunch.addonIds);
             } else {
@@ -334,15 +346,22 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Calculate pricing per selected slot
   const calculateAllPricing = useCallback(async () => {
-    console.log('[CartScreen] calculateAllPricing called');
+    console.log('[CartScreen] calculateAllPricing called, isSchedulingMode:', isSchedulingMode);
 
-    if (cartItems.length === 0 || !kitchenId || !menuType || !localSelectedAddressId) {
+    if (cartItems.length === 0 || !localSelectedAddressId) {
       setLunchPricing({ pricing: null, voucherInfo: null, error: null });
       setDinnerPricing({ pricing: null, voucherInfo: null, error: null });
       return;
     }
 
-    if (menuType === 'MEAL_MENU' && selectedMealWindows.length === 0) {
+    // For today orders, require kitchenId and menuType
+    if (!isSchedulingMode && (!kitchenId || !menuType)) {
+      setLunchPricing({ pricing: null, voucherInfo: null, error: null });
+      setDinnerPricing({ pricing: null, voucherInfo: null, error: null });
+      return;
+    }
+
+    if (selectedMealWindows.length === 0) {
       return;
     }
 
@@ -353,17 +372,61 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         const items = getOrderItemsForSlot(slot);
         if (items.length === 0) return { slot, data: null };
 
-        const response = await apiService.calculatePricing({
-          kitchenId,
-          menuType,
-          mealWindow: menuType === 'MEAL_MENU' ? slot : undefined,
-          deliveryAddressId: localSelectedAddressId,
-          items,
-          voucherCount: slotVoucherCounts[slot] || 0,
-          couponCode: couponCode || null,
-        });
+        if (isSchedulingMode) {
+          // Scheduling mode: use getScheduledMealPricing
+          const response = await apiService.getScheduledMealPricing({
+            deliveryAddressId: localSelectedAddressId,
+            mealWindow: slot,
+            scheduledDate: scheduledDate!,
+            items: items.map(item => ({
+              menuItemId: item.menuItemId,
+              quantity: item.quantity,
+              addons: item.addons,
+            })),
+            voucherCount: slotVoucherCounts[slot] || undefined,
+            couponCode: couponCode || undefined,
+          });
 
-        return { slot, data: response };
+          if (response.success && response.data) {
+            const p = response.data.pricing;
+            // Map ScheduledMealPricingData → PricingBreakdown
+            const mapped: PricingBreakdown = {
+              items: response.data.items.map(i => ({
+                name: i.name,
+                quantity: i.quantity,
+                unitPrice: i.unitPrice,
+                total: i.totalPrice,
+                addons: i.addons.map(a => ({
+                  name: a.name,
+                  quantity: a.quantity,
+                  unitPrice: a.unitPrice,
+                  totalPrice: a.totalPrice,
+                })),
+              })),
+              subtotal: p.subtotal,
+              charges: p.charges as PricingCharges,
+              discount: p.discount as PricingBreakdown['discount'],
+              voucherCoverage: p.voucherCoverage || null,
+              grandTotal: p.grandTotal,
+              amountToPay: p.amountToPay,
+            };
+            return { slot, data: { success: true, data: { breakdown: mapped, voucherEligibility: null } } };
+          }
+          return { slot, data: response };
+        } else {
+          // Today mode: use calculatePricing
+          const response = await apiService.calculatePricing({
+            kitchenId: kitchenId!,
+            menuType: menuType!,
+            mealWindow: menuType === 'MEAL_MENU' ? slot : undefined,
+            deliveryAddressId: localSelectedAddressId,
+            items,
+            voucherCount: slotVoucherCounts[slot] || 0,
+            couponCode: couponCode || null,
+          });
+
+          return { slot, data: response };
+        }
       })
     );
 
@@ -379,9 +442,10 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       if (result.status === 'fulfilled' && result.value?.data) {
         const { slot, data } = result.value;
         if (data?.success && data.data) {
+          const d = data.data as any;
           const slotPricing: SlotPricing = {
-            pricing: data.data.breakdown,
-            voucherInfo: data.data.voucherEligibility,
+            pricing: d.breakdown,
+            voucherInfo: d.voucherEligibility || null,
             error: null,
           };
           if (slot === 'LUNCH') setLunchPricing(slotPricing);
@@ -393,7 +457,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     });
 
     setIsCalculating(false);
-  }, [cartItems, kitchenId, menuType, selectedMealWindows, localSelectedAddressId, slotVoucherCounts, couponCode, getOrderItemsForSlot]);
+  }, [cartItems, kitchenId, menuType, selectedMealWindows, localSelectedAddressId, slotVoucherCounts, couponCode, getOrderItemsForSlot, isSchedulingMode, scheduledDate]);
 
   // Backward compat: single calculatePricing reference
   const calculatePricing = calculateAllPricing;
@@ -404,32 +468,40 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [calculateAllPricing, cartItems, slotVoucherCounts, kitchenId, menuType, localSelectedAddressId, couponCode]);
 
   // Handle placing order — supports dual-slot (creates one order per selected slot)
+  // In scheduling mode, uses createScheduledMeal instead of createOrder
   const handlePlaceOrder = async () => {
-    console.log('[CartScreen] handlePlaceOrder called');
+    console.log('[CartScreen] handlePlaceOrder called, isSchedulingMode:', isSchedulingMode);
     console.log('  - selectedMealWindows:', selectedMealWindows);
 
-    if (!kitchenId || !menuType || !localSelectedAddressId || cartItems.length === 0) {
+    if (!localSelectedAddressId || cartItems.length === 0) {
       showAlert('Error', 'Please ensure you have items in cart and a delivery address selected', undefined, 'error');
       return;
     }
 
-    if (menuType === 'MEAL_MENU' && selectedMealWindows.length === 0) {
+    if (!isSchedulingMode && (!kitchenId || !menuType)) {
+      showAlert('Error', 'Please ensure you have items in cart and a delivery address selected', undefined, 'error');
+      return;
+    }
+
+    if (selectedMealWindows.length === 0) {
       showAlert('Error', 'Please select a delivery slot', undefined, 'error');
       return;
     }
 
-    // Safety check: Prevent voucher orders after cutoff per slot
-    for (const slot of selectedMealWindows) {
-      const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
-      if (slotVoucherCounts[slot] > 0 && !cutoff.canUseVoucher) {
-        showAlert(
-          'Voucher Unavailable',
-          `${slot === 'LUNCH' ? 'Lunch' : 'Dinner'} voucher ordering time has passed. Please remove the voucher to continue.`,
-          undefined,
-          'error'
-        );
-        setSlotVoucherCount(slot, 0);
-        return;
+    // Safety check: Prevent voucher orders after cutoff per slot (skip in scheduling mode)
+    if (!isSchedulingMode) {
+      for (const slot of selectedMealWindows) {
+        const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
+        if (slotVoucherCounts[slot] > 0 && !cutoff.canUseVoucher) {
+          showAlert(
+            'Voucher Unavailable',
+            `${slot === 'LUNCH' ? 'Lunch' : 'Dinner'} voucher ordering time has passed. Please remove the voucher to continue.`,
+            undefined,
+            'error'
+          );
+          setSlotVoucherCount(slot, 0);
+          return;
+        }
       }
     }
 
@@ -448,33 +520,97 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         const slotVouchers = slotVoucherCounts[slot] || 0;
         const slotPricingData = slot === 'LUNCH' ? lunchPricing.pricing : dinnerPricing.pricing;
 
-        const response = await apiService.createOrder({
-          kitchenId: kitchenId!,
-          menuType: menuType!,
-          mealWindow: slot,
-          deliveryAddressId: localSelectedAddressId,
-          items: slotItems,
-          voucherCount: slotVouchers,
-          couponCode: couponCode || null,
-          paymentMethod: slotVouchers > 0 && slotPricingData?.amountToPay === 0 ? 'VOUCHER_ONLY' : 'UPI',
-        });
+        if (isSchedulingMode) {
+          // SCHEDULING MODE: use createScheduledMeal
+          const response = await apiService.createScheduledMeal({
+            deliveryAddressId: localSelectedAddressId,
+            mealWindow: slot,
+            scheduledDate: scheduledDate!,
+            items: slotItems.map(item => ({
+              menuItemId: item.menuItemId,
+              quantity: item.quantity,
+              addons: item.addons,
+            })),
+            voucherCount: slotVouchers || undefined,
+            couponCode: couponCode || undefined,
+            specialInstructions: cookingInstructions.trim() || undefined,
+          });
 
-        console.log(`[CartScreen] createOrder response for ${slot}:`, JSON.stringify(response));
+          console.log(`[CartScreen] createScheduledMeal response for ${slot}:`, JSON.stringify(response));
 
-        const isSuccess = response.success || (response as any).message === true;
-        const orderData = response.data?.order ? response.data : (response as any).error;
+          if (!response.success) {
+            throw new Error(response.message || `Failed to schedule ${slot} meal`);
+          }
 
-        if (!isSuccess || !orderData?.order) {
-          throw new Error(`Failed to create ${slot} order`);
+          const { order, paymentRequired } = response.data;
+          const orderId = order.id || order._id || '';
+          const orderNumber = order.orderNumber;
+          const orderAmountToPay = paymentRequired ? (order.pricing?.amountToPay || slotPricingData?.amountToPay || 0) : 0;
+
+          orderResults.push({ orderId, orderNumber, amountToPay: orderAmountToPay, slot });
+          totalAmountToPay += orderAmountToPay;
+        } else {
+          // TODAY MODE: use createOrder
+          const orderPayload = {
+            kitchenId: kitchenId!,
+            menuType: menuType!,
+            mealWindow: slot,
+            deliveryAddressId: localSelectedAddressId,
+            items: slotItems,
+            voucherCount: slotVouchers,
+            couponCode: couponCode || null,
+            paymentMethod: slotVouchers > 0 && slotPricingData?.amountToPay === 0 ? 'VOUCHER_ONLY' : 'UPI',
+          };
+
+          let response = await apiService.createOrder(orderPayload);
+          console.log(`[CartScreen] createOrder response for ${slot}:`, JSON.stringify(response));
+
+          // Handle duplicate order warning
+          if (response.success && response.data?.warning) {
+            const warningData = response.data;
+            const sourceLabel = warningData.existingOrder?.orderSource === 'AUTO_ORDER'
+              ? 'Auto-Order Already Placed'
+              : warningData.existingOrder?.orderSource === 'SCHEDULED'
+                ? 'Scheduled Order Exists'
+                : 'Order Already Placed';
+
+            const userConfirmed = await new Promise<boolean>((resolve) => {
+              showAlert(
+                sourceLabel,
+                warningData.message || 'You already have an order for this meal window. Place another?',
+                [
+                  { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                  { text: 'Place Anyway', onPress: () => resolve(true) },
+                ],
+                'warning'
+              );
+            });
+
+            if (!userConfirmed) {
+              setIsPlacingOrder(false);
+              return;
+            }
+
+            // Re-send with confirmed: true
+            response = await apiService.createOrder({ ...orderPayload, confirmed: true });
+            console.log(`[CartScreen] createOrder confirmed response for ${slot}:`, JSON.stringify(response));
+          }
+
+          const isSuccess = response.success || (response as any).message === true;
+          const orderData = response.data?.order ? response.data : (response as any).error;
+
+          if (!isSuccess || !orderData?.order) {
+            throw new Error(`Failed to create ${slot} order`);
+          }
+
+          const orderId = orderData.order._id;
+          const orderNumber = orderData.order.orderNumber;
+          const orderAmountToPay = orderData.amountToPay || 0;
+          const cancelDeadline = orderData.cancelDeadline || undefined;
+
+          orderResults.push({ orderId, orderNumber, amountToPay: orderAmountToPay, cancelDeadline, slot });
+          totalAmountToPay += orderAmountToPay;
         }
-
-        const orderId = orderData.order._id;
-        const orderNumber = orderData.order.orderNumber;
-        const orderAmountToPay = orderData.amountToPay || 0;
-        const cancelDeadline = orderData.cancelDeadline || undefined;
-
-        orderResults.push({ orderId, orderNumber, amountToPay: orderAmountToPay, cancelDeadline, slot });
-        totalAmountToPay += orderAmountToPay;
       }
 
       // Refresh voucher data if any vouchers were used
@@ -490,7 +626,6 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           const paymentResult = await processOrderPayment(result.orderId);
 
           if (!paymentResult.success) {
-            // Payment failed for this order
             const successfulOrders = orderResults.filter(r => r.orderId !== result.orderId);
             const successInfo = successfulOrders.length > 0
               ? `\n\nOrder(s) ${successfulOrders.map(r => r.orderNumber).join(', ')} were placed successfully.`
@@ -511,28 +646,42 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       }
 
-      // Step 3: All successful — show success
+      // Step 3: All successful
       dataPreloader.invalidateCache('orders');
       if (voucherCount > 0) {
         dataPreloader.invalidateCache('vouchers');
       }
 
-      const bonusVouchers = orderResults.reduce((sum, r) => sum, 0); // TODO: extract from order data
-      setExtraVouchersIssued(bonusVouchers);
-      setOrderResult({
-        orderId: orderResults[0].orderId,
-        orderNumber: orderResults.map(r => r.orderNumber).join(' & '),
-        amountToPay: totalAmountToPay,
-        cancelDeadline: orderResults[0].cancelDeadline,
-      });
-      setShowSuccessModal(true);
-      setPendingPaymentOrderId(null);
+      if (isSchedulingMode) {
+        // Scheduling success: show alert and navigate to MyScheduledMeals
+        const orderNumbers = orderResults.map(r => r.orderNumber).join(' & ');
+        showAlert(
+          'Meal Scheduled!',
+          `Your meal${orderResults.length > 1 ? 's' : ''} for ${scheduledDate} ${orderResults.length > 1 ? 'have' : 'has'} been scheduled successfully. (${orderNumbers})`,
+          [
+            { text: 'View Scheduled Meals', onPress: () => navigation.navigate('MyScheduledMeals') },
+            { text: 'OK', style: 'cancel', onPress: () => navigation.goBack() },
+          ],
+          'success'
+        );
+      } else {
+        // Today success: show success modal
+        const bonusVouchers = orderResults.reduce((sum, r) => sum, 0);
+        setExtraVouchersIssued(bonusVouchers);
+        setOrderResult({
+          orderId: orderResults[0].orderId,
+          orderNumber: orderResults.map(r => r.orderNumber).join(' & '),
+          amountToPay: totalAmountToPay,
+          cancelDeadline: orderResults[0].cancelDeadline,
+        });
+        setShowSuccessModal(true);
+        setPendingPaymentOrderId(null);
+      }
 
     } catch (error: any) {
       console.error('Error placing order:', JSON.stringify(error));
 
       if (orderResults.length > 0) {
-        // Partial success
         showAlert(
           'Partial Order Issue',
           `${orderResults.length} order(s) placed successfully, but an error occurred. Check Your Orders for details.`,
@@ -1074,152 +1223,40 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           ))}
 
           {/* Add-ons — unified list of all available addons */}
-          {availableAddons.length > 0 && (
-            <>
-              <TouchableOpacity
-                onPress={() => setAddonsExpanded(!addonsExpanded)}
-                className="flex-row items-center justify-between py-2"
-                activeOpacity={0.7}
-              >
-                <Text className="text-base font-bold text-gray-900">Would you like some add-ons?</Text>
-                <View className="flex-row items-center">
-                  {cartItems[0]?.addons && cartItems[0].addons.length > 0 && (
-                    <View
-                      className="items-center justify-center mr-2"
-                      style={{
-                        backgroundColor: '#ff8800',
-                        borderRadius: 10,
-                        width: 20,
-                        height: 20,
-                      }}
-                    >
-                      <Text style={{ color: 'white', fontSize: 11, fontWeight: '700' }}>
-                        {cartItems[0].addons.length}
-                      </Text>
-                    </View>
-                  )}
-                  <Image
-                    source={require('../../assets/icons/down2.png')}
-                    style={{
-                      width: 14,
-                      height: 14,
-                      tintColor: '#9CA3AF',
-                      transform: [{ rotate: addonsExpanded ? '180deg' : '0deg' }],
-                    }}
-                    resizeMode="contain"
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {addonsExpanded && availableAddons.map((addon) => {
-                const cartItem = cartItems[0];
-                const cartAddonIndex = cartItem?.addons?.findIndex(a => a.addonId === addon._id) ?? -1;
-                const cartAddon = cartAddonIndex >= 0 ? cartItem.addons![cartAddonIndex] : null;
-
-                return (
-                  <View
-                    key={addon._id}
-                    className="flex-row items-center py-2.5"
-                    style={cartAddon ? { backgroundColor: '#FFFBF5', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 10, marginVertical: 2 } : { marginVertical: 2 }}
-                  >
-                    <Image
-                      source={require('../../assets/images/homepage/roti.png')}
-                      className="rounded-full"
-                      style={{ width: 36, height: 36 }}
-                      resizeMode="cover"
-                    />
-                    <View className="flex-1 ml-3">
-                      <Text className="text-sm font-semibold text-gray-900">{addon.name}</Text>
-                      <Text className="text-xs text-gray-500">
-                        {addon.description || '1 serving'}
-                        {' · '}
-                        <Text className="font-semibold text-gray-700">₹{addon.price}</Text>
-                        {cartAddon && (
-                          <Text className="font-semibold" style={{ color: '#ff8800' }}>
-                            {' '}· ₹{(addon.price * cartAddon.quantity).toFixed(0)}
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
-
-                    {cartAddon ? (
-                      <View
-                        className="flex-row items-center"
-                        style={{
-                          backgroundColor: '#FFF7ED',
-                          borderRadius: 16,
-                          paddingVertical: 4,
-                          paddingHorizontal: 6,
-                          borderWidth: 1,
-                          borderColor: '#ff8800',
-                        }}
-                      >
-                        <TouchableOpacity
-                          onPress={() => {
-                            if (cartAddon.quantity <= 1) {
-                              removeAddon(cartItem.id, cartAddonIndex);
-                            } else {
-                              updateAddonQuantity(cartItem.id, cartAddonIndex, cartAddon.quantity - 1);
-                            }
-                          }}
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 10,
-                            backgroundColor: 'white',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 1,
-                            borderColor: '#ff8800',
-                          }}
-                        >
-                          <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '600' }}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={{ color: '#ff8800', fontSize: 13, fontWeight: '700', marginHorizontal: 6 }}>
-                          {cartAddon.quantity}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => updateAddonQuantity(cartItem.id, cartAddonIndex, cartAddon.quantity + 1)}
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 10,
-                            backgroundColor: '#ff8800',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (cartItem) {
-                            addAddonToItem(cartItem.id, {
-                              addonId: addon._id,
-                              name: addon.name,
-                              quantity: 1,
-                              unitPrice: addon.price,
-                            });
-                          }
-                        }}
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: 4,
-                          borderWidth: 1.5,
-                          borderColor: '#D1D5DB',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      />
-                    )}
-                  </View>
-                );
-              })}
-            </>
-          )}
+          <AddonSelector
+            availableAddons={availableAddons}
+            selectedAddons={(cartItems[0]?.addons || []).map(a => ({
+              addonId: a.addonId,
+              name: a.name,
+              quantity: a.quantity,
+              unitPrice: a.unitPrice,
+            }))}
+            onAdd={(addon) => {
+              const cartItem = cartItems[0];
+              if (cartItem) {
+                addAddonToItem(cartItem.id, {
+                  addonId: addon._id,
+                  name: addon.name,
+                  quantity: 1,
+                  unitPrice: addon.price,
+                });
+              }
+            }}
+            onRemove={(addonId) => {
+              const cartItem = cartItems[0];
+              if (cartItem?.addons) {
+                const idx = cartItem.addons.findIndex(a => a.addonId === addonId);
+                if (idx >= 0) removeAddon(cartItem.id, idx);
+              }
+            }}
+            onQuantityChange={(addonId, quantity) => {
+              const cartItem = cartItems[0];
+              if (cartItem?.addons) {
+                const idx = cartItem.addons.findIndex(a => a.addonId === addonId);
+                if (idx >= 0) updateAddonQuantity(cartItem.id, idx, quantity);
+              }
+            }}
+          />
         </View>
 
         {/* Vouchers Banner */}
@@ -1339,34 +1376,46 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Ordering for Today + Plan Ahead */}
+        {/* Date banner — scheduling mode vs today */}
         <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingVertical: isSmallDevice ? SPACING.lg : SPACING.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <MaterialCommunityIcons name="calendar-today" size={20} color="#ff8800" style={{ marginRight: 10 }} />
+              <MaterialCommunityIcons
+                name={isSchedulingMode ? 'calendar-clock' : 'calendar-today'}
+                size={20}
+                color={isSchedulingMode ? '#3B82F6' : '#ff8800'}
+                style={{ marginRight: 10 }}
+              />
               <View>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Ordering for Today</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
+                  {isSchedulingMode ? 'Scheduling Meal' : 'Ordering for Today'}
+                </Text>
                 <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {isSchedulingMode
+                    ? new Date(scheduledDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })
+                    : new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })
+                  }
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('MealCalendar')}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#FFF7ED',
-                borderRadius: 20,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderWidth: 1,
-                borderColor: '#FDBA74',
-              }}
-            >
-              <MaterialCommunityIcons name="calendar-month" size={16} color="#ff8800" style={{ marginRight: 4 }} />
-              <Text style={{ color: '#ff8800', fontSize: 12, fontWeight: '600' }}>Plan Ahead</Text>
-            </TouchableOpacity>
+            {!isSchedulingMode && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('MealCalendar')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FFF7ED',
+                  borderRadius: 20,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderWidth: 1,
+                  borderColor: '#FDBA74',
+                }}
+              >
+                <MaterialCommunityIcons name="calendar-month" size={16} color="#ff8800" style={{ marginRight: 4 }} />
+                <Text style={{ color: '#ff8800', fontSize: 12, fontWeight: '600' }}>Plan Ahead</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -1905,7 +1954,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
             ) : (
               <>
                 <Text style={{ color: '#ff8800', fontWeight: '700', fontSize: 15, marginRight: 6 }}>
-                  {addresses.length === 0 ? 'Add Address' : amountToPay === 0 ? 'Place Order' : 'Pay Now'}
+                  {addresses.length === 0 ? 'Add Address' : isSchedulingMode ? (amountToPay === 0 ? 'Schedule' : 'Schedule & Pay') : (amountToPay === 0 ? 'Place Order' : 'Pay Now')}
                 </Text>
                 <Image
                   source={require('../../assets/icons/uparrow.png')}

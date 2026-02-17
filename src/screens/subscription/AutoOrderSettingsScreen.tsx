@@ -4,10 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Switch,
   ActivityIndicator,
-  Modal,
-  Pressable,
   StyleSheet,
   Image,
   StatusBar,
@@ -29,19 +26,12 @@ type Props = StackScreenProps<MainTabParamList, 'AutoOrderSettings'>;
 const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
   const {
     autoOrderConfigs,
-    globalAutoOrderEnabled,
     autoOrderConfigsLoading,
     fetchAllAutoOrderConfigs,
-    toggleGlobalAutoOrder,
   } = useSubscription();
   const { addresses } = useAddress();
 
-  const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [modalTitle, setModalTitle] = useState('');
-  const [modalMessage, setModalMessage] = useState('');
 
   // Fetch configs on mount
   useEffect(() => {
@@ -63,23 +53,6 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
     } catch {}
     setRefreshing(false);
   }, [fetchAllAutoOrderConfigs]);
-
-  // Handle master toggle
-  const handleToggleGlobal = async (value: boolean) => {
-    setIsLoading(true);
-    try {
-      await toggleGlobalAutoOrder(value);
-      setModalTitle('Success');
-      setModalMessage(value ? 'Auto-ordering has been enabled' : 'Auto-ordering has been disabled');
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      setModalTitle('Error');
-      setModalMessage(error.message || 'Failed to update auto-ordering');
-      setShowErrorModal(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Get status badge color
   const getStatusColor = (config: AutoOrderAddressConfig) => {
@@ -167,7 +140,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ff8800']} />
         }
       >
-        {/* Master Toggle Card */}
+        {/* Summary Card */}
         <View
           className="mx-4 mb-5 rounded-3xl overflow-hidden"
           style={{
@@ -178,32 +151,20 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
             elevation: 5,
           }}
         >
-          <View
-            className="p-5"
-            style={{ backgroundColor: globalAutoOrderEnabled ? '#ff8800' : '#9CA3AF' }}
-          >
-            {/* Toggle Row */}
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="flex-1 mr-4">
+          <View className="p-5" style={{ backgroundColor: '#ff8800' }}>
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons name="refresh-auto" size={28} color="white" style={{ marginRight: 12 }} />
+              <View className="flex-1">
                 <Text className="text-xl font-bold text-white mb-1" numberOfLines={1}>
                   Auto-Ordering
                 </Text>
                 <Text className="text-sm text-white opacity-90" numberOfLines={2}>
-                  {globalAutoOrderEnabled
+                  {activeConfigCount > 0
                     ? `${activeConfigCount} address${activeConfigCount !== 1 ? 'es' : ''} active · ${totalMealsPerWeek} meals/week`
-                    : 'Enable to automate your orders'}
+                    : 'Set up auto-ordering for your addresses'}
                 </Text>
               </View>
-              <Switch
-                value={globalAutoOrderEnabled}
-                onValueChange={handleToggleGlobal}
-                trackColor={{ false: '#E5E7EB', true: '#ffffff40' }}
-                thumbColor="#ffffff"
-                disabled={isLoading}
-                style={{ transform: [{ scale: 1.1 }] }}
-              />
             </View>
-
           </View>
         </View>
 
@@ -409,7 +370,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Quick Actions */}
-        {globalAutoOrderEnabled && autoOrderConfigs.length > 0 && (
+        {autoOrderConfigs.length > 0 && (
           <View className="mx-4 mb-4">
             <View className="flex-row items-center mb-4">
               <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
@@ -461,46 +422,6 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
-
-      {/* Loading Overlay */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ff8800" />
-            <Text style={styles.loadingText}>Updating...</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Success Modal */}
-      <Modal visible={showSuccessModal} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowSuccessModal(false)}>
-          <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
-              <Text style={styles.modalMessage}>{modalMessage}</Text>
-              <TouchableOpacity onPress={() => setShowSuccessModal(false)} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Error Modal */}
-      <Modal visible={showErrorModal} transparent animationType="fade" onRequestClose={() => setShowErrorModal(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowErrorModal(false)}>
-          <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{modalTitle}</Text>
-              <Text style={styles.modalMessage}>{modalMessage}</Text>
-              <TouchableOpacity onPress={() => setShowErrorModal(false)} style={[styles.modalButton, { backgroundColor: '#EF4444' }]}>
-                <Text style={styles.modalButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 };
@@ -508,77 +429,6 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-  },
-  modalTitle: {
-    fontSize: FONT_SIZES.h3,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: SPACING.md,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: FONT_SIZES.base,
-    color: '#6B7280',
-    marginBottom: SPACING.xl,
-    textAlign: 'center',
-    lineHeight: FONT_SIZES.base * 1.4,
-  },
-  modalButton: {
-    backgroundColor: '#ff8800',
-    minHeight: TOUCH_TARGETS.comfortable,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-  },
-  modalButtonText: {
-    fontSize: FONT_SIZES.base,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    backgroundColor: 'white',
-    borderRadius: SPACING.lg,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    fontSize: FONT_SIZES.base,
-    color: '#6B7280',
   },
 });
 

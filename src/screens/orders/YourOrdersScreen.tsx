@@ -380,11 +380,25 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           : (response.message && typeof response.message === 'string' ? response.message : 'Failed to cancel order');
         console.log('[YourOrdersScreen] Cancel failed:', errorMessage);
         setShowCancelModal(false);
+        // Hide cancel button for this order (window likely expired)
+        if (selectedOrderForCancel) {
+          setCurrentOrders(prev => prev.map(o =>
+            o._id === selectedOrderForCancel._id ? { ...o, canCancel: false } : o
+          ));
+        }
+        setSelectedOrderForCancel(null);
         showAlert('Cannot Cancel Order', errorMessage, undefined, 'error');
       }
     } catch (error: any) {
       console.error('[YourOrdersScreen] Cancel error:', error.message || error);
       setShowCancelModal(false);
+      // Hide cancel button for this order (window likely expired)
+      if (selectedOrderForCancel) {
+        setCurrentOrders(prev => prev.map(o =>
+          o._id === selectedOrderForCancel._id ? { ...o, canCancel: false } : o
+        ));
+      }
+      setSelectedOrderForCancel(null);
       showAlert('Error', error.message || 'Failed to cancel order', undefined, 'error');
     } finally {
       setIsCancelling(false);
@@ -504,7 +518,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Action Buttons */}
       <View className="flex-row justify-center">
-        {order.canCancel !== false && (
+        {order.canCancel === true && (
           <TouchableOpacity
             onPress={(e) => {
               e.stopPropagation();
@@ -523,7 +537,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             handleTrackOrder(order._id);
           }}
           className="py-2 rounded-full items-center"
-          style={{ width: order.canCancel !== false ? 135 : 280, backgroundColor: 'rgba(255, 136, 0, 1)' }}
+          style={{ width: order.canCancel === true ? 135 : 280, backgroundColor: 'rgba(255, 136, 0, 1)' }}
         >
           <Text className="text-base font-semibold text-white">Track Order</Text>
         </TouchableOpacity>

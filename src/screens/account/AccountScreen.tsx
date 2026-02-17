@@ -71,7 +71,6 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
     subscriptions,
     loading,
     fetchSubscriptions,
-    globalAutoOrderEnabled,
     autoOrderConfigs,
     fetchAllAutoOrderConfigs,
   } = useSubscription();
@@ -466,8 +465,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
               );
             })()}
 
-            {/* Auto-Order Status Card - Only show if auto-ordering is enabled with active configs */}
-            {globalAutoOrderEnabled && activeConfigCount > 0 && (
+            {/* Auto-Order Status Card - Show if there are active configs */}
+            {activeConfigCount > 0 && (
               <View className="mt-3 rounded-xl p-3" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)' }}>
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center">
@@ -513,7 +512,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 className="flex-1 mr-2 bg-white rounded-full py-2.5 items-center"
                 style={{
                   borderWidth: 1.5,
-                  borderColor: !globalAutoOrderEnabled ? '#3B82F6' : '#ff8800',
+                  borderColor: '#ff8800',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
@@ -521,8 +520,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   elevation: 2,
                 }}
               >
-                <Text className="font-semibold text-sm" style={{ color: !globalAutoOrderEnabled ? '#3B82F6' : '#ff8800' }}>
-                  {!globalAutoOrderEnabled ? 'Enable' : 'Settings'}
+                <Text className="font-semibold text-sm" style={{ color: '#ff8800' }}>
+                  Settings
                 </Text>
               </TouchableOpacity>
 
@@ -546,21 +545,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {/* Auto Order Status Display */}
-            {!globalAutoOrderEnabled && (
-              <View className="rounded-xl p-3" style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D' }}>
-                <Text className="text-sm text-center" style={{ color: '#92400E' }}>
-                  Auto-ordering is disabled. Enable it in{' '}
-                  <Text
-                    className="font-bold"
-                    style={{ color: '#D97706' }}
-                    onPress={() => navigation.navigate('AutoOrderSettings')}
-                  >
-                    Settings →
-                  </Text>
-                </Text>
-              </View>
-            )}
-            {globalAutoOrderEnabled && totalConfigCount > 0 && (
+            {totalConfigCount > 0 && (
               <View className="flex-row items-center justify-between">
                 <Text className="text-sm font-semibold text-gray-900">
                   {activeConfigCount} of {totalConfigCount} address{totalConfigCount > 1 ? 'es' : ''} active

@@ -4,7 +4,7 @@ import { getIdToken } from '../config/firebase';
 // Backend base URL - update this with your actual backend URL
 const BASE_URL = 'https://tiffsy-backend.onrender.com';
 // const BASE_URL = 'http://192.168.29.105:5005';
-// const BASE_URL = 'http://192.168.29.69:5005';
+// const BASE_URL = 'http://192.168.1.6:5005';
 
 // Type definitions for API responses
 export interface UserData {
@@ -546,6 +546,7 @@ export interface CalculatePricingResponse {
 export interface CreateOrderRequest extends CalculatePricingRequest {
   specialInstructions?: string;
   deliveryNotes?: string;
+  confirmed?: boolean;
   paymentMethod:
     | 'UPI'
     | 'CARD'
@@ -659,6 +660,7 @@ export interface CreateOrderResponse {
   message: string;
   data: {
     order: Order;
+    cancelDeadline?: string;
     vouchersUsed: number;
     amountToPay: number;
     paymentRequired: boolean;
@@ -1737,8 +1739,13 @@ class ApiService {
   async updateAutoOrderConfig(
     data: UpdateAutoOrderConfigRequest,
   ): Promise<UpdateAutoOrderConfigResponse> {
-    console.log('[ApiService] updateAutoOrderConfig - Request:', { data });
-    const response = await this.api.put('/api/scheduling/auto-order/settings', data);
+    // Strip empty/falsy addressId so the backend doesn't reject it
+    const payload = { ...data };
+    if (!payload.addressId) {
+      delete (payload as any).addressId;
+    }
+    console.log('[ApiService] updateAutoOrderConfig - Request:', { data: payload });
+    const response = await this.api.put('/api/scheduling/auto-order/settings', payload);
     console.log('[ApiService] updateAutoOrderConfig - Response:', JSON.stringify(response, null, 2));
     return response;
   }

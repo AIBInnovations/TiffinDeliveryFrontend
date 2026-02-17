@@ -77,17 +77,18 @@ class NotificationChannelModule(reactContext: ReactApplicationContext) :
                     setShowBadge(true)
                 }
 
-                // 3. General Channel (Default Priority)
-                // For menu updates, promotional messages, general info
+                // 3. General Channel (High Priority)
+                // For admin push, menu updates, promotional messages
                 val generalChannel = NotificationChannel(
                     "general_channel",
                     "General",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Menu updates and promotional messages"
+                    description = "Admin announcements, menu updates and promotional messages"
                     enableLights(true)
                     lightColor = android.graphics.Color.parseColor("#10B981") // Green color
-                    enableVibration(false) // No vibration for low priority
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 200, 100, 200)
                     setSound(
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                         AudioAttributes.Builder()
@@ -95,7 +96,7 @@ class NotificationChannelModule(reactContext: ReactApplicationContext) :
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build()
                     )
-                    setShowBadge(false) // Don't show badge for general notifications
+                    setShowBadge(true)
                 }
 
                 // 4. Default Channel (Fallback)
