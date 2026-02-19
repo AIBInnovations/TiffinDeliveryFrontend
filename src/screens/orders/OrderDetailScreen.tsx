@@ -565,6 +565,34 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           )}
 
+          {order.charges.platformFee > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-600">Platform Fee</Text>
+              <Text className="text-sm text-gray-900">₹{order.charges.platformFee.toFixed(2)}</Text>
+            </View>
+          )}
+
+          {order.charges.surgeFee > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-600">Surge Fee</Text>
+              <Text className="text-sm text-gray-900">₹{order.charges.surgeFee.toFixed(2)}</Text>
+            </View>
+          )}
+
+          {order.charges.smallOrderFee > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-600">Small Order Fee</Text>
+              <Text className="text-sm text-gray-900">₹{order.charges.smallOrderFee.toFixed(2)}</Text>
+            </View>
+          )}
+
+          {order.charges.lateNightFee > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-600">Late Night Fee</Text>
+              <Text className="text-sm text-gray-900">₹{order.charges.lateNightFee.toFixed(2)}</Text>
+            </View>
+          )}
+
           {order.charges.taxAmount > 0 && (
             <View className="flex-row justify-between mb-2">
               <Text className="text-sm text-gray-600">Tax</Text>

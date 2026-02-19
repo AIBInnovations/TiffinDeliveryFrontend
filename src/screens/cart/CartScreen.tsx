@@ -830,10 +830,10 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   const dinnerSubtotal = dinnerPricing.pricing?.subtotal ?? 0;
   const subtotal = (lunchSubtotal + dinnerSubtotal) || localFallbackSubtotal;
 
-  const lunchCharges = lunchPricing.pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
-  const dinnerCharges = dinnerPricing.pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, taxAmount: 0 };
-  const totalCharges = (lunchCharges.deliveryFee + lunchCharges.serviceFee + lunchCharges.packagingFee + lunchCharges.taxAmount)
-    + (dinnerCharges.deliveryFee + dinnerCharges.serviceFee + dinnerCharges.packagingFee + dinnerCharges.taxAmount);
+  const lunchCharges = lunchPricing.pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, platformFee: 0, surgeFee: 0, smallOrderFee: 0, lateNightFee: 0, taxAmount: 0 };
+  const dinnerCharges = dinnerPricing.pricing?.charges ?? { deliveryFee: 0, serviceFee: 0, packagingFee: 0, handlingFee: 0, platformFee: 0, surgeFee: 0, smallOrderFee: 0, lateNightFee: 0, taxAmount: 0 };
+  const totalCharges = (lunchCharges.deliveryFee + lunchCharges.serviceFee + lunchCharges.packagingFee + (lunchCharges.platformFee || 0) + (lunchCharges.surgeFee || 0) + (lunchCharges.smallOrderFee || 0) + (lunchCharges.lateNightFee || 0) + lunchCharges.taxAmount)
+    + (dinnerCharges.deliveryFee + dinnerCharges.serviceFee + dinnerCharges.packagingFee + (dinnerCharges.platformFee || 0) + (dinnerCharges.surgeFee || 0) + (dinnerCharges.smallOrderFee || 0) + (dinnerCharges.lateNightFee || 0) + dinnerCharges.taxAmount);
 
   const voucherDiscount = (lunchPricing.pricing?.voucherCoverage?.value ?? 0) + (dinnerPricing.pricing?.voucherCoverage?.value ?? 0);
 

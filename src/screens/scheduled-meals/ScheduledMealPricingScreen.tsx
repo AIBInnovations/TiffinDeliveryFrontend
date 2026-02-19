@@ -446,6 +446,38 @@ const ScheduledMealPricingScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
               )}
 
+              {/* Platform Fee */}
+              {pricing.charges.platformFee > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm }}>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>Platform Fee</Text>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>₹{pricing.charges.platformFee}</Text>
+                </View>
+              )}
+
+              {/* Surge Fee */}
+              {pricing.charges.surgeFee > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm }}>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>Surge Fee</Text>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>₹{pricing.charges.surgeFee}</Text>
+                </View>
+              )}
+
+              {/* Small Order Fee */}
+              {pricing.charges.smallOrderFee > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm }}>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>Small Order Fee</Text>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>₹{pricing.charges.smallOrderFee}</Text>
+                </View>
+              )}
+
+              {/* Late Night Fee */}
+              {pricing.charges.lateNightFee > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm }}>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>Late Night Fee</Text>
+                  <Text style={{ fontSize: FONT_SIZES.sm, color: '#4B5563' }}>₹{pricing.charges.lateNightFee}</Text>
+                </View>
+              )}
+
               {/* Tax */}
               {pricing.charges.taxAmount > 0 && (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm }}>
