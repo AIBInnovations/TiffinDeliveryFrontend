@@ -1585,6 +1585,7 @@ class ApiService {
     name: string;
     email?: string;
     dietaryPreferences?: string[];
+    referralCode?: string;
   }): Promise<RegisterUserResponse> {
     return this.api.post('/api/auth/register', data);
   }
@@ -2008,9 +2009,10 @@ class ApiService {
     name: string;
     email?: string;
     dietaryPreferences?: string[];
+    referralCode?: string;
   }): Promise<{
     message: string;
-    data: { user: UserData };
+    data: { user: UserData; referral?: { success: boolean; error?: string } };
   }> {
     return this.api.post('/api/customer/profile/complete', data);
   }
@@ -2510,6 +2512,71 @@ class ApiService {
     razorpaySignature: string;
   }): Promise<{ success: boolean; message: string; data: { success: boolean; slotsActivated: number } }> {
     return this.api.post('/api/auto-order/addon-selections/verify-payment', data);
+  }
+
+  // =============================================
+  // REFERRAL ENDPOINTS
+  // =============================================
+
+  // Get or generate referral code
+  async getMyReferralCode(): Promise<{
+    success: boolean;
+    message: string;
+    data: { code: string };
+  }> {
+    return this.api.get('/api/referrals/my-code');
+  }
+
+  // Get referral stats
+  async getMyReferralStats(): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      referralCode: string;
+      totalReferred: number;
+      totalConverted: number;
+      totalVouchersEarned: number;
+      currentMilestone: { name: string; referralCount: number } | null;
+      nextMilestone: { name: string; referralCount: number; remaining: number } | null;
+      referrals: Array<{
+        _id: string;
+        refereeName: string;
+        refereePhone: string | null;
+        status: string;
+        createdAt: string;
+        conversionDate?: string;
+        referrerReward?: { voucherCount: number };
+      }>;
+    };
+  }> {
+    return this.api.get('/api/referrals/my-stats');
+  }
+
+  // Validate a referral code
+  async validateReferralCode(code: string): Promise<{
+    success: boolean;
+    message: string;
+    data: { valid: boolean; referrerName?: string; reason?: string };
+  }> {
+    return this.api.post('/api/referrals/validate-code', { code });
+  }
+
+  // Apply a referral code
+  async applyReferralCode(code: string): Promise<{
+    success: boolean;
+    message: string;
+    data: { applied: boolean; referralId?: string };
+  }> {
+    return this.api.post('/api/referrals/apply-code', { code });
+  }
+
+  // Get shareable content
+  async getShareContent(): Promise<{
+    success: boolean;
+    message: string;
+    data: { message: string; code: string };
+  }> {
+    return this.api.get('/api/referrals/share-content');
   }
 }
 

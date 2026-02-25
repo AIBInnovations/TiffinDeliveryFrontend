@@ -26,6 +26,7 @@ import ChatSupportScreen from '../screens/account/ChatSupportScreen';
 import MealCalendarScreen from '../screens/scheduled-meals/MealCalendarScreen';
 import BulkSchedulePricingScreen from '../screens/scheduled-meals/BulkSchedulePricingScreen';
 import AutoOrderAddonScreen from '../screens/scheduled-meals/AutoOrderAddonScreen';
+import ReferAndEarnScreen from '../screens/account/ReferAndEarnScreen';
 import BottomNavBar from '../components/BottomNavBar';
 import { MainTabParamList } from '../types/navigation';
 
@@ -92,6 +93,7 @@ const MainNavigatorContent = () => {
         <Stack.Screen name="MealCalendar" component={MealCalendarScreen} />
         <Stack.Screen name="BulkSchedulePricing" component={BulkSchedulePricingScreen} />
         <Stack.Screen name="AutoOrderAddons" component={AutoOrderAddonScreen} />
+        <Stack.Screen name="ReferAndEarn" component={ReferAndEarnScreen} />
       </Stack.Navigator>
       {showNavBar && <BottomNavBar activeTab={activeTab} />}
     </View>
