@@ -2,9 +2,9 @@ import axios, { AxiosInstance } from 'axios';
 import { getIdToken } from '../config/firebase';
 
 // Backend base URL - update this with your actual backend URL
-//const BASE_URL = 'https://d31od4t2t5epcb.cloudfront.net';
+const BASE_URL = 'https://d31od4t2t5epcb.cloudfront.net';
 // const BASE_URL = 'http://192.168.1.4:5005';
- const BASE_URL = 'http://192.168.29.69:5005';
+// const BASE_URL = 'http://192.168.29.69:5005';
 
 // Type definitions for API responses
 export interface UserData {
