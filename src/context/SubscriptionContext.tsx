@@ -359,13 +359,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       setGlobalAutoOrderEnabled(response.data.autoOrderingEnabled);
       setGlobalIsPaused(response.data.isPaused);
 
-      // Auto-enable global flag if it's off but configs exist (global toggle was removed from UI)
-      if (!response.data.autoOrderingEnabled && response.data.configs?.length > 0) {
-        console.log('[SubscriptionContext] Auto-enabling global autoOrderingEnabled (toggle removed from UI)');
-        apiService.updateAutoOrderConfig({ addressId: '', autoOrderingEnabled: true } as any).then(() => {
-          setGlobalAutoOrderEnabled(true);
-        }).catch(() => {});
-      }
+      // autoOrderingEnabled is computed server-side from config.enabled states
 
       return response;
     } catch (err: any) {

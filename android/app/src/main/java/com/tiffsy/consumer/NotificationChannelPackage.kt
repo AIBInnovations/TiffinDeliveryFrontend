@@ -1,4 +1,4 @@
-package com.tiffindelivery
+package com.tiffsy.consumer
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

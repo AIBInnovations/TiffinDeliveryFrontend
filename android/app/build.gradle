@@ -79,9 +79,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.tiffindelivery"
+    namespace "com.tiffsy.consumer"
     defaultConfig {
-        applicationId "com.tiffindelivery"
+        applicationId "com.tiffsy.consumer"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2

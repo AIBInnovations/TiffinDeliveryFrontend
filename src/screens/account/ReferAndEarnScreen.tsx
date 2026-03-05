@@ -481,8 +481,9 @@ const ReferAndEarnScreen: React.FC<Props> = ({ navigation }) => {
         data={stats?.referrals || []}
         renderItem={renderReferralItem}
         keyExtractor={(item) => item._id}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderHeader()}
         ListEmptyComponent={renderEmpty}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ff8800']} />

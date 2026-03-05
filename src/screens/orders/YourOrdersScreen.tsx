@@ -66,14 +66,36 @@ const getStatusMessage = (status: OrderStatus): string => {
   }
 };
 
-// Format date
-const formatDate = (dateString: string): string => {
+// Format date + time (Today / Yesterday / date + time)
+const formatDateTime = (dateString: string): string => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
+  const now = new Date();
+
+  const time = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  // Check if today
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+  if (isToday) return `Today, ${time}`;
+
+  // Check if yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+  if (isYesterday) return `Yesterday, ${time}`;
+
+  // Otherwise show full date
+  const dateStr = date.toLocaleDateString('en-IN', {
+    day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
+  return `${dateStr}, ${time}`;
 };
 
 // Get item image based on menu type and meal window
@@ -464,11 +486,11 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </View>
 
-          {/* Row 3: Time | Auto Badge */}
+          {/* Row 3: Date & Time | Auto Badge */}
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
-                {new Date(order.placedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                {formatDateTime(order.placedAt)}
               </Text>
               {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
                 <Text className="text-xs" style={{ color: '#16A34A', marginTop: 2, fontWeight: '600' }}>
@@ -587,7 +609,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
           <View className="flex-row items-center justify-between mt-2">
             <View className="flex-1">
               <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }}>
-                {formatDate(order.placedAt)}
+                {formatDateTime(order.placedAt)}
               </Text>
               {order.voucherUsage && order.voucherUsage.voucherCount > 0 && (
                 <Text className="text-xs" style={{ color: '#16A34A', marginTop: 2, fontWeight: '600' }}>

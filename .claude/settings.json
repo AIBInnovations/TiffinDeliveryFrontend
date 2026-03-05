@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(./gradlew signingReport:*)",
+      "Bash(keytool:*)"
+    ],
+    "additionalDirectories": [
+      "d:\\Tiffsy\\android\\app\\src\\main\\java\\com\\tiffindelivery"
     ]
   }
 }

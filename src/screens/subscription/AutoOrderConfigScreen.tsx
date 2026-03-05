@@ -174,7 +174,6 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
         enabled: isEnabled,
         kitchenId: selectedKitchenId,
         weeklySchedule: weeklySchedule,
-        autoOrderingEnabled: true,
       });
       setHasChanges(false);
       setModalTitle('Success');

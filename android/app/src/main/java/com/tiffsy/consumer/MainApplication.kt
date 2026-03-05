@@ -1,4 +1,4 @@
-package com.tiffindelivery
+package com.tiffsy.consumer
 
 import android.app.Application
 import com.facebook.react.PackageList

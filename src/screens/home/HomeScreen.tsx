@@ -131,33 +131,48 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Addons must come from the API with valid MongoDB ObjectIds
   // If no addons are returned from API, we show an empty list
 
-  // Get meal window info - HARDCODED based on time
+  // Get meal window info based on order cutoff times
+  // Defaults match backend system config: LUNCH cutoff 11:00, DINNER cutoff 21:00
   const mealWindowInfo = useMemo(() => {
     const now = new Date();
     const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinutes;
 
-    console.log('[HomeScreen] Calculating meal window info (HARDCODED)');
+    // Default cutoff times matching backend config
+    const LUNCH_ORDER_CUTOFF = 11 * 60; // 11:00 AM = 660 min
+    const DINNER_ORDER_CUTOFF = 21 * 60; // 9:00 PM = 1260 min
+
+    console.log('[HomeScreen] Calculating meal window info (cutoff-aware)');
     console.log('[HomeScreen] Current time:', now.toLocaleString());
-    console.log('[HomeScreen] Current hour:', currentHour);
+    console.log('[HomeScreen] Current total minutes:', currentTotalMinutes);
 
-    // HARDCODED LOGIC:
-    // 6 AM (6:00) to 6 PM (18:00) = Lunch
-    // 6 PM (18:00) to 6 AM (6:00) = Dinner
-    if (currentHour >= 6 && currentHour < 18) {
-      console.log('[HomeScreen] Time is between 6 AM and 6 PM -> Lunch');
+    if (currentTotalMinutes < LUNCH_ORDER_CUTOFF) {
+      // Before 11:00 AM -> lunch ordering still open
+      console.log('[HomeScreen] Before lunch cutoff (11:00) -> Lunch');
       return {
         activeMeal: 'lunch' as MealType,
         isWindowOpen: true,
-        nextMealWindow: 'lunch' as MealType,
-        nextMealWindowTime: '6:00 AM',
+        nextMealWindow: 'dinner' as MealType,
+        nextMealWindowTime: '6:00 PM',
       };
-    } else {
-      console.log('[HomeScreen] Time is between 6 PM and 6 AM -> Dinner');
+    } else if (currentTotalMinutes < DINNER_ORDER_CUTOFF) {
+      // 11:00 AM to 9:00 PM -> lunch closed, dinner available
+      console.log('[HomeScreen] Past lunch cutoff, before dinner cutoff (21:00) -> Dinner');
       return {
         activeMeal: 'dinner' as MealType,
         isWindowOpen: true,
-        nextMealWindow: 'dinner' as MealType,
-        nextMealWindowTime: '6:00 PM',
+        nextMealWindow: 'lunch' as MealType,
+        nextMealWindowTime: '6:00 AM tomorrow',
+      };
+    } else {
+      // After 9:00 PM -> all closed, next is tomorrow's lunch
+      console.log('[HomeScreen] Past all cutoffs -> Tomorrow Lunch');
+      return {
+        activeMeal: 'lunch' as MealType,
+        isWindowOpen: false,
+        nextMealWindow: 'lunch' as MealType,
+        nextMealWindowTime: '6:00 AM tomorrow',
       };
     }
   }, []);
@@ -368,8 +383,28 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onDemandMenu: menuResponse.data.onDemandMenu || [],
         });
 
-        // Set addons from the current meal
-        const currentMealItem = selectedMeal === 'lunch' ? lunch : dinner;
+        // Auto-switch meal based on backend canOrder fields
+        const lunchCanOrder = lunch?.canOrder !== false;
+        const dinnerCanOrder = dinner?.canOrder !== false;
+        let effectiveMeal = selectedMeal;
+
+        console.log('[HomeScreen] Cutoff check - lunch.canOrder:', lunch?.canOrder,
+          'dinner.canOrder:', dinner?.canOrder, 'current selectedMeal:', selectedMeal);
+
+        if (selectedMeal === 'lunch' && !lunchCanOrder && dinnerCanOrder) {
+          console.log('[HomeScreen] Auto-switching from lunch to dinner (lunch cutoff passed)');
+          effectiveMeal = 'dinner';
+          setSelectedMeal('dinner');
+        } else if (selectedMeal === 'dinner' && !dinnerCanOrder && lunchCanOrder) {
+          console.log('[HomeScreen] Auto-switching from dinner to lunch (dinner cutoff passed)');
+          effectiveMeal = 'lunch';
+          setSelectedMeal('lunch');
+        } else if (!lunchCanOrder && !dinnerCanOrder) {
+          console.log('[HomeScreen] Both meal windows past cutoff');
+        }
+
+        // Set addons from the effective meal (after potential auto-switch)
+        const currentMealItem = effectiveMeal === 'lunch' ? lunch : dinner;
 
         if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
           console.log('[HomeScreen] Addons found:', currentMealItem.addonIds.length);
@@ -653,6 +688,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return mealItem?.discountedPrice || mealItem?.price || 0;
   };
 
+  // Check if current meal can be ordered (not past cutoff)
+  const canOrderCurrentMeal = (): boolean => {
+    const mealItem = getCurrentMealItem();
+    return mealItem?.canOrder !== false;
+  };
+
   // Helper to check if ID is a valid MongoDB ObjectId (24-character hex string)
   const isValidObjectId = (id: string): boolean => {
     return /^[a-fA-F0-9]{24}$/.test(id);
@@ -770,6 +811,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleAddToCart = () => {
     const mealItem = getCurrentMealItem();
 
+    // Don't allow adding to cart if ordering is closed
+    if (mealItem?.canOrder === false) {
+      console.warn('[HomeScreen] Cannot add to cart: Ordering is closed for', selectedMeal);
+      return;
+    }
+
     // Don't allow adding to cart if no valid menu item
     if (!mealItem?._id || !isValidObjectId(mealItem._id)) {
       console.error('[HomeScreen] Cannot add to cart: No valid menu item available');
@@ -831,6 +878,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
     // Validation: Check if menu item exists
     const mealItem = getCurrentMealItem();
+
+    // Don't allow buying if ordering is closed
+    if (mealItem?.canOrder === false) {
+      console.warn('[HomeScreen] Cannot Buy Now: Ordering is closed for', selectedMeal);
+      return;
+    }
+
     if (!mealItem?._id || !isValidObjectId(mealItem._id)) {
       console.error('[HomeScreen] Cannot Buy Now: No valid menu item available');
       return;
@@ -1337,6 +1391,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
 
+          {/* Ordering closed banner */}
+          {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && !canOrderCurrentMeal() && (
+            <View style={{
+              backgroundColor: '#FEF2F2',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#FECACA',
+            }}>
+              <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: FONT_SIZES.sm, color: '#991B1B', fontWeight: '600' }}>
+                  {selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} ordering is closed
+                </Text>
+                <Text style={{ fontSize: FONT_SIZES.xs, color: '#B91C1C', marginTop: 2 }}>
+                  {getCurrentMealItem()?.cutoffMessage ||
+                    `Orders closed at ${getCurrentMealItem()?.orderCutoffTime || (selectedMeal === 'lunch' ? '11:00 AM' : '9:00 PM')}`}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Special Thali and Buttons */}
           {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && (
           <>
@@ -1353,10 +1432,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <View style={{ gap: SPACING.sm }}>
               {!showCartModal ? (
               <TouchableOpacity
-                onPress={handleAddToCart}
-                activeOpacity={0.7}
+                onPress={canOrderCurrentMeal() ? handleAddToCart : undefined}
+                activeOpacity={canOrderCurrentMeal() ? 0.7 : 1}
+                disabled={!canOrderCurrentMeal()}
                 style={{
-                  backgroundColor: 'rgba(255, 136, 0, 1)',
+                  backgroundColor: canOrderCurrentMeal() ? 'rgba(255, 136, 0, 1)' : 'rgba(209, 213, 219, 1)',
                   borderRadius: SPACING['3xl'],
                   width: SPACING['5xl'] * 3.125,
                   height: SPACING['2xl'] + SPACING.xl + 1,
@@ -1366,8 +1446,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   justifyContent: 'center',
                 }}
               >
-                <MaterialCommunityIcons name="cart-plus" size={18} color="white" style={{ marginRight: 6 }} />
-                <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600' }}>Add to Cart</Text>
+                <MaterialCommunityIcons name={canOrderCurrentMeal() ? "cart-plus" : "clock-alert-outline"} size={18} color="white" style={{ marginRight: 6 }} />
+                <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600' }}>
+                  {canOrderCurrentMeal() ? 'Add to Cart' : 'Ordering Closed'}
+                </Text>
               </TouchableOpacity>
             ) : (
               <View
