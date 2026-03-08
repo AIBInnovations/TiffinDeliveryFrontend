@@ -230,10 +230,10 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
 
       {/* Orange background for pull-to-refresh/bounce area */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: '#FDB766', zIndex: -1 }} />

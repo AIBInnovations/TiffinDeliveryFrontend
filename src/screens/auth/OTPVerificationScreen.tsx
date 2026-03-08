@@ -23,14 +23,14 @@ import { FONT_SIZES } from '../../constants/typography';
 type Props = AuthScreenProps<'OTPVerification'>;
 
 const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { phoneNumber, confirmation } = route.params;
+  const { phoneNumber } = route.params;
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Verifying...');
 
-  const { verifyOTP, loginWithPhone } = useUser();
+  const { verifyOTP, resendOTP } = useUser();
   const { showAlert } = useAlert();
   const { isSmallDevice, width, height } = useResponsive();
 
@@ -86,7 +86,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
     setLoadingMessage('Verifying OTP...');
 
     try {
-      const { isOnboarded } = await verifyOTP(confirmation, code);
+      const { isOnboarded } = await verifyOTP(phoneNumber, code);
 
       // Show checking profile message
       setLoadingMessage('Checking your profile...');
@@ -95,51 +95,39 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       // Show different message based on profile status
       if (isOnboarded) {
         setLoadingMessage('Welcome back!');
-        // For returning users, wait longer to ensure smooth transition to home
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
         setLoadingMessage('Setting up your account...');
-        // For new users, shorter delay
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Navigation is handled automatically by AppNavigator based on state changes
-      // - If user is onboarded: AppNavigator shows MainNavigator
-      // - If user needs onboarding: AppNavigator shows UserOnboarding screen
-      // Keep loading true to prevent UI flash during transition
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
 
-      // If Firebase auth succeeded but backend sync failed, don't show "Invalid OTP"
-      // The AuthErrorView in AppNavigator will handle the sync failure
       const errorMsg = error?.message || error?.error || '';
-      const isSyncError = typeof errorMsg === 'string' && (
-        errorMsg.includes('Unauthorized') ||
-        errorMsg.includes('Invalid token') ||
+      const isNetworkError = typeof errorMsg === 'string' && (
+        errorMsg.includes('Network error') ||
         errorMsg.includes('Failed to connect')
       );
 
-      if (isSyncError) {
-        // Sync failed after OTP was verified - let AppNavigator show error/retry
-        setLoading(false);
-        return;
+      if (isNetworkError) {
+        showAlert('Connection Error', 'Please check your internet connection and try again.', undefined, 'error');
+      } else {
+        showAlert('Invalid OTP', 'Please try again.', undefined, 'error');
       }
 
-      showAlert('Invalid OTP', 'Please try again.', undefined, 'error');
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
       setLoading(false);
     }
-    // Don't set loading to false on success - let AppNavigator handle the transition
   };
 
   const handleResendOTP = async () => {
     if (!canResend) return;
 
     try {
-      const newConfirmation = await loginWithPhone(phoneNumber);
-      // Update route params with new confirmation
-      route.params.confirmation = newConfirmation;
+      await resendOTP(phoneNumber);
       setTimer(30);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
@@ -147,7 +135,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
       showAlert('Success', 'OTP resent successfully', undefined, 'success');
     } catch (error: any) {
       console.error('Error resending OTP:', error);
-      showAlert('Error', 'Failed to resend OTP. Please try again.', undefined, 'error');
+      showAlert('Error', error.message || 'Failed to resend OTP. Please try again.', undefined, 'error');
     }
   };
 
@@ -156,8 +144,8 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FD9E2F' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -172,7 +160,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
           <View
             style={{
               height: 250,
-              backgroundColor: '#FF6636',
+              backgroundColor: '#FD9E2F',
               paddingHorizontal: 20,
               paddingTop: 10,
             }}
@@ -186,6 +174,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                 borderRadius: TOUCH_TARGETS.minimum / 2,
                 alignItems: 'center',
                 justifyContent: 'center',
+                alignSelf: 'flex-start',
               }}
             >
               <Image
@@ -310,7 +299,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                   Didn't receive code?{' '}
                   <Text
                     onPress={handleResendOTP}
-                    style={{ color: '#FE8733', fontWeight: '600' }}
+                    style={{ color: '#FD9E2F', fontWeight: '600' }}
                   >
                     Resend
                   </Text>
@@ -318,7 +307,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               ) : (
                 <Text>
                   Re-send code in{' '}
-                  <Text style={{ color: '#FE8733', fontWeight: '600' }}>
+                  <Text style={{ color: '#FD9E2F', fontWeight: '600' }}>
                     {timer}s
                   </Text>
                 </Text>
@@ -331,7 +320,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={handleGetStarted}
               disabled={loading}
               style={{
-                backgroundColor: '#FE8733',
+                backgroundColor: '#FD9E2F',
                 borderRadius: 100,
                 minHeight: TOUCH_TARGETS.large,
                 paddingVertical: SPACING.md,
@@ -411,7 +400,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               elevation: 8,
             }}
           >
-            <ActivityIndicator size="large" color="#FE8733" style={{ marginBottom: SPACING.lg }} />
+            <ActivityIndicator size="large" color="#FD9E2F" style={{ marginBottom: SPACING.lg }} />
             <Text
               style={{
                 fontSize: FONT_SIZES.h4,

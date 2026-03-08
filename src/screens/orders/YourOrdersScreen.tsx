@@ -659,10 +659,10 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
 
       {/* Header and Tabs Container */}
       <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>

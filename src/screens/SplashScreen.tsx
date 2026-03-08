@@ -55,7 +55,7 @@ const POS_DRIVER = {x: SVG_LEFT + 99 * SC, y: SVG_TOP + 517 * SC};
 // Static splash for loading states
 export const SplashView = () => (
   <LinearGradient
-    colors={['#FD9E2F', '#FE8733', '#FF6636']}
+    colors={['#FD9E2F', '#FE8733', '#FD9E2F']}
     start={{x: 0, y: 1}}
     end={{x: 0, y: 0}}
     style={styles.container}>
@@ -196,7 +196,7 @@ const SplashScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#FD9E2F', '#FE8733', '#FF6636']}
+      colors={['#FD9E2F', '#FE8733', '#FD9E2F']}
       start={{x: 0, y: 1}}
       end={{x: 0, y: 0}}
       style={styles.container}>

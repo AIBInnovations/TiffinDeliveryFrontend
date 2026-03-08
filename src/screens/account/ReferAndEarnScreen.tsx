@@ -434,8 +434,8 @@ const ReferAndEarnScreen: React.FC<Props> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: 'white' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
-        <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+        <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#FE8733" />
           <Text style={{ marginTop: SPACING.md, color: '#6B7280' }}>Loading...</Text>
@@ -446,13 +446,13 @@ const ReferAndEarnScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
-      <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
 
       {/* Header */}
       <View
         style={{
-          backgroundColor: '#FF6636',
+          backgroundColor: '#FD9E2F',
           paddingBottom: SPACING.xl,
           borderBottomLeftRadius: 30,
           borderBottomRightRadius: 30,

@@ -34,20 +34,20 @@ type Props = StackScreenProps<MainTabParamList, 'Account'>;
 
 // Menu items configuration for search filtering
 const ACCOUNT_MENU_ITEMS = [
-  { id: 'orders', label: 'My Orders', icon: require('../../assets/icons/order2.png'), route: 'YourOrders' as const, authRequired: true },
-  { id: 'addresses', label: 'Saved Addresses', icon: require('../../assets/icons/address2.png'), route: 'Address' as const, authRequired: true },
-  { id: 'mealplans', label: 'Meal Plans', icon: require('../../assets/icons/prepared2.png'), route: 'MealPlans' as const, authRequired: false },
-  { id: 'vouchers', label: 'My Vouchers', icon: require('../../assets/icons/refund2.png'), route: 'Vouchers' as const, authRequired: true },
-  { id: 'autoordersettings', label: 'Auto-Order Settings', icon: require('../../assets/icons/time2.png'), route: 'AutoOrderSettings' as const, authRequired: true },
-  { id: 'mealcalendar', label: 'Meal Calendar', icon: require('../../assets/icons/time2.png'), route: 'MealCalendar' as const, authRequired: true },
-  { id: 'scheduledmeals', label: 'Scheduled Meals', icon: require('../../assets/icons/meal.png'), route: 'MyScheduledMeals' as const, authRequired: true },
-  { id: 'referral', label: 'Refer & Earn', icon: require('../../assets/icons/people2.png'), route: 'ReferAndEarn' as const, authRequired: true },
-  { id: 'bulkorders', label: 'Bulk Orders', icon: require('../../assets/icons/bulkorders.png'), route: 'BulkOrders' as const, authRequired: false },
+  { id: 'orders', label: 'My Orders', iconName: 'receipt', route: 'YourOrders' as const, authRequired: true },
+  { id: 'addresses', label: 'Saved Addresses', iconName: 'map-marker-outline', route: 'Address' as const, authRequired: true },
+  { id: 'mealplans', label: 'Meal Plans', iconName: 'silverware-fork-knife', route: 'MealPlans' as const, authRequired: false },
+  { id: 'vouchers', label: 'My Vouchers', iconName: 'ticket-percent-outline', route: 'Vouchers' as const, authRequired: true },
+  { id: 'autoordersettings', label: 'Auto-Order Settings', iconName: 'refresh-auto', route: 'AutoOrderSettings' as const, authRequired: true },
+  { id: 'mealcalendar', label: 'Meal Calendar', iconName: 'calendar-month-outline', route: 'MealCalendar' as const, authRequired: true },
+  { id: 'scheduledmeals', label: 'Scheduled Meals', iconName: 'food-variant', route: 'MyScheduledMeals' as const, authRequired: true },
+  { id: 'referral', label: 'Refer & Earn', iconName: 'gift-outline', route: 'ReferAndEarn' as const, authRequired: true },
+  { id: 'bulkorders', label: 'Bulk Orders', iconName: 'package-variant-closed', route: 'BulkOrders' as const, authRequired: false },
 ];
 
 const SUPPORT_MENU_ITEMS = [
-  { id: 'help', label: 'Help & Support', icon: require('../../assets/icons/help2.png'), route: 'HelpSupport' as const, authRequired: false },
-  { id: 'about', label: 'About', icon: require('../../assets/icons/about2.png'), route: 'About' as const, authRequired: false },
+  { id: 'help', label: 'Help & Support', iconName: 'help-circle-outline', route: 'HelpSupport' as const, authRequired: false },
+  { id: 'about', label: 'About', iconName: 'information-outline', route: 'About' as const, authRequired: false },
 ];
 
 const AccountScreen: React.FC<Props> = ({ navigation }) => {
@@ -103,9 +103,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   if (loading && !isGuest) {
     return (
       <View style={{ flex: 1, backgroundColor: 'white' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
         {/* Status bar background */}
-        <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+        <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
         {/* Header with orange background */}
         <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
@@ -225,9 +225,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
 
       <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header */}
@@ -368,12 +368,18 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-                <Image
-                  source={require('../../assets/icons/edit.png')}
-                  style={{ width: SPACING.iconLg + 4, height: SPACING.iconLg + 4 }}
-                  resizeMode="contain"
-                />
+              <TouchableOpacity
+                onPress={() => navigation.navigate('EditProfile')}
+                style={{
+                  width: SPACING.iconLg + 8,
+                  height: SPACING.iconLg + 8,
+                  borderRadius: (SPACING.iconLg + 8) / 2,
+                  backgroundColor: '#FD9E2F',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           )}
@@ -531,8 +537,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => navigation.navigate('MealCalendar')}
                 className="flex-1 ml-2 rounded-full py-2.5 items-center"
                 style={{
-                  backgroundColor: '#FE8733',
-                  shadowColor: '#FE8733',
+                  backgroundColor: '#FD9E2F',
+                  shadowColor: '#FD9E2F',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.3,
                   shadowRadius: 4,
@@ -589,20 +595,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     <View className="flex-row items-center">
                       <View
-                        className="rounded-full bg-orange-400 items-center justify-center"
-                        style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
+                        className="rounded-full items-center justify-center"
+                        style={{ width: SPACING.iconXl, height: SPACING.iconXl, backgroundColor: '#FD9E2F' }}
                       >
-                        <Image
-                          source={item.icon}
-                          style={{
-                            width: item.id === 'autoordersettings' ? SPACING.iconSize :
-                                  (item.id === 'mealplans' ? SPACING.iconLg + 8 : SPACING.iconLg + 4),
-                            height: item.id === 'autoordersettings' ? SPACING.iconSize :
-                                   (item.id === 'mealplans' ? SPACING.iconLg + 8 : SPACING.iconLg + 4),
-                            tintColor: item.id === 'autoordersettings' ? '#FFFFFF' : undefined
-                          }}
-                          resizeMode="contain"
-                        />
+                        <MaterialCommunityIcons name={item.iconName} size={20} color="#FFFFFF" />
                       </View>
                       <Text style={{ fontSize: FONT_SIZES.base, fontWeight: '500', color: '#111827', marginLeft: SPACING.md }}>
                         {item.label}
@@ -638,14 +634,10 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     <View className="flex-row items-center">
                       <View
-                        className="rounded-full bg-orange-400 items-center justify-center"
-                        style={{ width: SPACING.iconXl, height: SPACING.iconXl }}
+                        className="rounded-full items-center justify-center"
+                        style={{ width: SPACING.iconXl, height: SPACING.iconXl, backgroundColor: '#FD9E2F' }}
                       >
-                        <Image
-                          source={item.icon}
-                          style={{ width: SPACING.iconLg, height: SPACING.iconLg }}
-                          resizeMode="contain"
-                        />
+                        <MaterialCommunityIcons name={item.iconName} size={20} color="#FFFFFF" />
                       </View>
                       <Text style={{ fontSize: FONT_SIZES.base, fontWeight: '500', color: '#111827', marginLeft: SPACING.md }}>
                         {item.label}

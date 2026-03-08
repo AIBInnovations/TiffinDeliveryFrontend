@@ -1,9 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
-import { getIdToken } from '../config/firebase';
+import { getAuthToken, clearAuthToken, storeAuthToken } from './auth.token.service';
 
 // Backend base URL - update this with your actual backend URL
-const BASE_URL = 'https://d31od4t2t5epcb.cloudfront.net';
-// const BASE_URL = 'http://192.168.1.4:5005';
+//const BASE_URL = 'https://d31od4t2t5epcb.cloudfront.net';
+const BASE_URL = 'http://192.168.1.4:5005';
 //const BASE_URL = 'http://192.168.29.69:5005';
 
 // Type definitions for API responses
@@ -20,21 +20,28 @@ export interface UserData {
   updatedAt: string;
 }
 
-export interface SyncUserResponse {
-  status: number;
+export interface VerifyOtpResponse {
+  success: boolean;
   message: string;
   data: {
-    user: UserData | null; // null when isNewUser is true
+    user: UserData | null;
+    token?: string;
+    expiresIn?: number;
+    registrationToken?: string;
     isNewUser: boolean;
     isProfileComplete: boolean;
+    approvalStatus?: string;
+    rejectionReason?: string;
   };
 }
 
 export interface RegisterUserResponse {
-  status: number;
+  success: boolean;
   message: string;
   data: {
     user: UserData;
+    token: string;
+    expiresIn: number;
     isProfileComplete: boolean;
   };
 }
@@ -1522,10 +1529,13 @@ class ApiService {
       },
     });
 
-    // Request interceptor to add auth token and log requests
+    // Local reference for use in interceptor arrow functions
+    const api = this.api;
+
+    // Request interceptor to add JWT auth token and log requests
     this.api.interceptors.request.use(
       async config => {
-        const token = await getIdToken();
+        const token = await getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -1552,9 +1562,31 @@ class ApiService {
         console.log(`[API] Response ${response.status}:`, JSON.stringify(response.data, null, 2));
         return response.data;
       },
-      error => {
+      async error => {
         // Log error response
         console.log(`[API] Error ${error.response?.status}:`, JSON.stringify(error.response?.data, null, 2));
+
+        // Handle 401 - attempt token refresh
+        if (error.response?.status === 401 && error.config && !error.config._retry) {
+          error.config._retry = true;
+          try {
+            const currentToken = await getAuthToken();
+            if (currentToken) {
+              const refreshResponse = await axios.post(`${BASE_URL}/api/auth/token/refresh`, {}, {
+                headers: { Authorization: `Bearer ${currentToken}` },
+              });
+              const { token: newToken, expiresIn } = refreshResponse.data?.data || {};
+              if (newToken) {
+                await storeAuthToken(newToken, expiresIn);
+                error.config.headers.Authorization = `Bearer ${newToken}`;
+                return api.request(error.config);
+              }
+            }
+          } catch (refreshError) {
+            console.log('[API] Token refresh failed, clearing token');
+            await clearAuthToken();
+          }
+        }
 
         if (error.response) {
           return Promise.reject(error.response.data);
@@ -1576,23 +1608,55 @@ class ApiService {
   }
 
   // ============================================
-  // AUTH ENDPOINTS
+  // AUTH ENDPOINTS (MSG91 OTP)
   // ============================================
 
-  // Check if user exists after Firebase OTP verification
-  // Returns user: null if new user, user object if existing
-  async syncUser(): Promise<SyncUserResponse> {
-    return this.api.post('/api/auth/sync', {});
+  // Send OTP to phone number via MSG91
+  async sendOTP(phone: string): Promise<{ success: boolean; message: string }> {
+    return this.api.post('/api/auth/send-otp', { phone });
   }
 
-  // Register a new user (call when sync returns isNewUser: true)
+  // Verify OTP and authenticate/sync user
+  async verifyOTP(phone: string, otp: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      user: UserData | null;
+      token?: string;
+      expiresIn?: number;
+      registrationToken?: string;
+      isNewUser: boolean;
+      isProfileComplete: boolean;
+      approvalStatus?: string;
+      rejectionReason?: string;
+    };
+  }> {
+    return this.api.post('/api/auth/verify-otp', { phone, otp });
+  }
+
+  // Resend OTP via MSG91
+  async resendOTP(phone: string, retryType?: 'text' | 'voice'): Promise<{ success: boolean; message: string }> {
+    return this.api.post('/api/auth/resend-otp', { phone, retryType });
+  }
+
+  // Register new customer after OTP verification
   async registerUser(data: {
     name: string;
     email?: string;
     dietaryPreferences?: string[];
     referralCode?: string;
-  }): Promise<RegisterUserResponse> {
-    return this.api.post('/api/auth/register', data);
+  }, registrationToken: string): Promise<RegisterUserResponse> {
+    return this.api.post('/api/auth/otp/register', data, {
+      headers: { Authorization: `Bearer ${registrationToken}` },
+    });
+  }
+
+  // Refresh JWT token
+  async refreshToken(): Promise<{
+    success: boolean;
+    data: { token: string; expiresIn: number };
+  }> {
+    return this.api.post('/api/auth/token/refresh', {});
   }
 
   // Update profile for existing users (call when sync returns isProfileComplete: false)

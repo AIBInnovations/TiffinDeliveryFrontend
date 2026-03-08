@@ -274,11 +274,11 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-orange-400">
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FD9E2F' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
 
       {/* Header */}
-      <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
+      <View className="pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, backgroundColor: '#FD9E2F' }}>
         {/* Decorative Background Elements */}
         <Image
           source={require('../../assets/images/homepage/halfcircle.png')}
@@ -346,10 +346,11 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Edit Icon Overlay */}
             <View
-              className="absolute bottom-0 right-0 rounded-full bg-orange-400 items-center justify-center"
+              className="absolute bottom-0 right-0 rounded-full items-center justify-center"
               style={{
                 width: SPACING.iconLg + 4,
                 height: SPACING.iconLg + 4,
+                backgroundColor: '#FD9E2F',
                 borderWidth: 3,
                 borderColor: 'white',
               }}

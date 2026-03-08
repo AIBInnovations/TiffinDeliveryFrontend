@@ -88,7 +88,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
   if (autoOrderConfigsLoading && autoOrderConfigs.length === 0) {
     return (
       <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
-        <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
         <ActivityIndicator size="large" color="#FE8733" />
         <Text className="mt-4 text-gray-600">Loading auto-order settings...</Text>
       </SafeAreaView>
@@ -97,8 +97,8 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container} className="flex-1 bg-white">
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
-      <SafeAreaView style={{ backgroundColor: '#FF6636' }} edges={['top']} />
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
 
       {/* Header */}
       <View

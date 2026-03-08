@@ -18,6 +18,7 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { MainTabParamList } from '../../types/navigation';
 import { useAddress, Address } from '../../context/AddressContext';
 import { useAlert } from '../../context/AlertContext';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import locationService from '../../services/location.service';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
@@ -564,17 +565,13 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
           <View className="flex-row items-center mb-2">
             <TouchableOpacity
               onPress={() => navigation.goBack()}
-              className="rounded-full bg-orange-400 items-center justify-center mr-4"
-              style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum }}
+              className="rounded-full items-center justify-center"
+              style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum, backgroundColor: '#FD9E2F' }}
             >
-              <Image
-                source={require('../../assets/icons/backarrow2.png')}
-                style={{ width: SPACING.iconLg, height: SPACING.iconLg - 2 }}
-                resizeMode="contain"
-              />
+              <MaterialCommunityIcons name="arrow-left" size={22} color="#FFFFFF" />
             </TouchableOpacity>
-            <View className="flex-1" style={{ marginLeft: 55 }}>
-              <Text className="font-bold text-gray-900" style={{ fontSize: isSmallDevice ? FONT_SIZES.h2 : FONT_SIZES.h1 }}>My Addresses</Text>
+            <View className="flex-1 ml-3">
+              <Text className="font-bold text-gray-900" style={{ fontSize: isSmallDevice ? FONT_SIZES.h4 : FONT_SIZES.h3 }}>My Addresses</Text>
               <Text className="text-gray-500 mt-1" style={{ fontSize: FONT_SIZES.sm }}>
                 {isLoadingAddresses
                   ? 'Loading...'

@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { firebaseAuth } from '../config/firebase';
-import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import apiService from '../services/api.service';
 import notificationService from '../services/notification.service';
 import dataPreloader from '../services/dataPreloader.service';
+import { hasValidToken, storeAuthToken, clearAuthToken } from '../services/auth.token.service';
 
 // ============================================
 // OFFLINE MODE FLAG - Set to false to enable backend
@@ -32,18 +31,19 @@ export interface UserProfile {
   isNewUser?: boolean;
   hasAddress?: boolean;
   createdAt?: Date;
+  registrationToken?: string;
 }
 
 interface UserContextType {
   user: UserProfile | null;
-  firebaseUser: FirebaseAuthTypes.User | null;
   isLoading: boolean;
   isGuest: boolean;
   needsAddressSetup: boolean;
   setUser: (user: UserProfile | null) => void;
   updateUser: (updates: Partial<UserProfile>) => void;
-  loginWithPhone: (phoneNumber: string) => Promise<FirebaseAuthTypes.ConfirmationResult>;
-  verifyOTP: (confirmation: FirebaseAuthTypes.ConfirmationResult, code: string) => Promise<{ isOnboarded: boolean; isNewUser: boolean; isProfileComplete: boolean }>;
+  sendOTP: (phoneNumber: string) => Promise<void>;
+  verifyOTP: (phone: string, code: string) => Promise<{ isOnboarded: boolean; isNewUser: boolean; isProfileComplete: boolean }>;
+  resendOTP: (phone: string, retryType?: 'text' | 'voice') => Promise<void>;
   completeOnboarding: (data: {
     name: string;
     email?: string;
@@ -66,7 +66,6 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const [needsAddressSetup, setNeedsAddressSetup] = useState(false);
@@ -74,21 +73,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Check if user needs to set up address
   const checkAddressSetup = async (userProfile?: UserProfile | null) => {
-    // Skip in offline mode
-    if (OFFLINE_MODE) {
-      return;
-    }
-
-    // Use provided user or fallback to state user
+    if (OFFLINE_MODE) return;
     const currentUser = userProfile || user;
-
     try {
-      // Only check for onboarded users
       if (currentUser?.isOnboarded) {
         const response = await apiService.getAddresses();
         const addresses = response.data?.addresses || [];
-
-        // If user has no addresses, they need to set up address
         if (addresses.length === 0) {
           console.log('[UserContext] User has no addresses, setting needsAddressSetup = true');
           setNeedsAddressSetup(true);
@@ -99,183 +89,100 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('[UserContext] Error checking addresses:', error);
-      // Don't set needsAddressSetup on error - let user proceed
     }
   };
 
-  // Listen to Firebase auth state changes
+  // Initialize auth on app start - check for stored JWT token
   useEffect(() => {
     const initializeAuth = async () => {
       // Check if user was in guest mode
       const guestFlag = await AsyncStorage.getItem('is_guest');
       if (guestFlag === 'true') {
         setIsGuest(true);
+        setIsLoading(false);
+        return;
       }
 
-      // ALWAYS set up Firebase auth listener (even for guests who may login later)
-      const unsubscribe = firebaseAuth.onAuthStateChanged(async (fbUser) => {
-        console.log('Auth state changed:', fbUser?.uid);
-        setFirebaseUser(fbUser);
-
-        if (fbUser) {
-          // User authenticated - exit guest mode if active
-          if (guestFlag === 'true') {
-            setIsGuest(false);
-            await AsyncStorage.removeItem('is_guest');
-          }
-
-          // Always verify with backend (use cached data as fallback)
-          try {
-            const { userProfile } = await syncUserInternal();
-            // Check if user needs to set up address (pass the synced user profile)
-            await checkAddressSetup(userProfile);
+      // Check for stored JWT token
+      const hasToken = await hasValidToken();
+      if (hasToken) {
+        // Token exists - fetch user profile from backend
+        try {
+          const { userProfile } = await fetchUserProfile();
+          await checkAddressSetup(userProfile);
+          setAuthError(null);
+        } catch (error: any) {
+          console.error('[UserContext] Error loading profile on init:', error);
+          // Fallback to cached data
+          const storedUser = await AsyncStorage.getItem('user_profile');
+          if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
             setAuthError(null);
-          } catch (error: any) {
-            console.error('Error checking profile status:', error);
-            // Fallback to cached data if backend fails
-            const storedUser = await AsyncStorage.getItem('user_profile');
-            if (storedUser) {
-              const parsedUser = JSON.parse(storedUser);
-              setUser(parsedUser);
-              setAuthError(null);
-              // Also check address setup for cached user
-              await checkAddressSetup(parsedUser);
-            } else {
-              // No cache AND sync failed - set error so UI can show retry
-              console.log('[UserContext] Sync failed with no cache, setting authError');
-              setAuthError(error?.message || 'Failed to connect to server');
-            }
+            await checkAddressSetup(parsedUser);
+          } else {
+            // No cache AND fetch failed - clear token and show login
+            await clearAuthToken();
+            setAuthError(null);
           }
-        } else {
-          // User logged out
-          setUser(null);
-          await AsyncStorage.removeItem('user_profile');
         }
-
-        setIsLoading(false);
-      });
-
-      return unsubscribe;
+      }
+      // No token = not authenticated, show login
+      setIsLoading(false);
     };
 
-    const unsubscribePromise = initializeAuth();
-
-    return () => {
-      unsubscribePromise.then((unsubscribe) => {
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      });
-    };
+    initializeAuth();
   }, []);
 
-  const syncUserInternal = async (): Promise<{ userProfile: UserProfile | null; isNewUser: boolean; isProfileComplete: boolean }> => {
-    // OFFLINE MODE: Skip backend call, use cached data or return new user as not onboarded
+  // Fetch user profile from /auth/me endpoint
+  const fetchUserProfile = async (): Promise<{ userProfile: UserProfile | null }> => {
     if (OFFLINE_MODE) {
-      console.log('[OFFLINE MODE] Skipping backend sync');
       const storedUser = await AsyncStorage.getItem('user_profile');
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        return { userProfile: parsedUser, isNewUser: false, isProfileComplete: parsedUser.isProfileComplete ?? false };
+        return { userProfile: parsedUser };
       }
-      // New user - not onboarded yet
-      const newUserProfile: UserProfile = {
-        id: firebaseUser?.uid,
-        phone: firebaseUser?.phoneNumber || undefined,
-        isOnboarded: false,
-        isProfileComplete: false,
-        isNewUser: true,
+      return { userProfile: null };
+    }
+
+    const response = await apiService.getProfile();
+    const userData = response.data?.user;
+    if (userData) {
+      const profileData: UserProfile = {
+        id: userData._id,
+        name: userData.name || undefined,
+        email: userData.email || undefined,
+        phone: userData.phone || undefined,
+        profileImage: userData.profileImage || undefined,
+        dietaryPreferences: userData.dietaryPreferences || undefined,
+        isOnboarded: true,
+        isProfileComplete: true,
+        isNewUser: false,
+        createdAt: userData.createdAt ? new Date(userData.createdAt) : undefined,
       };
-      setUser(newUserProfile);
-      return { userProfile: newUserProfile, isNewUser: true, isProfileComplete: false };
+      setUser(profileData);
+      await AsyncStorage.setItem('user_profile', JSON.stringify(profileData));
+      return { userProfile: profileData };
     }
-
-    // BACKEND MODE: Call /api/auth/sync
-    try {
-      const response = await apiService.syncUser();
-      if (response.data) {
-        const { user: userData, isNewUser, isProfileComplete } = response.data;
-
-        // If user is null (new user not registered yet), create a temporary profile
-        if (userData === null) {
-          const newUserProfile: UserProfile = {
-            id: undefined,
-            phone: firebaseUser?.phoneNumber || undefined,
-            isOnboarded: false,
-            isProfileComplete: false,
-            isNewUser: true,
-          };
-          setUser(newUserProfile);
-          return { userProfile: newUserProfile, isNewUser: true, isProfileComplete: false };
-        }
-
-        // Existing user (either complete or incomplete profile)
-        const profileData: UserProfile = {
-          id: userData._id,
-          name: userData.name || undefined,
-          email: userData.email || undefined,
-          phone: userData.phone || firebaseUser?.phoneNumber || undefined,
-          profileImage: userData.profileImage || undefined,
-          dietaryPreferences: userData.dietaryPreferences || undefined,
-          isOnboarded: isProfileComplete,
-          isProfileComplete: isProfileComplete,
-          isNewUser: isNewUser,
-          createdAt: userData.createdAt ? new Date(userData.createdAt) : undefined,
-        };
-        setUser(profileData);
-        await AsyncStorage.setItem('user_profile', JSON.stringify(profileData));
-        return { userProfile: profileData, isNewUser, isProfileComplete };
-      }
-    } catch (error: any) {
-      console.error('Error syncing user:', error);
-      // Fallback to cached data if backend fails
-      const storedUser = await AsyncStorage.getItem('user_profile');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        return { userProfile: parsedUser, isNewUser: false, isProfileComplete: parsedUser.isProfileComplete ?? false };
-      }
-    }
-    return { userProfile: null, isNewUser: true, isProfileComplete: false };
+    return { userProfile: null };
   };
 
   const checkProfileStatus = async () => {
-    await syncUserInternal();
+    await fetchUserProfile();
   };
 
   // Refresh user profile from API (used after profile updates)
   const refreshUser = async () => {
     console.log('[UserContext] Refreshing user profile');
     try {
-      const response = await apiService.getProfile();
-      console.log('[UserContext] Profile refresh response:', JSON.stringify(response, null, 2));
-
-      // Handle response format (data.user or error.user)
-      const userData = response.data?.user || (response as any).error?.user;
-      if (userData) {
-        const profileData: UserProfile = {
-          id: userData._id,
-          name: userData.name || undefined,
-          email: userData.email || undefined,
-          phone: userData.phone || firebaseUser?.phoneNumber || undefined,
-          profileImage: userData.profileImage || undefined,
-          dietaryPreferences: userData.dietaryPreferences || undefined,
-          isOnboarded: true,
-          isProfileComplete: true,
-          isNewUser: false,
-          createdAt: userData.createdAt ? new Date(userData.createdAt) : undefined,
-        };
-        setUser(profileData);
-        await AsyncStorage.setItem('user_profile', JSON.stringify(profileData));
+      const { userProfile } = await fetchUserProfile();
+      if (userProfile) {
         console.log('[UserContext] Profile refreshed successfully');
-        // Check if user needs to set up address
-        await checkAddressSetup(profileData);
+        await checkAddressSetup(userProfile);
       }
     } catch (error: any) {
       console.error('[UserContext] Error refreshing profile:', error.message || error);
-      // Fallback to sync if getProfile fails
-      await syncUserInternal();
     }
   };
 
@@ -283,8 +190,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuthError(null);
     setIsLoading(true);
     try {
-      const { userProfile } = await syncUserInternal();
-      await checkAddressSetup(userProfile);
+      const hasToken = await hasValidToken();
+      if (hasToken) {
+        const { userProfile } = await fetchUserProfile();
+        await checkAddressSetup(userProfile);
+      }
     } catch (error: any) {
       console.error('[UserContext] Retry sync failed:', error);
       const storedUser = await AsyncStorage.getItem('user_profile');
@@ -300,34 +210,70 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithPhone = async (phoneNumber: string): Promise<FirebaseAuthTypes.ConfirmationResult> => {
-    const confirmation = await firebaseAuth.signInWithPhoneNumber(phoneNumber);
-    return confirmation;
+  // Send OTP to phone number via backend (MSG91)
+  const sendOTP = async (phoneNumber: string): Promise<void> => {
+    await apiService.sendOTP(phoneNumber);
   };
 
+  // Verify OTP via backend - returns auth result
   const verifyOTP = async (
-    confirmation: FirebaseAuthTypes.ConfirmationResult,
+    phone: string,
     code: string
   ): Promise<{ isOnboarded: boolean; isNewUser: boolean; isProfileComplete: boolean }> => {
-    await confirmation.confirm(code);
-    // After successful verification, sync with backend
-    const { userProfile, isNewUser, isProfileComplete } = await syncUserInternal();
+    const response = await apiService.verifyOTP(phone, code);
+    const { user: userData, token, expiresIn, registrationToken, isNewUser, isProfileComplete } = response.data;
 
-    // Check if user needs to set up address
-    await checkAddressSetup(userProfile);
+    if (token && expiresIn) {
+      // Existing user - store JWT token
+      await storeAuthToken(token, expiresIn);
+    }
 
-    // Register FCM token after successful login
-    registerFcmToken().catch(error => {
-      console.error('Failed to register FCM token after login:', error);
-      // Don't throw - continue with login flow even if FCM fails
-    });
+    if (userData) {
+      // Existing user
+      const profileData: UserProfile = {
+        id: userData._id,
+        name: userData.name || undefined,
+        email: userData.email || undefined,
+        phone: userData.phone || undefined,
+        profileImage: userData.profileImage || undefined,
+        dietaryPreferences: userData.dietaryPreferences || undefined,
+        isOnboarded: isProfileComplete,
+        isProfileComplete,
+        isNewUser,
+        createdAt: userData.createdAt ? new Date(userData.createdAt) : undefined,
+      };
+      setUser(profileData);
+      await AsyncStorage.setItem('user_profile', JSON.stringify(profileData));
+      await checkAddressSetup(profileData);
+    } else {
+      // New user - store registrationToken for use during registration
+      const newUserProfile: UserProfile = {
+        phone,
+        isOnboarded: false,
+        isProfileComplete: false,
+        isNewUser: true,
+        registrationToken: registrationToken || undefined,
+      };
+      setUser(newUserProfile);
+    }
 
-    // Return the onboarding status from the fresh data
+    // Register FCM token after successful login (fire-and-forget)
+    if (token) {
+      registerFcmToken().catch(error => {
+        console.error('Failed to register FCM token after login:', error);
+      });
+    }
+
     return {
-      isOnboarded: userProfile?.isOnboarded ?? false,
+      isOnboarded: isProfileComplete && !isNewUser,
       isNewUser,
       isProfileComplete,
     };
+  };
+
+  // Resend OTP via backend (MSG91)
+  const resendOTP = async (phone: string, retryType?: 'text' | 'voice'): Promise<void> => {
+    await apiService.resendOTP(phone, retryType);
   };
 
   const enterGuestMode = async () => {
@@ -360,10 +306,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('[OFFLINE MODE] Completing onboarding locally');
       const updatedUser: UserProfile = {
         ...user,
-        id: firebaseUser?.uid || 'offline_user_' + Date.now(),
+        id: 'offline_user_' + Date.now(),
         name: data.name,
         email: data.email,
-        phone: firebaseUser?.phoneNumber || undefined,
+        phone: user?.phone || undefined,
         dietaryPreferences: data.dietaryPreferences,
         isOnboarded: true,
         isProfileComplete: true,
@@ -373,7 +319,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(updatedUser);
       await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
-      // Trigger address setup after profile completion
       setNeedsAddressSetup(true);
       return;
     }
@@ -394,20 +339,24 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
-      // Determine if we need to register (new user) or update profile (existing user)
       const isNewUser = user?.isNewUser === true;
-
       let responseData;
-      if (isNewUser) {
-        // New user - call register endpoint
+
+      if (isNewUser && user?.registrationToken) {
+        // New user - call register endpoint with registrationToken
         console.log('Registering new user...');
         const response = await apiService.registerUser({
           name: data.name,
           email: data.email,
           dietaryPreferences: dietaryPrefsArray,
           referralCode: data.referralCode || undefined,
-        });
+        }, user.registrationToken);
         responseData = response.data;
+
+        // Store the JWT token from registration response
+        if (responseData?.token && responseData?.expiresIn) {
+          await storeAuthToken(responseData.token, responseData.expiresIn);
+        }
       } else {
         // Existing user with incomplete profile - call update endpoint
         console.log('Updating existing user profile...');
@@ -426,17 +375,17 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: userData._id,
           name: userData.name,
           email: userData.email,
-          phone: userData.phone || firebaseUser?.phoneNumber || undefined,
+          phone: userData.phone || user?.phone || undefined,
           dietaryPreferences: data.dietaryPreferences,
           isOnboarded: isProfileComplete,
           isProfileComplete: isProfileComplete,
           isNewUser: false,
+          registrationToken: undefined,
           createdAt: userData.createdAt ? new Date(userData.createdAt) : new Date(),
         };
 
         setUser(updatedUser);
         await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
-        // Trigger address setup after profile completion
         setNeedsAddressSetup(true);
       }
     } catch (error: any) {
@@ -446,14 +395,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const registerFcmToken = async (): Promise<boolean> => {
-    // Skip in offline mode
     if (OFFLINE_MODE) {
       console.log('[OFFLINE MODE] Skipping FCM token registration');
       return true;
     }
 
     try {
-      // Request permission and get FCM token
       const hasPermission = await notificationService.requestPermission();
       if (!hasPermission) {
         console.log('[FCM] Notification permission denied by user');
@@ -466,7 +413,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return false;
       }
 
-      // Get device ID and type
       const deviceId = await notificationService.getDeviceId();
       const deviceType = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
 
@@ -476,7 +422,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         tokenLength: fcmToken.length,
       });
 
-      // Register with backend
       try {
         await apiService.registerFcmToken({
           fcmToken,
@@ -486,7 +431,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         console.log('[FCM] Token registered successfully with backend');
 
-        // Set up token refresh listener
         await notificationService.setupTokenRefreshListener(async (newToken: string) => {
           console.log('[FCM] Token refreshed, updating backend...');
           try {
@@ -503,30 +447,23 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         return true;
       } catch (apiError: any) {
-        // Log detailed error but don't fail the login flow
         console.warn('[FCM] Backend registration failed (non-blocking):', {
           message: apiError?.message || 'Unknown error',
           status: apiError?.status,
-          error: apiError,
         });
 
-        // Check if it's a server error (500) - backend might not be ready yet
         if (apiError?.status === 500 || apiError?.message === 'Server error') {
           console.warn('[FCM] Backend FCM endpoint may not be fully configured yet');
-          console.warn('[FCM] Notifications will still work once backend is ready');
         }
 
-        // Still set up token refresh listener for future attempts
         try {
           await notificationService.setupTokenRefreshListener(async (newToken: string) => {
-            console.log('[FCM] Token refreshed, attempting backend registration...');
             try {
               await apiService.registerFcmToken({
                 fcmToken: newToken,
                 deviceType,
                 deviceId,
               });
-              console.log('[FCM] Refreshed token registered successfully');
             } catch (error) {
               console.error('[FCM] Error registering refreshed token:', error);
             }
@@ -539,14 +476,13 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error: any) {
       console.error('[FCM] Unexpected error during FCM setup:', error);
-      // Don't throw - FCM registration failure shouldn't block the flow
       return false;
     }
   };
 
   const logout = async () => {
     try {
-      // Remove FCM token before logging out (if not in offline mode)
+      // Remove FCM token before logging out
       if (!OFFLINE_MODE) {
         try {
           const fcmToken = await notificationService.getStoredToken();
@@ -560,7 +496,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             message: error?.message || 'Unknown error',
             status: error?.status,
           });
-          // Continue with logout even if FCM removal fails
         }
       }
 
@@ -588,10 +523,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.warn('[DataPreloader] Error clearing caches:', error);
       }
 
-      // Sign out from Firebase
-      await firebaseAuth.signOut();
+      // Clear JWT token
+      await clearAuthToken();
       setUser(null);
-      setFirebaseUser(null);
       setIsGuest(false);
       setAuthError(null);
       await AsyncStorage.removeItem('user_profile');
@@ -603,20 +537,20 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const isAuthenticated = !!firebaseUser && !!user?.isOnboarded;
+  const isAuthenticated = !!user?.isOnboarded;
 
   return (
     <UserContext.Provider
       value={{
         user,
-        firebaseUser,
         isLoading,
         isGuest,
         needsAddressSetup,
         setUser,
         updateUser,
-        loginWithPhone,
+        sendOTP,
         verifyOTP,
+        resendOTP,
         completeOnboarding,
         registerFcmToken,
         logout,

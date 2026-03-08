@@ -79,15 +79,15 @@ const AuthErrorView: React.FC<{
 };
 
 const AppNavigator = () => {
-  const { firebaseUser, user, isLoading, isGuest, needsAddressSetup, authError, retrySync, logout } = useUser();
+  const { user, isLoading, isGuest, needsAddressSetup, authError, retrySync, logout, isAuthenticated } = useUser();
 
-  // Show splash screen while checking auth state (but NOT when there's an auth error)
-  if (isLoading || (firebaseUser && !user && !isGuest && !authError)) {
+  // Show splash screen while checking auth state
+  if (isLoading) {
     return <SplashView />;
   }
 
   // Show error/retry screen when sync failed with no cached data
-  if (authError && firebaseUser && !user) {
+  if (authError && !user) {
     return <AuthErrorView onRetry={retrySync} onLogout={logout} />;
   }
 
@@ -133,14 +133,14 @@ const AppNavigator = () => {
         {isGuest ? (
           // Guest mode - show main app with limited access
           <Stack.Screen name="Main" component={MainNavigator} />
-        ) : !firebaseUser ? (
+        ) : !user ? (
           // User is not authenticated - show onboarding and auth screens
           <>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
             <Stack.Screen name="Auth" component={AuthNavigator} />
           </>
-        ) : !user?.isOnboarded ? (
+        ) : !user.isOnboarded ? (
           // User is authenticated but hasn't completed profile onboarding
           <Stack.Screen name="UserOnboarding" component={UserOnboardingScreen} />
         ) : needsAddressSetup ? (

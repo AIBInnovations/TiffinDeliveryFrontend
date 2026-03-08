@@ -30,7 +30,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { loginWithPhone } = useUser();
+  const { sendOTP } = useUser();
   const { showAlert } = useAlert();
   const { height } = useResponsive();
   const scrollRef = useRef<ScrollView>(null);
@@ -87,8 +87,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const fullPhone = `+91${phone}`;
-      const confirmation = await loginWithPhone(fullPhone);
+      // Send OTP via backend (MSG91)
+      await sendOTP(phone);
 
       // Save or clear phone number based on remember checkbox
       if (remember) {
@@ -98,8 +98,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       navigation.navigate('OTPVerification', {
-        phoneNumber: fullPhone,
-        confirmation: confirmation,
+        phoneNumber: phone,
       });
     } catch (error: any) {
       console.error('Error sending OTP:', error);
@@ -115,8 +114,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FF6636' }} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF6636" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FD9E2F' }} edges={['top']}>
+      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -134,7 +133,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View
             style={{
               height: 220,
-              backgroundColor: '#FF6636',
+              backgroundColor: '#FD9E2F',
               paddingHorizontal: 20,
               paddingTop: 10,
             }}
@@ -331,7 +330,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               onPress={handleGetOtp}
               disabled={loading || phone.length !== 10}
               style={{
-                backgroundColor: loading || phone.length !== 10 ? '#CCCCCC' : '#FE8733',
+                backgroundColor: loading || phone.length !== 10 ? '#CCCCCC' : '#FD9E2F',
                 borderRadius: 100,
                 paddingVertical: 15,
                 alignItems: 'center',
