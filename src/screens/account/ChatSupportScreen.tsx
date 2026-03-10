@@ -511,12 +511,12 @@ const ChatSupportScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
 
       {/* Header */}
       <View
         style={{
-          backgroundColor: '#FD9E2F',
+          backgroundColor: '#FE8733',
           paddingHorizontal: 20,
           paddingVertical: 14,
           flexDirection: 'row',

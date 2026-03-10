@@ -26,15 +26,15 @@ const {width, height} = Dimensions.get('window');
 const PATH_CURVE =
   'M58.6953 25.387695C58.6953 25.387695 87.9947 49.2034 93.1953 70.8877C103.096 112.1685 17.5234 117.4326 28.6952 158.388C38.4951 194.313 130.549 166.905 126.195 203.888C123.431 227.368 69.6953 252.888 69.6953 252.888';
 
-// ── Path 2: continues from below the gap, sweeps down ──
-const PATH_EXIT =
-  'M93.1953 316.888C93.1953 316.888 135.695 371.398 69.6953 380.888C3.69534 390.378 -15.3643 432.388 13.6952 432.388C30.6952 432.388 63.6952 414.888 93.1953 432.388C122.695 449.888 88.8977 485.388 84.1952 489.888C79.4928 494.388 75.6952 496.888 75.6952 502.888C75.6952 508.888 80.78 513.778 87.1952 516.388C92.4405 518.521 99.1952 517.888 99.1952 517.888';
+// ── Path 2: bottom curve (Vector 3) ──
+const BOTTOM_PATH =
+  'M185.659 0.438477C185.659 0.438477 202.045 9.41347 208.159 23.9385C239.885 99.3048 -49.6614 51.6165 8.15937 109.438C17.1592 118.438 56.1594 115.246 56.1594 130.938C56.1594 142.438 37.6592 141.438 34.1594 152.438C29.7209 166.389 92.6594 172.938 92.6594 172.938';
 
 const CURVE_LENGTH = 800; // generous upper bound
 const EXIT_LENGTH = 800; // generous upper bound
 
 // ── Layout ──
-const SC = (height * 0.65) / 544;
+const SC = (height * 0.63) / 544;
 const SVG_W = 127 * SC;
 const SVG_H = 544 * SC;
 const SVG_LEFT = (width - 127 * SC) / 2;
@@ -46,16 +46,29 @@ const PAN_LOTTIE_SIZE = width * 0.28;
 const DRIVER_SIZE = width * 0.34;
 const LOGO_SIZE = width * 0.6;
 
+// ── Bottom SVG (Vector 3) layout ──
+const BOTTOM_VB = {x: -55, y: -5, w: 305, h: 185};
+const BOTTOM_SVG_H = height * 0.23;
+const BOTTOM_SVG_W = BOTTOM_SVG_H * (BOTTOM_VB.w / BOTTOM_VB.h);
+const BOTTOM_SVG_TOP = SVG_TOP + 320 * SC;
+const BOTTOM_SVG_LEFT = (width - BOTTOM_SVG_W) / 2 - width * 0.12;
+const BOTTOM_END_X =
+  BOTTOM_SVG_LEFT +
+  ((92.6594 - BOTTOM_VB.x) / BOTTOM_VB.w) * BOTTOM_SVG_W;
+const BOTTOM_END_Y =
+  BOTTOM_SVG_TOP +
+  ((172.938 - BOTTOM_VB.y) / BOTTOM_VB.h) * BOTTOM_SVG_H;
+
 // ── Fixed screen positions ──
 const POS_PHONE = {x: SVG_LEFT + 58 * SC, y: SVG_TOP + 0 * SC};
-const POS_PAN = {x: SVG_LEFT + 185 * SC, y: SVG_TOP + 178 * SC};
+const POS_PAN = {x: SVG_LEFT + 175 * SC, y: SVG_TOP + 178 * SC};
 const POS_LOGO = {x: width / 2, y: SVG_TOP + 285 * SC};
-const POS_DRIVER = {x: SVG_LEFT + 99 * SC, y: SVG_TOP + 517 * SC};
+const POS_DRIVER = {x: BOTTOM_END_X, y: BOTTOM_END_Y};
 
 // Static splash for loading states
 export const SplashView = () => (
   <LinearGradient
-    colors={['#FD9E2F', '#FE8733', '#FD9E2F']}
+    colors={['#FE8733', '#FE8733', '#FE8733']}
     start={{x: 0, y: 1}}
     end={{x: 0, y: 0}}
     style={styles.container}>
@@ -196,17 +209,16 @@ const SplashScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#FD9E2F', '#FE8733', '#FD9E2F']}
+      colors={['#FE8733', '#FE8733', '#FE8733']}
       start={{x: 0, y: 1}}
       end={{x: 0, y: 0}}
       style={styles.container}>
-      {/* ── Both paths in one SVG, same stroke — looks like one continuous line ── */}
+      {/* ── Top curve SVG ── */}
       <Svg
         width={SVG_W}
         height={SVG_H}
         viewBox="0 0 127 544"
         style={{position: 'absolute', left: SVG_LEFT, top: SVG_TOP}}>
-        {/* Curve: draws during progress, stops at driver */}
         <AnimatedPath
           d={PATH_CURVE}
           stroke="rgba(255,255,255,0.8)"
@@ -216,9 +228,20 @@ const SplashScreen = () => {
           strokeDasharray={[CURVE_LENGTH, CURVE_LENGTH]}
           strokeDashoffset={curveDashOffset}
         />
-        {/* Exit line: draws only when driver moves right */}
+      </Svg>
+
+      {/* ── Bottom curve SVG (Vector 3) ── */}
+      <Svg
+        width={BOTTOM_SVG_W}
+        height={BOTTOM_SVG_H}
+        viewBox={`${BOTTOM_VB.x} ${BOTTOM_VB.y} ${BOTTOM_VB.w} ${BOTTOM_VB.h}`}
+        style={{
+          position: 'absolute',
+          left: BOTTOM_SVG_LEFT,
+          top: BOTTOM_SVG_TOP,
+        }}>
         <AnimatedPath
-          d={PATH_EXIT}
+          d={BOTTOM_PATH}
           stroke="rgba(255,255,255,0.8)"
           strokeWidth={2}
           strokeLinecap="round"
@@ -292,7 +315,7 @@ const SplashScreen = () => {
           styles.abs,
           {
             left: POS_DRIVER.x,
-            top: SVG_TOP + 517.888 * SC - 1,
+            top: BOTTOM_END_Y - 1,
             height: 2,
             width: trailWidth,
             backgroundColor: 'rgba(255,255,255,0.8)',

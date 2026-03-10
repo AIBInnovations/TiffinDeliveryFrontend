@@ -360,9 +360,9 @@ const AutoOrderAddonScreen: React.FC<Props> = ({ navigation, route }) => {
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
-        <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
-        <View style={{ backgroundColor: '#FD9E2F', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
+        <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
+        <View style={{ backgroundColor: '#FE8733', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
           </TouchableOpacity>
@@ -379,9 +379,9 @@ const AutoOrderAddonScreen: React.FC<Props> = ({ navigation, route }) => {
   if (error) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
-        <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
-        <View style={{ backgroundColor: '#FD9E2F', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
+        <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
+        <View style={{ backgroundColor: '#FE8733', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
           </TouchableOpacity>
@@ -406,11 +406,11 @@ const AutoOrderAddonScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
-      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
+      <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
 
       {/* Header */}
-      <View style={{ backgroundColor: '#FD9E2F', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ backgroundColor: '#FE8733', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
         </TouchableOpacity>

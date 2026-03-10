@@ -144,8 +144,8 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FD9E2F' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FE8733' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -160,7 +160,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
           <View
             style={{
               height: 250,
-              backgroundColor: '#FD9E2F',
+              backgroundColor: '#FE8733',
               paddingHorizontal: 20,
               paddingTop: 10,
             }}
@@ -299,7 +299,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
                   Didn't receive code?{' '}
                   <Text
                     onPress={handleResendOTP}
-                    style={{ color: '#FD9E2F', fontWeight: '600' }}
+                    style={{ color: '#FE8733', fontWeight: '600' }}
                   >
                     Resend
                   </Text>
@@ -307,7 +307,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               ) : (
                 <Text>
                   Re-send code in{' '}
-                  <Text style={{ color: '#FD9E2F', fontWeight: '600' }}>
+                  <Text style={{ color: '#FE8733', fontWeight: '600' }}>
                     {timer}s
                   </Text>
                 </Text>
@@ -320,7 +320,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={handleGetStarted}
               disabled={loading}
               style={{
-                backgroundColor: '#FD9E2F',
+                backgroundColor: '#FE8733',
                 borderRadius: 100,
                 minHeight: TOUCH_TARGETS.large,
                 paddingVertical: SPACING.md,
@@ -400,7 +400,7 @@ const OTPVerificationScreen: React.FC<Props> = ({ navigation, route }) => {
               elevation: 8,
             }}
           >
-            <ActivityIndicator size="large" color="#FD9E2F" style={{ marginBottom: SPACING.lg }} />
+            <ActivityIndicator size="large" color="#FE8733" style={{ marginBottom: SPACING.lg }} />
             <Text
               style={{
                 fontSize: FONT_SIZES.h4,

@@ -566,7 +566,7 @@ const AddressScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               className="rounded-full items-center justify-center"
-              style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum, backgroundColor: '#FD9E2F' }}
+              style={{ minWidth: TOUCH_TARGETS.minimum, minHeight: TOUCH_TARGETS.minimum, backgroundColor: '#FE8733' }}
             >
               <MaterialCommunityIcons name="arrow-left" size={22} color="#FFFFFF" />
             </TouchableOpacity>

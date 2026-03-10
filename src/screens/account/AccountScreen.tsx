@@ -103,9 +103,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
   if (loading && !isGuest) {
     return (
       <View style={{ flex: 1, backgroundColor: 'white' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+        <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
         {/* Status bar background */}
-        <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
+        <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
         {/* Header with orange background */}
         <View className="bg-orange-400 pb-6" style={{ position: 'relative', overflow: 'hidden', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }}>
           <View className="flex-row items-center justify-between px-5 pt-4 pb-6">
@@ -225,9 +225,9 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
 
       <ScrollView className="flex-1 bg-white" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header */}
@@ -374,7 +374,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                   width: SPACING.iconLg + 8,
                   height: SPACING.iconLg + 8,
                   borderRadius: (SPACING.iconLg + 8) / 2,
-                  backgroundColor: '#FD9E2F',
+                  backgroundColor: '#FE8733',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -537,8 +537,8 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => navigation.navigate('MealCalendar')}
                 className="flex-1 ml-2 rounded-full py-2.5 items-center"
                 style={{
-                  backgroundColor: '#FD9E2F',
-                  shadowColor: '#FD9E2F',
+                  backgroundColor: '#FE8733',
+                  shadowColor: '#FE8733',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.3,
                   shadowRadius: 4,
@@ -596,7 +596,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     <View className="flex-row items-center">
                       <View
                         className="rounded-full items-center justify-center"
-                        style={{ width: SPACING.iconXl, height: SPACING.iconXl, backgroundColor: '#FD9E2F' }}
+                        style={{ width: SPACING.iconXl, height: SPACING.iconXl, backgroundColor: '#FE8733' }}
                       >
                         <MaterialCommunityIcons name={item.iconName} size={20} color="#FFFFFF" />
                       </View>
@@ -635,7 +635,7 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
                     <View className="flex-row items-center">
                       <View
                         className="rounded-full items-center justify-center"
-                        style={{ width: SPACING.iconXl, height: SPACING.iconXl, backgroundColor: '#FD9E2F' }}
+                        style={{ width: SPACING.iconXl, height: SPACING.iconXl, backgroundColor: '#FE8733' }}
                       >
                         <MaterialCommunityIcons name={item.iconName} size={20} color="#FFFFFF" />
                       </View>

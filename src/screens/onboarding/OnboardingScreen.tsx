@@ -222,7 +222,7 @@ const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView className="flex-1 bg-orange-400" edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
 
       {/* Skip Button */}
       <View

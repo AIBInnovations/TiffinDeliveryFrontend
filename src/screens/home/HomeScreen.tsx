@@ -979,10 +979,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
 
       <ScrollView
         className="flex-1"
@@ -1380,7 +1380,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 activeOpacity={canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? 0.7 : 1}
                 disabled={!canOrderCurrentMeal() && mealWindowInfo.isWindowOpen}
                 style={{
-                  backgroundColor: canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? '#FD9E2F' : 'rgba(209, 213, 219, 1)',
+                  backgroundColor: canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? '#FE8733' : 'rgba(209, 213, 219, 1)',
                   borderRadius: SPACING['3xl'],
                   minWidth: SPACING['5xl'] * 3.125,
                   height: SPACING['2xl'] + SPACING.xl + 1,

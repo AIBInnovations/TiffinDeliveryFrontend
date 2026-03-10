@@ -26,10 +26,10 @@ const OnDemandScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
 
       {/* Status bar background */}
-      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
+      <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
 
       {/* Header */}
       <View

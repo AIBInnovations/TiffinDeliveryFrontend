@@ -63,8 +63,8 @@ const OnboardingScreen3: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FD9E2F' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FE8733' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
       <View className="flex-1 px-10">
         <View className="flex-1 justify-center" style={{ width: '100%' }}>
           {/* Background Image */}

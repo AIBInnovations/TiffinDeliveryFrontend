@@ -176,7 +176,7 @@ const OnboardingSwiper: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView className="flex-1 bg-orange-400">
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
       <View className="flex-1">
         {/* Skip button - top right */}
         <TouchableOpacity

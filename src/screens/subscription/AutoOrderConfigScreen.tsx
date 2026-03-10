@@ -308,7 +308,7 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
   if (isLoading && !config && isEditMode) {
     return (
       <SafeAreaView style={styles.container} className="flex-1 justify-center items-center bg-gray-50">
-        <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
+        <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
         <ActivityIndicator size="large" color="#FE8733" />
         <Text className="mt-4 text-gray-600">Loading config...</Text>
       </SafeAreaView>
@@ -317,8 +317,8 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container} className="flex-1 bg-white">
-      <StatusBar barStyle="light-content" backgroundColor="#FD9E2F" />
-      <SafeAreaView style={{ backgroundColor: '#FD9E2F' }} edges={['top']} />
+      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
+      <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
 
       {/* Header */}
       <View
