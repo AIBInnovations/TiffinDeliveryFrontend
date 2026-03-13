@@ -335,7 +335,7 @@ const AutoOrderSettingsScreen: React.FC<Props> = ({ navigation }) => {
                           borderColor: '#FED7AA',
                         }}
                       >
-                        <MaterialCommunityIcons name="food-variant-plus" size={16} color="#FE8733" style={{ marginRight: 6 }} />
+                        <MaterialCommunityIcons name="plus" size={16} color="#FE8733" style={{ marginRight: 2 }} />
                         <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: '#FE8733' }}>
                           Add Add-ons to Meals
                         </Text>

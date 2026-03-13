@@ -796,7 +796,7 @@ const MealCalendarScreen: React.FC<Props> = ({ navigation }) => {
                   borderColor: '#FED7AA',
                 }}
               >
-                <MaterialCommunityIcons name="food-variant-plus" size={20} color="#FE8733" style={{ marginRight: SPACING.sm }} />
+                <MaterialCommunityIcons name="plus" size={20} color="#FE8733" style={{ marginRight: 2 }} />
                 <Text style={{ fontSize: FONT_SIZES.xs, fontWeight: '600', color: '#FE8733' }}>Add Add-ons</Text>
               </TouchableOpacity>
             </View>

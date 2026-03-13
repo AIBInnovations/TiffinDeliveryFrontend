@@ -232,12 +232,12 @@ const AccountScreen: React.FC<Props> = ({ navigation }) => {
           {/* Decorative Background Elements */}
           <Image
             source={require('../../assets/images/homepage/halfcircle.png')}
-            style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
+            style={{ position: 'absolute', top: insets.top - 90, right: -125, width: 300, height: 380 }}
             resizeMode="contain"
           />
           <Image
             source={require('../../assets/images/homepage/halfline.png')}
-            style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
+            style={{ position: 'absolute', top: insets.top + 30, right: -150, width: 380, height: 150 }}
             resizeMode="contain"
           />
 

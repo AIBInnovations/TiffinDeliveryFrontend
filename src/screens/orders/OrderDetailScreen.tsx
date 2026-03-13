@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
-  Alert,
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -134,6 +133,7 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [showRateModal, setShowRateModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isRating, setIsRating] = useState(false);
+  const [copiedOrderId, setCopiedOrderId] = useState(false);
 
   // Fetch order details
   const fetchOrder = async () => {
@@ -406,17 +406,23 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text className="font-bold text-gray-900" style={{ fontSize: FONT_SIZES.lg }}>
                 #{order.orderNumber}
               </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  Clipboard.setString(order.orderNumber);
-                  Alert.alert('Copied!', 'Order ID copied to clipboard');
-                }}
-                style={{ marginLeft: 6, padding: 2 }}
-              >
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="#6B7280" />
-                </Svg>
-              </TouchableOpacity>
+              <View style={{ marginLeft: 6, alignItems: 'center' }}>
+                {copiedOrderId && (
+                  <Text style={{ fontSize: FONT_SIZES.xs - 1, color: '#16A34A', fontWeight: '600', marginBottom: 2 }}>Copied!</Text>
+                )}
+                <TouchableOpacity
+                  onPress={() => {
+                    Clipboard.setString(order.orderNumber);
+                    setCopiedOrderId(true);
+                    setTimeout(() => setCopiedOrderId(false), 2000);
+                  }}
+                  style={{ padding: 2 }}
+                >
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="#6B7280" />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
             </View>
             <View
               className="rounded-full"
@@ -482,23 +488,23 @@ const OrderDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Scheduled Order Info Section */}
         {order.orderSource === 'SCHEDULED' && (
-          <View className="px-5 py-4 mb-2" style={{ backgroundColor: '#DBEAFE' }}>
+          <View className="px-5 py-4 mb-2" style={{ backgroundColor: '#F5E6DF' }}>
             <View className="flex-row items-center mb-2">
               <View
                 className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: '#3B82F6' }}
+                style={{ backgroundColor: '#642714' }}
               >
                 <Text className="text-lg">📅</Text>
               </View>
-              <Text className="text-lg font-bold" style={{ color: '#1E40AF' }}>
+              <Text className="text-lg font-bold" style={{ color: '#642714' }}>
                 Scheduled Order
               </Text>
             </View>
-            <Text className="text-sm" style={{ color: '#1E40AF', marginBottom: 4 }}>
+            <Text className="text-sm" style={{ color: '#642714', marginBottom: 4 }}>
               This meal was pre-scheduled for delivery.
             </Text>
             {order.scheduledFor && (
-              <Text className="text-xs" style={{ color: '#2563EB', fontWeight: '500' }}>
+              <Text className="text-xs" style={{ color: '#642714', fontWeight: '500' }}>
                 Scheduled for: {new Date(order.scheduledFor).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </Text>
             )}

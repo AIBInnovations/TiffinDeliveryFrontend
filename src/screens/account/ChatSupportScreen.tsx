@@ -511,6 +511,14 @@ const ChatSupportScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleQuickReply = (reply: string) => {
+    if (reply === 'Call support') {
+      Linking.openURL('tel:+919876543210');
+      return;
+    }
+    if (reply === 'Email support') {
+      Linking.openURL('mailto:info@tiffindabba.in');
+      return;
+    }
     const searchTerm = QUICK_REPLY_SEARCH[reply] || reply.toLowerCase();
     // Show the quick reply as a user message
     const userMessage: ChatMessage = {

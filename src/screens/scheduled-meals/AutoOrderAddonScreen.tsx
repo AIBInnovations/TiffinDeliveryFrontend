@@ -22,6 +22,7 @@ import AddonSelector, { SelectedAddon } from '../../components/AddonSelector';
 import paymentService from '../../services/payment.service';
 import { SPACING } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
+import LinearGradient from 'react-native-linear-gradient';
 
 type Props = StackScreenProps<MainTabParamList, 'AutoOrderAddons'>;
 
@@ -360,14 +361,17 @@ const AutoOrderAddonScreen: React.FC<Props> = ({ navigation, route }) => {
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
-        <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
-        <View style={{ backgroundColor: '#FE8733', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold' }}>Auto-Order Add-ons</Text>
-        </View>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <LinearGradient colors={['#FD9E2F', '#FF6636']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+          <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+            <View style={{ paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+              </TouchableOpacity>
+              <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold' }}>Auto-Order Add-ons</Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#FE8733" />
           <Text style={{ marginTop: SPACING.md, fontSize: FONT_SIZES.sm, color: '#6B7280' }}>Loading upcoming slots...</Text>
@@ -379,14 +383,17 @@ const AutoOrderAddonScreen: React.FC<Props> = ({ navigation, route }) => {
   if (error) {
     return (
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
-        <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
-        <View style={{ backgroundColor: '#FE8733', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold' }}>Auto-Order Add-ons</Text>
-        </View>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <LinearGradient colors={['#FD9E2F', '#FF6636']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+          <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+            <View style={{ paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+              </TouchableOpacity>
+              <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold' }}>Auto-Order Add-ons</Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl }}>
           <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={{ fontSize: FONT_SIZES.base, color: '#6B7280', textAlign: 'center', marginTop: SPACING.md }}>{error}</Text>
@@ -406,17 +413,20 @@ const AutoOrderAddonScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
-      <SafeAreaView style={{ backgroundColor: '#FE8733' }} edges={['top']} />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       {/* Header */}
-      <View style={{ backgroundColor: '#FE8733', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold', flex: 1 }}>Auto-Order Add-ons</Text>
-        {isPricingLoading && <ActivityIndicator size="small" color="white" />}
-      </View>
+      <LinearGradient colors={['#FD9E2F', '#FF6636']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={{ borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden' }}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+          <View style={{ paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: SPACING.md }}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold', flex: 1 }}>Auto-Order Add-ons</Text>
+            {isPricingLoading && <ActivityIndicator size="small" color="white" />}
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
       <ScrollView
         style={{ flex: 1 }}

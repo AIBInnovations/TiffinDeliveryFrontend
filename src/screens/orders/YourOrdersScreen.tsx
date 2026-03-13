@@ -9,7 +9,6 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Svg, { Path } from 'react-native-svg';
@@ -156,6 +155,7 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyHasMore, setHistoryHasMore] = useState(true);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -424,18 +424,24 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }} numberOfLines={1}>
               Order ID - #{order.orderNumber}
             </Text>
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                Clipboard.setString(order.orderNumber);
-                Alert.alert('Copied!', 'Order ID copied to clipboard');
-              }}
-              style={{ marginLeft: 4, padding: 2 }}
-            >
-              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="rgba(145,145,145,1)" />
-              </Svg>
-            </TouchableOpacity>
+            <View style={{ marginLeft: 4, alignItems: 'center' }}>
+              {copiedOrderId === order.orderNumber && (
+                <Text style={{ fontSize: 9, color: '#16A34A', fontWeight: '600', marginBottom: 1 }}>Copied!</Text>
+              )}
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Clipboard.setString(order.orderNumber);
+                  setCopiedOrderId(order.orderNumber);
+                  setTimeout(() => setCopiedOrderId(null), 2000);
+                }}
+                style={{ padding: 2 }}
+              >
+                <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                  <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="rgba(145,145,145,1)" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Row 3: Date & Time | Auto Badge */}
@@ -546,18 +552,24 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
             <Text className="text-sm" style={{ color: 'rgba(145, 145, 145, 1)' }} numberOfLines={1}>
               Order ID - #{order.orderNumber}
             </Text>
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                Clipboard.setString(order.orderNumber);
-                Alert.alert('Copied!', 'Order ID copied to clipboard');
-              }}
-              style={{ marginLeft: 4, padding: 2 }}
-            >
-              <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="rgba(145,145,145,1)" />
-              </Svg>
-            </TouchableOpacity>
+            <View style={{ marginLeft: 4, alignItems: 'center' }}>
+              {copiedOrderId === order.orderNumber && (
+                <Text style={{ fontSize: 9, color: '#16A34A', fontWeight: '600', marginBottom: 1 }}>Copied!</Text>
+              )}
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Clipboard.setString(order.orderNumber);
+                  setCopiedOrderId(order.orderNumber);
+                  setTimeout(() => setCopiedOrderId(null), 2000);
+                }}
+                style={{ padding: 2 }}
+              >
+                <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                  <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="rgba(145,145,145,1)" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
           </View>
           <View className="flex-row items-center justify-between mt-2">
             <View className="flex-1">
@@ -696,12 +708,12 @@ const YourOrdersScreen: React.FC<Props> = ({ navigation }) => {
         {/* Decorative Background Elements */}
         <Image
           source={require('../../assets/images/homepage/halfcircle.png')}
-          style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
+          style={{ position: 'absolute', top: insets.top - 90, right: -125, width: 300, height: 380 }}
           resizeMode="contain"
         />
         <Image
           source={require('../../assets/images/homepage/halfline.png')}
-          style={{ position: 'absolute', top: 30, right: -150, width: 380, height: 150 }}
+          style={{ position: 'absolute', top: insets.top + 30, right: -150, width: 380, height: 150 }}
           resizeMode="contain"
         />
 

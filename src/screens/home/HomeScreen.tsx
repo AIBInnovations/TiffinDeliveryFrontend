@@ -13,7 +13,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { MainTabParamList } from '../../types/navigation';
@@ -994,9 +994,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 300, backgroundColor: 'white' }} />
 
         {/* Header */}
-        <LinearGradient colors={['#FD9E2F', '#FF6636']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={{ position: 'relative', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden', zIndex: 10, paddingTop: StatusBar.currentHeight }}>
+        <LinearGradient colors={['#FD9E2F', '#FF6636']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={{ position: 'relative', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden', zIndex: 10 }}>
+          <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
           {/* Decorative Background Elements */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }} pointerEvents="none">
+          <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, bottom: 0, overflow: 'hidden' }} pointerEvents="none">
             <Image
               source={require('../../assets/images/homepage/halfcircle.png')}
               style={{ position: 'absolute', top: -90, right: -125, width: 300, height: 380 }}
@@ -1086,6 +1087,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
           </View>
+          </SafeAreaView>
         </LinearGradient>
 
         {/* Content area with background design */}

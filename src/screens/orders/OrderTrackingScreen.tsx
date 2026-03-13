@@ -10,7 +10,6 @@ import {
   TextInput,
   ActivityIndicator,
   Linking,
-  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -110,6 +109,7 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickupNotes, setPickupNotes] = useState('');
+  const [copiedOrderId, setCopiedOrderId] = useState(false);
   const [savedNotes, setSavedNotes] = useState<string[]>([]);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [leaveAtDoor, setLeaveAtDoor] = useState(false);
@@ -481,17 +481,23 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
                 Order ID - #{order?.orderNumber || '...'}
               </Text>
               {order?.orderNumber && (
-                <TouchableOpacity
-                  onPress={() => {
-                    Clipboard.setString(order.orderNumber);
-                    Alert.alert('Copied!', 'Order ID copied to clipboard');
-                  }}
-                  style={{ marginLeft: 4, padding: 2 }}
-                >
-                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                    <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="rgba(145,145,145,1)" />
-                  </Svg>
-                </TouchableOpacity>
+                <View style={{ marginLeft: 4, alignItems: 'center' }}>
+                  {copiedOrderId && (
+                    <Text style={{ fontSize: 9, color: '#16A34A', fontWeight: '600', marginBottom: 1 }}>Copied!</Text>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => {
+                      Clipboard.setString(order.orderNumber);
+                      setCopiedOrderId(true);
+                      setTimeout(() => setCopiedOrderId(false), 2000);
+                    }}
+                    style={{ padding: 2 }}
+                  >
+                    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                      <Path d="M16 1H4C2.9 1 2 1.9 2 3v14h2V3h12V1zm3 4H8C6.9 5 6 5.9 6 7v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="rgba(145,145,145,1)" />
+                    </Svg>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           </View>
