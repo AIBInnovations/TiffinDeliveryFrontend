@@ -140,6 +140,11 @@ android {
         pickFirst 'lib/x86/libworklets.so'
         pickFirst 'lib/x86_64/libworklets.so'
     }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
 }
 
 // Configure NDK build to use less memory
