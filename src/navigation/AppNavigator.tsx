@@ -80,8 +80,14 @@ const AuthErrorView: React.FC<{
 
 const AppNavigator = () => {
   const { user, isLoading, isGuest, needsAddressSetup, authError, retrySync, logout, isAuthenticated } = useUser();
+  const [showSplash, setShowSplash] = React.useState(true);
 
-  // Show splash screen while checking auth state
+  // Always show animated splash on every app launch
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  // Show static splash while checking auth state
   if (isLoading) {
     return <SplashView />;
   }
@@ -136,7 +142,6 @@ const AppNavigator = () => {
         ) : !user ? (
           // User is not authenticated - show onboarding and auth screens
           <>
-            <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
             <Stack.Screen name="Auth" component={AuthNavigator} />
           </>

@@ -6,17 +6,10 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {StackNavigationProp} from '@react-navigation/stack';
 import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, {Path} from 'react-native-svg';
-import {RootStackParamList} from '../types/navigation';
 
-type SplashScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'Splash'
->;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -80,12 +73,17 @@ export const SplashView = () => (
   </LinearGradient>
 );
 
-const SplashScreen = () => {
-  const navigation = useNavigation<SplashScreenNavigationProp>();
+type SplashScreenProps = {
+  onFinish: () => void;
+};
+
+const SplashScreen = ({onFinish}: SplashScreenProps) => {
   const logoAnim = useRef(new Animated.Value(0)).current;
   const progress = useRef(new Animated.Value(0)).current;
   const driverExit = useRef(new Animated.Value(0)).current;
   const exitLine = useRef(new Animated.Value(0)).current;
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useEffect(() => {
     Animated.sequence([
@@ -131,9 +129,10 @@ const SplashScreen = () => {
 
       Animated.delay(400),
     ]).start(() => {
-      navigation.replace('Onboarding');
+      onFinishRef.current();
     });
-  }, [navigation, logoAnim, progress, driverExit, exitLine]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Top curve: fully draws during progress ──
   const curveDashOffset = progress.interpolate({

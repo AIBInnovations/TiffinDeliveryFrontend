@@ -21,6 +21,8 @@ import { useCart } from '../../context/CartContext';
 import { useAddress } from '../../context/AddressContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useBanners } from '../../context/BannerContext';
+import BannerSliderWidget from '../../components/BannerSliderWidget';
 import apiService, { KitchenInfo, MenuItem, AddonItem, extractKitchensFromResponse } from '../../services/api.service';
 import dataPreloader from '../../services/dataPreloader.service';
 import MealWindowModal from '../../components/MealWindowModal';
@@ -67,6 +69,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { getMainAddress, selectedAddressId, addresses, currentLocation, isGettingLocation } = useAddress();
   const { usableVouchers, subscriptions, fetchSubscriptions, fetchVouchers, autoOrderConfigs } = useSubscription();
   const { fetchUnreadCount, fetchNotifications } = useNotifications();
+  const { banners, isLoading: isBannersLoading, loadBanners } = useBanners();
   const insets = useSafeAreaInsets();
   const { width, isSmallDevice } = useResponsive();
   const { scale } = useScaling();
@@ -80,8 +83,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [addOnsExpanded, setAddOnsExpanded] = useState(false);
   const [includesExpanded, setIncludesExpanded] = useState(false);
-  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
-  const carouselRef = useRef<ScrollView>(null);
 
   // Menu state
   const [menuData, setMenuData] = useState<MenuData | null>(null);
@@ -110,28 +111,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [isBuyNowFlow, setIsBuyNowFlow] = useState(false);
 
-  // Carousel images
-  const carouselImages = [
-    require('../../assets/images/1.png'),
-    require('../../assets/images/2.png'),
-    require('../../assets/images/3.png'),
-  ];
-
-  // Auto-scroll carousel - 3 second interval
+  // Load banners on mount
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveCarouselIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % carouselImages.length;
-        carouselRef.current?.scrollTo({
-          x: nextIndex * width,
-          animated: true,
-        });
-        return nextIndex;
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [width]);
+    loadBanners();
+  }, []);
 
   // Note: We no longer use fallback addons with fake IDs as they cause API validation errors
   // Addons must come from the API with valid MongoDB ObjectIds
@@ -662,9 +645,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [selectedMeal, menuData, cartItems]);
 
+  const handleBannerPress = (redirectLink?: string) => {
+    if (!redirectLink) return;
+    if (redirectLink === '/menu') {
+      navigation.navigate('Menu');
+    } else if (redirectLink === '/offers') {
+      navigation.navigate('Vouchers');
+    } else if (redirectLink === '/subscription') {
+      navigation.navigate('MealPlans');
+    }
+    // Unrecognized link — do nothing
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchMenu();
+    await Promise.all([fetchMenu(), loadBanners(true)]);
     setRefreshing(false);
   };
 
@@ -1105,71 +1100,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-        {/* Promotional Carousel - Outside Header */}
-        <View style={{ marginTop: SPACING.md + 30 }}>
-          <ScrollView
-            ref={carouselRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / width);
-              setActiveCarouselIndex(index);
-            }}
-            decelerationRate="fast"
-          >
-            {carouselImages.map((image, index) => (
-              <View
-                key={index}
-                style={{
-                  width: width,
-                  height: 140,
-                  paddingHorizontal: SPACING.lg,
-                }}
-              >
-                <View
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: SPACING.lg,
-                    overflow: 'hidden',
-                    backgroundColor: 'white',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.08,
-                    shadowRadius: 8,
-                    elevation: 3,
-                  }}
-                >
-                  <Image
-                    source={image}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                    }}
-                    resizeMode="contain"
-                  />
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-
-          {/* Dot Indicators */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: SPACING.sm }}>
-            {carouselImages.map((_, index) => (
-              <View
-                key={index}
-                style={{
-                  width: activeCarouselIndex === index ? 20 : 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: activeCarouselIndex === index ? '#FE8733' : '#D1D5DB',
-                  marginHorizontal: 3,
-                }}
-              />
-            ))}
-          </View>
-        </View>
+        {/* Promotional Carousel - Dynamic banners from API */}
+        <BannerSliderWidget
+          banners={banners}
+          isLoading={isBannersLoading}
+          screenWidth={width}
+          onBannerPress={handleBannerPress}
+        />
 
         {/* Quick Action Buttons */}
         <View
