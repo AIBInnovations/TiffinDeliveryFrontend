@@ -15,6 +15,7 @@ import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import { PaymentProvider } from './src/context/PaymentContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
 import { AlertProvider } from './src/context/AlertContext';
+import { BannerProvider } from './src/context/BannerContext';
 import NotificationPopup from './src/components/NotificationPopup';
 import notificationService from './src/services/notification.service';
 import notificationChannelService from './src/services/notificationChannel.service';
@@ -260,9 +261,11 @@ const App = () => {
           <PaymentProvider>
             <CartProvider>
               <NotificationProvider>
-                <AlertProvider>
-                  <AppContent />
-                </AlertProvider>
+                <BannerProvider>
+                  <AlertProvider>
+                    <AppContent />
+                  </AlertProvider>
+                </BannerProvider>
               </NotificationProvider>
             </CartProvider>
           </PaymentProvider>
