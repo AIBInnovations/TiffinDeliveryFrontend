@@ -145,6 +145,13 @@ android {
         checkReleaseBuilds false
         abortOnError false
     }
+
+    // Use shorter path for C++ build to avoid Windows 260-char path limit
+    externalNativeBuild {
+        cmake {
+            buildStagingDirectory = file("C:/rb")
+        }
+    }
 }
 
 // Configure NDK build to use less memory

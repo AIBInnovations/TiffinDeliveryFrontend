@@ -298,11 +298,10 @@ const VouchersScreen: React.FC<Props> = ({ navigation }) => {
                 shadowOpacity: 0.1,
                 shadowRadius: 4,
                 elevation: 3,
-                minHeight: TOUCH_TARGETS.minimum,
               }}
             >
               <Image
-                source={require('../../assets/icons/voucher5.png')}
+                source={require('../../assets/icons/voucher4.png')}
                 style={{ width: SPACING.iconSm + 2, height: SPACING.iconSm + 2 }}
                 resizeMode="contain"
               />

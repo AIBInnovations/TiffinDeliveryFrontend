@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,10 +21,8 @@ import { useAddress } from '../../context/AddressContext';
 import apiService, {
   WeeklySchedule,
   AutoOrderAddressConfig,
-  AddonItem,
   extractKitchensFromResponse,
 } from '../../services/api.service';
-import AddonSelector, { SelectedAddon } from '../../components/AddonSelector';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
 import { FONT_SIZES } from '../../constants/typography';
 import { MainTabParamList } from '../../types/navigation';
@@ -81,10 +79,7 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
   // Track if changes have been made
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Add-on state
-  const [kitchenAddons, setKitchenAddons] = useState<AddonItem[]>([]);
-  const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
-  const [addonsLoading, setAddonsLoading] = useState(false);
+
 
   // Filter addresses that don't already have a config (create mode)
   const existingAddressIds = autoOrderConfigs.map(c => c.addressId);
@@ -98,15 +93,6 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
       setWeeklySchedule(existingConfig.weeklySchedule);
       setSelectedKitchenId(existingConfig.kitchen?._id || null);
       setSelectedKitchenName(existingConfig.kitchen?.name || null);
-      // Pre-populate addons from existing config
-      if (existingConfig.addons && existingConfig.addons.length > 0) {
-        setSelectedAddons(existingConfig.addons.map(a => ({
-          addonId: a.addonId,
-          name: a.name,
-          quantity: a.quantity,
-          unitPrice: a.price,
-        })));
-      }
     }
   }, [isEditMode]);
 
@@ -135,48 +121,6 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
 
     resolveKitchen();
   }, [selectedAddressId]);
-
-  // Fetch available add-ons when kitchen is resolved
-  useEffect(() => {
-    if (!selectedKitchenId) {
-      setKitchenAddons([]);
-      return;
-    }
-
-    const fetchAddons = async () => {
-      setAddonsLoading(true);
-      try {
-        const menuResponse = await apiService.getKitchenMenu(selectedKitchenId, 'MEAL_MENU');
-        const { lunch, dinner } = menuResponse.data.mealMenu;
-        // Merge lunch + dinner addons, deduplicate by _id
-        const allAddons: AddonItem[] = [];
-        const seen = new Set<string>();
-        const addUnique = (items?: AddonItem[]) => {
-          items?.forEach(a => {
-            if (!seen.has(a._id)) {
-              seen.add(a._id);
-              allAddons.push(a);
-            }
-          });
-        };
-        addUnique(lunch?.addonIds);
-        addUnique(dinner?.addonIds);
-        setKitchenAddons(allAddons);
-
-        // In create mode or when address changes, clear selected addons that are no longer available
-        if (!isEditMode) {
-          setSelectedAddons(prev => prev.filter(sa => allAddons.some(a => a._id === sa.addonId)));
-        }
-      } catch (err) {
-        console.log('[AutoOrderConfigScreen] Failed to fetch addons:', err);
-        setKitchenAddons([]);
-      } finally {
-        setAddonsLoading(false);
-      }
-    };
-
-    fetchAddons();
-  }, [selectedKitchenId]);
 
   // Initialize default schedule for create mode
   useEffect(() => {
@@ -211,30 +155,6 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
     setHasChanges(true);
   };
 
-  // Add-on handlers
-  const handleAddonAdd = useCallback((addon: AddonItem) => {
-    setSelectedAddons(prev => {
-      const existing = prev.find(a => a.addonId === addon._id);
-      if (existing) return prev;
-      return [...prev, { addonId: addon._id, name: addon.name, quantity: 1, unitPrice: addon.price }];
-    });
-    setHasChanges(true);
-  }, []);
-
-  const handleAddonRemove = useCallback((addonId: string) => {
-    setSelectedAddons(prev => prev.filter(a => a.addonId !== addonId));
-    setHasChanges(true);
-  }, []);
-
-  const handleAddonQuantityChange = useCallback((addonId: string, quantity: number) => {
-    if (quantity <= 0) {
-      setSelectedAddons(prev => prev.filter(a => a.addonId !== addonId));
-    } else {
-      setSelectedAddons(prev => prev.map(a => a.addonId === addonId ? { ...a, quantity } : a));
-    }
-    setHasChanges(true);
-  }, []);
-
   // Save config
   const handleSave = async () => {
     if (!selectedAddressId) {
@@ -258,9 +178,6 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
         kitchenId: selectedKitchenId,
         weeklySchedule: weeklySchedule,
         autoOrderingEnabled: true,
-        addons: selectedAddons.length > 0
-          ? selectedAddons.map(a => ({ addonId: a.addonId, quantity: a.quantity }))
-          : undefined,
       });
       setHasChanges(false);
       setModalTitle('Success');
@@ -486,42 +403,6 @@ const AutoOrderConfigScreen: React.FC<Props> = ({ route, navigation }) => {
               onChange={handleScheduleChange}
               disabled={isSaving || !isEnabled}
             />
-          </View>
-        )}
-
-        {/* Meal Add-ons Section */}
-        {selectedAddressId && selectedKitchenId && !kitchensLoading && (
-          <View className="mx-4 mb-4" style={{ opacity: isEnabled ? 1 : 0.4 }} pointerEvents={isEnabled ? 'auto' : 'none'}>
-            <View className="flex-row items-center mb-3">
-              <View className="w-2 h-6 bg-orange-400 rounded-full mr-3" />
-              <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-                Meal Add-ons
-              </Text>
-            </View>
-
-            <Text className="text-sm text-gray-600 mb-3 pl-1" numberOfLines={2}>
-              These add-ons will be included with every auto-order
-            </Text>
-
-            <View
-              style={{
-                backgroundColor: 'white',
-                borderRadius: 16,
-                padding: 16,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-              }}
-            >
-              <AddonSelector
-                availableAddons={kitchenAddons}
-                selectedAddons={selectedAddons}
-                onAdd={handleAddonAdd}
-                onRemove={handleAddonRemove}
-                onQuantityChange={handleAddonQuantityChange}
-                loading={addonsLoading}
-                title="Add-ons for every order"
-              />
-            </View>
           </View>
         )}
 
