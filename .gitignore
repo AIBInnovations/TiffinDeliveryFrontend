@@ -79,6 +79,19 @@ yarn-error.log
 
 # Logs
 debug.log
+*.log
+crash*.txt
+hs_err_pid*.log
+replay_pid*.log
+
+# macOS metadata sidecars (AppleDouble) — created when a Mac touches a
+# non-HFS filesystem; useless on every other platform and they break some
+# Xcode asset/codesign steps if they slip into a build.
+._*
+.DS_Store
+
+# One-off scratch dir
+tmp/
 
 # Large files
 docs.zip

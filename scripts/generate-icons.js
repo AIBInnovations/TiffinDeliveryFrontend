@@ -2,7 +2,10 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const sourceImage = './src/assets/images/WhatsApp Image 2026-02-09 at 7.18.16 PM.jpeg';
+// Resolve relative to the project root (scripts/ is one level deep) so the
+// script works whether you run it from the repo root or from inside scripts/.
+const projectRoot = path.resolve(__dirname, '..');
+const sourceImage = path.join(projectRoot, 'src', 'assets', 'images', 'WhatsApp Image 2026-02-09 at 7.18.16 PM.jpeg');
 
 // Android icon sizes for mipmap folders
 const androidSizes = [
@@ -33,7 +36,7 @@ async function generateAndroidIcons() {
   console.log('Generating Android icons...');
 
   for (const { folder, size } of androidSizes) {
-    const outputDir = path.join(__dirname, 'android', 'app', 'src', 'main', 'res', folder);
+    const outputDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', folder);
 
     // Create directory if it doesn't exist
     if (!fs.existsSync(outputDir)) {
@@ -73,7 +76,7 @@ async function generateAndroidIcons() {
 async function generateiOSIcons() {
   console.log('Generating iOS icons...');
 
-  const outputDir = path.join(__dirname, 'ios', 'TiffinDelivery', 'Images.xcassets', 'AppIcon.appiconset');
+  const outputDir = path.join(projectRoot, 'ios', 'TiffinDelivery', 'Images.xcassets', 'AppIcon.appiconset');
 
   // Create directory if it doesn't exist
   if (!fs.existsSync(outputDir)) {

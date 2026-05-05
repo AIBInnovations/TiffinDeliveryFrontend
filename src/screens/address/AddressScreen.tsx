@@ -411,54 +411,7 @@ const AddressScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const renderAddressForm = (isEdit: boolean) => (
     <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Use Current Location — opens the map picker centered on user's GPS. Only shown for new addresses. */}
-      {!isEdit && (
-        <TouchableOpacity
-          onPress={() => navigation.navigate('LocationPicker')}
-          activeOpacity={0.85}
-          style={{
-            marginBottom: 20,
-            backgroundColor: '#FFF7ED',
-            borderRadius: 14,
-            padding: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderWidth: 1.5,
-            borderColor: '#FE8733',
-          }}
-        >
-          <View
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: '#FE8733',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 12,
-            }}
-          >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
-                stroke="white"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#9A3412' }}>
-              Use Current Location
-            </Text>
-            <Text style={{ fontSize: 12, color: '#9A3412', marginTop: 2 }}>
-              Pinpoint on map to autofill your address
-            </Text>
-          </View>
-          <Text style={{ fontSize: 20, color: '#FE8733', fontWeight: '700' }}>›</Text>
-        </TouchableOpacity>
-      )}
+      {/* "Use Current Location" hidden — see react-native.config.js. */}
 
       {/* Label Selection */}
       <View className="mb-4">
