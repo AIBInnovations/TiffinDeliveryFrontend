@@ -35,7 +35,11 @@
       "Bash(wmic process:*)",
       "Bash(taskkill:*)",
       "Bash(node -e:*)",
-      "Bash(npx react-native bundle:*)"
+      "Bash(npx react-native bundle:*)",
+      "Bash(find \"e:\\\\TiffsyConsumer\\\\src\\\\screens\\\\scheduled-meals\" -type f -name \"*.tsx\" -o -name \"*.ts\" 2>nul | head -20)"
+    ],
+    "additionalDirectories": [
+      "e:\\TiffsyConsumer"
     ]
   }
 }
