@@ -783,6 +783,28 @@ const BulkSchedulePricingScreen: React.FC<Props> = ({ navigation, route }) => {
               );
             })()}
 
+            {/* Per-Slot Breakdown */}
+            <View style={{
+              marginHorizontal: SPACING.lg,
+              marginBottom: SPACING.lg,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 14,
+              padding: SPACING.lg,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm }}>
+                <MaterialCommunityIcons name="format-list-bulleted" size={20} color="#FE8733" style={{ marginRight: SPACING.sm }} />
+                <Text style={{ fontSize: FONT_SIZES.base, fontWeight: '700', color: '#1F2937' }}>Per-Meal Breakdown</Text>
+              </View>
+              {isLoading && (
+                <View style={{ position: 'absolute', top: 0, right: SPACING.lg, bottom: 0, justifyContent: 'center' }}>
+                  <ActivityIndicator size="small" color="#FE8733" />
+                </View>
+              )}
+              {pricingData.perSlotBreakdown.map((slot, index) => renderSlotBreakdown(slot, index))}
+            </View>
+
             {/* Global Lunch Add-ons (hidden in per-slot mode) */}
             {!customizePerSlot && hasLunchSlots && (() => {
               const lunchSlotCount = selectedSlots.filter(s => s.mealWindow === 'LUNCH').length;
@@ -891,28 +913,6 @@ const BulkSchedulePricingScreen: React.FC<Props> = ({ navigation, route }) => {
                 </Text>
               </TouchableOpacity>
             )}
-
-            {/* Per-Slot Breakdown */}
-            <View style={{
-              marginHorizontal: SPACING.lg,
-              marginBottom: SPACING.lg,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 14,
-              padding: SPACING.lg,
-              borderWidth: 1,
-              borderColor: '#E5E7EB',
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm }}>
-                <MaterialCommunityIcons name="format-list-bulleted" size={20} color="#FE8733" style={{ marginRight: SPACING.sm }} />
-                <Text style={{ fontSize: FONT_SIZES.base, fontWeight: '700', color: '#1F2937' }}>Per-Meal Breakdown</Text>
-              </View>
-              {isLoading && (
-                <View style={{ position: 'absolute', top: 0, right: SPACING.lg, bottom: 0, justifyContent: 'center' }}>
-                  <ActivityIndicator size="small" color="#FE8733" />
-                </View>
-              )}
-              {pricingData.perSlotBreakdown.map((slot, index) => renderSlotBreakdown(slot, index))}
-            </View>
 
             {/* Summary Card */}
             <View style={{
