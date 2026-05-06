@@ -226,42 +226,63 @@ const AddressScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    const proceedWithSave = async () => {
+      setIsSubmitting(true);
+      try {
+        // Get coordinates: use GPS coordinates if available, otherwise forward geocode the address
+        let coordinates = formCoordinates;
+        if (!coordinates) {
+          const fullAddress = `${formData.addressLine1}, ${formData.locality}, ${formData.city}, ${formData.state}, ${formData.pincode}`;
+          coordinates = await locationService.forwardGeocode(fullAddress);
+        }
+
+        await createAddressOnServer({
+          label: formData.label,
+          addressLine1: formData.addressLine1,
+          addressLine2: formData.addressLine2 || undefined,
+          landmark: formData.landmark || undefined,
+          locality: formData.locality,
+          city: formData.city,
+          state: formData.state,
+          pincode: formData.pincode,
+          contactName: formData.contactName,
+          contactPhone: formData.contactPhone,
+          isMain: addresses.length === 0, // First address is default
+          coordinates: coordinates || undefined,
+        });
+        setShowAddModal(false);
+        resetForm();
+        if (pincodeServiceable === false) {
+          showAlert(
+            'Address Saved',
+            "We don't deliver to this pincode yet. We'll let you know when we expand here.",
+            undefined,
+            'warning',
+          );
+        } else {
+          showAlert('Success', 'Address added successfully', undefined, 'success');
+        }
+      } catch (error: any) {
+        showAlert('Error', error.message || 'Failed to add address', undefined, 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
     if (pincodeServiceable === false) {
-      showAlert('Error', 'This pincode is not serviceable. Please enter a different pincode.', undefined, 'error');
+      showAlert(
+        'Pincode Not Serviceable',
+        "We don't deliver to this pincode yet. Save this address anyway? We'll let you know when we expand here.",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Save Anyway', style: 'default', onPress: () => { proceedWithSave(); } },
+        ],
+        'warning',
+      );
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // Get coordinates: use GPS coordinates if available, otherwise forward geocode the address
-      let coordinates = formCoordinates;
-      if (!coordinates) {
-        const fullAddress = `${formData.addressLine1}, ${formData.locality}, ${formData.city}, ${formData.state}, ${formData.pincode}`;
-        coordinates = await locationService.forwardGeocode(fullAddress);
-      }
-
-      await createAddressOnServer({
-        label: formData.label,
-        addressLine1: formData.addressLine1,
-        addressLine2: formData.addressLine2 || undefined,
-        landmark: formData.landmark || undefined,
-        locality: formData.locality,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
-        contactName: formData.contactName,
-        contactPhone: formData.contactPhone,
-        isMain: addresses.length === 0, // First address is default
-        coordinates: coordinates || undefined,
-      });
-      setShowAddModal(false);
-      resetForm();
-      showAlert('Success', 'Address added successfully', undefined, 'success');
-    } catch (error: any) {
-      showAlert('Error', error.message || 'Failed to add address', undefined, 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await proceedWithSave();
   };
 
   const handleEditAddress = (address: Address) => {
@@ -581,12 +602,12 @@ const AddressScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text className="ml-3 text-green-600 text-lg">✓</Text>
           )}
           {pincodeServiceable === false && (
-            <Text className="ml-3 text-red-500 text-lg">✗</Text>
+            <Text className="ml-3 text-lg" style={{ color: '#F59E0B' }}>!</Text>
           )}
         </View>
         {pincodeServiceable === false && (
-          <Text className="text-red-500 text-xs mt-1">
-            Sorry, we don't deliver to this pincode yet
+          <Text className="text-xs mt-1" style={{ color: '#B45309' }}>
+            We don't deliver here yet - you can still save this address.
           </Text>
         )}
         {pincodeServiceable === true && (
@@ -804,8 +825,8 @@ const AddressScreen: React.FC<Props> = ({ navigation, route }) => {
                       </View>
                     )}
                     {address.isServiceable === false && (
-                      <View className="ml-2 bg-red-100 px-2 py-1 rounded-full">
-                        <Text className="text-xs font-semibold text-red-600">Not Serviceable</Text>
+                      <View className="ml-2 px-2 py-1 rounded-full" style={{ backgroundColor: '#FEF3C7' }}>
+                        <Text className="text-xs font-semibold" style={{ color: '#B45309' }}>Not yet delivering</Text>
                       </View>
                     )}
                   </View>

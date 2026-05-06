@@ -35,6 +35,7 @@ const AppContent = () => {
   } = useNotifications();
   const navigationRef = useRef<any>(null);
   const appState = useRef(AppState.currentState);
+  const isRefreshingLocationRef = useRef(false);
 
   // Handle notification deep linking
   const handleNotification = (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => {
@@ -178,6 +179,25 @@ const AppContent = () => {
     };
   }, [isAuthenticated]);
 
+  // Reusable location fetch — guarded so foreground/mount don't double-fire.
+  const refreshCurrentLocation = async () => {
+    if (isRefreshingLocationRef.current) return;
+    isRefreshingLocationRef.current = true;
+    try {
+      const granted = await requestLocationPermission();
+      if (!granted) {
+        console.log('[App] Location permission denied');
+        return;
+      }
+      const location = await getCurrentLocationWithAddress();
+      console.log('[App] Location fetched successfully:', location.pincode);
+    } catch (error: any) {
+      console.log('[App] Location fetch failed (non-blocking):', error?.message);
+    } finally {
+      isRefreshingLocationRef.current = false;
+    }
+  };
+
   // Handle app state changes (foreground/background)
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -193,6 +213,8 @@ const AppContent = () => {
         fetchLatestUnread().catch(err => console.warn('[App] fetchLatestUnread failed:', err));
         // Refresh unread count
         fetchUnreadCount().catch(err => console.warn('[App] fetchUnreadCount failed:', err));
+        // Re-fetch GPS so the home header reflects the user's current spot.
+        refreshCurrentLocation().catch(err => console.warn('[App] refreshCurrentLocation failed:', err));
       }
 
       appState.current = nextAppState;
@@ -203,39 +225,11 @@ const AppContent = () => {
     };
   }, [isAuthenticated, fetchLatestUnread, fetchUnreadCount]);
 
-  // Request location permission
+  // Initial location fetch on app start (delayed so Android Activity is attached)
   useEffect(() => {
-    const requestLocation = async () => {
-      try {
-        console.log('[App] Requesting location permission...');
-
-        // Request location permission on app start
-        const granted = await requestLocationPermission();
-
-        if (granted) {
-          console.log('[App] Location permission granted, fetching location...');
-
-          // Get current location with address and pincode
-          // This runs in background and doesn't block app startup
-          getCurrentLocationWithAddress()
-            .then((location) => {
-              console.log('[App] Location fetched successfully:', location.pincode);
-            })
-            .catch((error) => {
-              console.log('[App] Location fetch failed (non-blocking):', error.message);
-            });
-        } else {
-          console.log('[App] Location permission denied');
-        }
-      } catch (error) {
-        console.log('[App] Location permission request error:', error);
-      }
-    };
-
-    // Delay permission request to ensure Android Activity is fully attached
-    // This prevents "Tried to use permissions API while not attached to an Activity" error
     const timer = setTimeout(() => {
-      requestLocation().catch(err => console.warn('[App] requestLocation failed:', err));
+      console.log('[App] Requesting location permission...');
+      refreshCurrentLocation().catch(err => console.warn('[App] requestLocation failed:', err));
     }, 500);
 
     return () => clearTimeout(timer);

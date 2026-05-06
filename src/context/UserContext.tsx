@@ -12,6 +12,7 @@ import {
   isTokenExpiringSoon,
 } from '../services/auth.token.service';
 import { authEvents } from '../services/auth.events';
+import { markTourPending } from '../components/CustomerTour/storage';
 
 const API_BASE_URL = 'https://d31od4t2t5epcb.cloudfront.net';
 
@@ -372,6 +373,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dietaryPreferences?: DietaryPreferences;
     referralCode?: string;
   }) => {
+    const wasNewUser = user?.isNewUser === true;
+
     // OFFLINE MODE: Skip backend call, save locally
     if (OFFLINE_MODE) {
       console.log('[OFFLINE MODE] Completing onboarding locally');
@@ -390,6 +393,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(updatedUser);
       await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
+      if (wasNewUser) {
+        await markTourPending();
+      }
       setNeedsAddressSetup(true);
       return;
     }
@@ -410,7 +416,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
-      const isNewUser = user?.isNewUser === true;
+      const isNewUser = wasNewUser;
       let responseData;
 
       if (isNewUser && user?.registrationToken) {
@@ -457,6 +463,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setUser(updatedUser);
         await AsyncStorage.setItem('user_profile', JSON.stringify(updatedUser));
+        if (wasNewUser) {
+          await markTourPending();
+        }
         setNeedsAddressSetup(true);
       }
     } catch (error: any) {

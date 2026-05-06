@@ -169,23 +169,7 @@ const AddressSetupScreen: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // First check serviceability
-      const serviceabilityResult = await checkServiceability(addressForm.pincode);
-
-      if (!serviceabilityResult.isServiceable) {
-        showAlert(
-          'Not Serviceable',
-          serviceabilityResult.message || `We don't deliver to pincode ${addressForm.pincode} yet. Please try a different address.`,
-          undefined,
-          'error'
-        );
-        setErrors(prev => ({ ...prev, pincode: 'This pincode is not serviceable' }));
-        setIsSubmitting(false);
-        return;
-      }
-
+    const persistAddress = async () => {
       // Use GPS coordinates if available, otherwise forward geocode
       let coordinates = formCoordinates;
       if (!coordinates) {
@@ -210,6 +194,42 @@ const AddressSetupScreen: React.FC = () => {
 
       // Address created successfully, exit address setup flow
       setNeedsAddressSetup(false);
+    };
+
+    setIsSubmitting(true);
+    try {
+      // Check serviceability — if not serviceable, ask the user before saving
+      // rather than blocking. Server stores `isServiceable: false` on the record
+      // and the home screen surfaces a non-serviceable empty-state.
+      const serviceabilityResult = await checkServiceability(addressForm.pincode);
+
+      if (!serviceabilityResult.isServiceable) {
+        setIsSubmitting(false);
+        showAlert(
+          'Pincode Not Serviceable',
+          "We don't deliver to this pincode yet. Save this address anyway? We'll let you know when we expand here.",
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Save Anyway',
+              style: 'default',
+              onPress: () => {
+                setIsSubmitting(true);
+                persistAddress()
+                  .catch((error: any) => {
+                    console.error('Error creating address:', error);
+                    showAlert('Error', error.error || error.message || 'Failed to save address. Please try again.', undefined, 'error');
+                  })
+                  .finally(() => setIsSubmitting(false));
+              },
+            },
+          ],
+          'warning',
+        );
+        return;
+      }
+
+      await persistAddress();
     } catch (error: any) {
       console.error('Error creating address:', error);
       showAlert(
@@ -357,7 +377,7 @@ const AddressSetupScreen: React.FC = () => {
                     minHeight: TOUCH_TARGETS.comfortable,
                     fontSize: FONT_SIZES.base,
                     borderWidth: 1,
-                    borderColor: errors.pincode ? '#EF4444' : pincodeServiceable === true ? '#10B981' : pincodeServiceable === false ? '#EF4444' : '#E5E7EB',
+                    borderColor: errors.pincode ? '#EF4444' : pincodeServiceable === true ? '#10B981' : pincodeServiceable === false ? '#F59E0B' : '#E5E7EB',
                   }}
                   placeholder="Enter 6-digit pincode"
                   placeholderTextColor="#9CA3AF"
@@ -373,15 +393,15 @@ const AddressSetupScreen: React.FC = () => {
                   <Text className="ml-3 text-green-600 text-lg">✓</Text>
                 )}
                 {pincodeServiceable === false && (
-                  <Text className="ml-3 text-red-500 text-lg">✗</Text>
+                  <Text className="ml-3 text-lg" style={{ color: '#F59E0B' }}>!</Text>
                 )}
               </View>
               {errors.pincode && (
                 <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>{errors.pincode}</Text>
               )}
               {pincodeServiceable === false && !errors.pincode && (
-                <Text className="text-red-500 mt-1" style={{ fontSize: FONT_SIZES.xs }}>
-                  Sorry, we don't deliver to this pincode yet
+                <Text className="mt-1" style={{ fontSize: FONT_SIZES.xs, color: '#B45309' }}>
+                  We don't deliver here yet - you can still save this address.
                 </Text>
               )}
               {pincodeServiceable === true && (

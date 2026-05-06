@@ -1446,16 +1446,9 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Text style={{ fontSize: 15, fontWeight: '700', color: isClosed ? '#9CA3AF' : isSelected ? '#FE8733' : '#374151', marginTop: 6 }}>
                     Lunch
                   </Text>
-                  <Text style={{ fontSize: 11, color: isClosed ? '#D1D5DB' : isSelected ? '#EA580C' : '#9CA3AF', marginTop: 2 }}>
-                    {lunchCutoff.voucherCutoffTime && lunchCutoff.orderCutoffTime
-                      ? `${formatCutoffTime(lunchCutoff.voucherCutoffTime)} - ${formatCutoffTime(lunchCutoff.orderCutoffTime)}`
-                      : lunchCutoff.voucherCutoffTime || lunchCutoff.orderCutoffTime
-                        ? formatCutoffTime(lunchCutoff.voucherCutoffTime || lunchCutoff.orderCutoffTime!)
-                        : '12:00 - 01:30 PM'}
-                  </Text>
                   {isCashOnly && (
-                    <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 }}>
-                      <Text style={{ fontSize: 10, color: '#92400E', fontWeight: '600' }}>Cash Only</Text>
+                    <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 6 }}>
+                      <Text style={{ fontSize: 10, color: '#92400E', fontWeight: '600' }}>Vouchers Closed</Text>
                     </View>
                   )}
                   {isClosed && (
@@ -1503,16 +1496,9 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Text style={{ fontSize: 15, fontWeight: '700', color: isClosed ? '#9CA3AF' : isSelected ? '#FE8733' : '#374151', marginTop: 6 }}>
                     Dinner
                   </Text>
-                  <Text style={{ fontSize: 11, color: isClosed ? '#D1D5DB' : isSelected ? '#EA580C' : '#9CA3AF', marginTop: 2 }}>
-                    {dinnerCutoff.voucherCutoffTime && dinnerCutoff.orderCutoffTime
-                      ? `${formatCutoffTime(dinnerCutoff.voucherCutoffTime)} - ${formatCutoffTime(dinnerCutoff.orderCutoffTime)}`
-                      : dinnerCutoff.voucherCutoffTime || dinnerCutoff.orderCutoffTime
-                        ? formatCutoffTime(dinnerCutoff.voucherCutoffTime || dinnerCutoff.orderCutoffTime!)
-                        : '07:00 - 08:30 PM'}
-                  </Text>
                   {isCashOnly && (
-                    <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 }}>
-                      <Text style={{ fontSize: 10, color: '#92400E', fontWeight: '600' }}>Cash Only</Text>
+                    <View style={{ backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 6 }}>
+                      <Text style={{ fontSize: 10, color: '#92400E', fontWeight: '600' }}>Vouchers Closed</Text>
                     </View>
                   )}
                   {isClosed && (

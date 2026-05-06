@@ -29,6 +29,7 @@ import BulkSchedulePricingScreen from '../screens/scheduled-meals/BulkSchedulePr
 import AutoOrderAddonScreen from '../screens/scheduled-meals/AutoOrderAddonScreen';
 import LocationPickerScreen from '../screens/address/LocationPickerScreen';
 import BottomNavBar from '../components/BottomNavBar';
+import { CustomerTourProvider } from '../components/CustomerTour/CustomerTourProvider';
 import { MainTabParamList } from '../types/navigation';
 
 const Stack = createStackNavigator<MainTabParamList>();
@@ -103,7 +104,11 @@ const MainNavigatorContent = () => {
 };
 
 const MainNavigator = () => {
-  return <MainNavigatorContent />;
+  return (
+    <CustomerTourProvider>
+      <MainNavigatorContent />
+    </CustomerTourProvider>
+  );
 };
 
 export default MainNavigator;

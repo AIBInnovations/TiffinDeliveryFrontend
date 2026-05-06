@@ -6,6 +6,8 @@ import Svg, { Path } from 'react-native-svg';
 import { SPACING } from '../constants/spacing';
 import { FONT_SIZES } from '../constants/typography';
 import { navigateToMainScreen } from '../navigation/navigationRef';
+import { useTourTarget } from './CustomerTour/useTourTarget';
+import { TourStepId } from './CustomerTour/types';
 
 interface BottomNavBarProps {
   activeTab: 'home' | 'orders' | 'meals' | 'profile';
@@ -16,12 +18,14 @@ interface NavItemProps {
   icon?: any;
   iconName?: string;
   svgIcon?: React.ReactNode;
+  tourId?: TourStepId;
   isActive: boolean;
   onPress: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ label, icon, iconName, svgIcon, isActive, onPress }) => {
+const NavItem: React.FC<NavItemProps> = ({ label, icon, iconName, svgIcon, tourId, isActive, onPress }) => {
   const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const tourTarget = useTourTarget(tourId ?? null);
 
   useEffect(() => {
     Animated.timing(scaleAnim, {
@@ -40,6 +44,8 @@ const NavItem: React.FC<NavItemProps> = ({ label, icon, iconName, svgIcon, isAct
 
   return (
     <TouchableOpacity
+      ref={tourTarget.ref}
+      onLayout={tourTarget.onLayout}
       onPress={onPress}
       activeOpacity={0.7}
       style={styles.navItem}
@@ -120,6 +126,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
       <NavItem
         label="Orders"
         icon={require('../assets/icons/kitchen.png')}
+        tourId="navOrders"
         isActive={activeTab === 'orders'}
         onPress={() => handleNavigation('orders')}
       />
@@ -136,12 +143,14 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
             />
           </Svg>
         }
+        tourId="navOnDemand"
         isActive={activeTab === 'meals'}
         onPress={() => handleNavigation('meals')}
       />
       <NavItem
         label="Profile"
         icon={require('../assets/icons/profile2.png')}
+        tourId="navProfile"
         isActive={activeTab === 'profile'}
         onPress={() => handleNavigation('profile')}
       />

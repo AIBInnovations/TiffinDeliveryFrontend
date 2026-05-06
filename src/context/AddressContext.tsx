@@ -85,6 +85,15 @@ const serverToLocalAddress = (serverAddr: ServerAddress): Address => ({
   address: `${serverAddr.addressLine1}, ${serverAddr.locality}, ${serverAddr.city}`,
 });
 
+const getPreferredAddress = (addresses: Address[]): Address | undefined => {
+  return (
+    addresses.find(addr => addr.isMain && addr.isServiceable !== false) ||
+    addresses.find(addr => addr.isServiceable !== false) ||
+    addresses.find(addr => addr.isMain) ||
+    addresses[0]
+  );
+};
+
 export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { isAuthenticated, isGuest } = useUser();
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -94,19 +103,31 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [currentLocation, setCurrentLocation] = useState<LocationResult | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  // Load addresses from AsyncStorage on mount
+  // Load addresses + last-known location from AsyncStorage on mount.
+  // Rehydrating currentLocation prevents the home header from flashing
+  // "Select Location" before the GPS resolves on a cold launch.
   useEffect(() => {
-    const loadCachedAddresses = async () => {
+    const loadCached = async () => {
       try {
-        const cached = await AsyncStorage.getItem('addresses');
-        if (cached) {
-          setAddresses(JSON.parse(cached));
+        const [cachedAddresses, cachedLocation] = await Promise.all([
+          AsyncStorage.getItem('addresses'),
+          AsyncStorage.getItem('lastKnownLocation'),
+        ]);
+        if (cachedAddresses) {
+          setAddresses(JSON.parse(cachedAddresses));
+        }
+        if (cachedLocation) {
+          try {
+            setCurrentLocation(JSON.parse(cachedLocation));
+          } catch {
+            // ignore corrupt cache
+          }
         }
       } catch (error) {
         console.error('Error loading cached addresses:', error);
       }
     };
-    loadCachedAddresses();
+    loadCached();
   }, []);
 
   // Fetch addresses from server
@@ -119,10 +140,10 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
         setAddresses(localAddresses);
         await AsyncStorage.setItem('addresses', JSON.stringify(localAddresses));
 
-        // Set default address as selected if none selected
-        const defaultAddr = localAddresses.find(a => a.isMain);
-        if (defaultAddr && !selectedAddressId) {
-          setSelectedAddressId(defaultAddr.id);
+        // Prefer a serviceable address for ordering when one exists.
+        const preferredAddr = getPreferredAddress(localAddresses);
+        if (preferredAddr && !selectedAddressId) {
+          setSelectedAddressId(preferredAddr.id);
         }
       }
     } catch (error: any) {
@@ -260,8 +281,14 @@ export const AddressProvider: React.FC<{ children: ReactNode }> = ({ children })
           return updated;
         });
 
-        // Set as selected address
-        setSelectedAddressId(serverAddress._id);
+        // Prefer serviceable addresses when the user has more than one address.
+        setSelectedAddressId(prevSelectedId => {
+          if (newAddress.isServiceable !== false) {
+            return serverAddress._id;
+          }
+          const preferred = getPreferredAddress([...addresses, newAddress]);
+          return preferred?.id || prevSelectedId || serverAddress._id;
+        });
 
         return serverAddress._id;
       }

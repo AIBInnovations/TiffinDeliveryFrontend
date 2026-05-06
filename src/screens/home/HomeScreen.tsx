@@ -41,6 +41,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { FONT_SIZES } from '../../constants/typography';
 import VoucherPaymentModal from '../../components/VoucherPaymentModal';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTourTarget } from '../../components/CustomerTour/useTourTarget';
 
 type Props = StackScreenProps<MainTabParamList, 'Home'>;
 
@@ -82,6 +83,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { width, isSmallDevice } = useResponsive();
   const { scale } = useScaling();
+  const locationTourTarget = useTourTarget('location');
+  const vouchersTourTarget = useTourTarget('vouchers');
+  const planAheadTourTarget = useTourTarget('planAhead');
+  const addToCartTourTarget = useTourTarget('addToCart');
   const [selectedMeal, setSelectedMeal] = useState<MealType>(() => {
     const now = new Date();
     const totalMin = now.getHours() * 60 + now.getMinutes();
@@ -258,6 +263,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const mainAddress = getMainAddress();
       const addressId = selectedAddressId || mainAddress?.id;
+      const activeAddress = addressId ? addresses.find(addr => addr.id === addressId) : null;
 
       console.log('[HomeScreen] Address info:', {
         mainAddress: mainAddress ? { id: mainAddress.id, locality: mainAddress.locality } : null,
@@ -265,6 +271,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         finalAddressId: addressId,
         currentLocation: currentLocation ? { pincode: currentLocation.pincode } : null,
       });
+
+      if (activeAddress?.isServiceable === false) {
+        setCurrentKitchen(null);
+        setKitchenId(null);
+        setDeliveryAddressId(addressId || null);
+        setMenuError('No kitchen available in your address.');
+        setAddOns([]);
+        setIsLoadingMenu(false);
+        return;
+      }
 
       let kitchensResponse;
 
@@ -330,7 +346,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       console.log('[HomeScreen] First kitchen full data:', JSON.stringify(allKitchens[0], null, 2));
 
       if (!allKitchens.length) {
-        setMenuError('No kitchens available for your location');
+        setMenuError(addressId ? 'No kitchen available in your address.' : 'No kitchens available for your location.');
         setIsLoadingMenu(false);
         return;
       }
@@ -746,15 +762,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  // Get display location from main address or current location
+  // Header indicator should reflect *where the user is right now*, not the saved
+  // delivery address. Saved address still drives ordering — selectedAddressId,
+  // menu fetch, etc. — but the visible label should match the user's location
+  // after backgrounding the app and moving around.
   const getDisplayLocation = () => {
+    const liveLocality = currentLocation?.address?.locality;
+    const liveCity = currentLocation?.address?.city;
+    if (liveLocality || liveCity) {
+      return `${liveLocality || liveCity}${liveCity && liveLocality ? `, ${liveCity}` : ''}`;
+    }
     const mainAddress = getMainAddress();
     if (mainAddress) {
       return `${mainAddress.locality}, ${mainAddress.city}`;
-    }
-    // Fallback to current location if available
-    if (currentLocation?.address?.city) {
-      return `${currentLocation.address.locality || currentLocation.address.city}, ${currentLocation.address.city}`;
     }
     return 'Select Location';
   };
@@ -1118,6 +1138,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Location */}
               <TouchableOpacity
+                ref={locationTourTarget.ref}
+                onLayout={locationTourTarget.onLayout}
                 className="items-center mx-3"
                 style={{ flex: 1, maxWidth: 180 }}
                 onPress={() => navigation.navigate('Address')}
@@ -1154,6 +1176,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Voucher Button — hidden in guest mode (no real voucher count to show) */}
                 {!isGuest && (
                   <TouchableOpacity
+                    ref={vouchersTourTarget.ref}
+                    onLayout={vouchersTourTarget.onLayout}
                     onPress={() => navigation.navigate('MealPlans')}
                     style={{
                       flexDirection: 'row',
@@ -1216,6 +1240,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         >
           {/* Scheduled Ordering */}
           <TouchableOpacity
+            ref={planAheadTourTarget.ref}
+            onLayout={planAheadTourTarget.onLayout}
             activeOpacity={0.7}
             onPress={() => navigation.navigate('MealCalendar')}
             style={{
@@ -1427,6 +1453,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <View style={{ gap: SPACING.sm }}>
               {!showCartModal ? (
               <TouchableOpacity
+                ref={addToCartTourTarget.ref}
+                onLayout={addToCartTourTarget.onLayout}
                 onPress={canOrderCurrentMeal() ? handleAddToCart : (!mealWindowInfo.isWindowOpen ? () => navigation.navigate('MealCalendar') : undefined)}
                 activeOpacity={canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? 0.7 : 1}
                 disabled={!canOrderCurrentMeal() && mealWindowInfo.isWindowOpen}
