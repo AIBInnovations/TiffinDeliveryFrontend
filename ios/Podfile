@@ -25,6 +25,11 @@ target 'TiffinDelivery' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  # react-native-maps PROVIDER_GOOGLE on iOS — pulls in GoogleMaps + Google-Maps-iOS-Utils.
+  # Android uses the AndroidManifest meta-data key; iOS needs the API key provided in
+  # AppDelegate via GMSServices.provideAPIKey.
+  pod 'react-native-google-maps', :path => '../node_modules/react-native-maps'
+
   post_install do |installer|
     react_native_post_install(
       installer,

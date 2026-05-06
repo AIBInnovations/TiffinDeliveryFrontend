@@ -3,6 +3,7 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import FirebaseCore
+import GoogleMaps
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -16,6 +17,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     FirebaseApp.configure()
+
+    // react-native-maps PROVIDER_GOOGLE on iOS — Maps SDK key. Android uses the
+    // AndroidManifest meta-data key; both are restricted to "Maps SDK" in Google Cloud.
+    GMSServices.provideAPIKey("AIzaSyB4jJpH1-3SYsBGguA9UqHcwGs-AC_bpuw")
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
