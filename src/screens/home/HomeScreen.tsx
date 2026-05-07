@@ -199,10 +199,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   // Sync selectedMeal with computed activeMeal; show MealWindowModal only when both meals are closed.
   // cash_only does NOT trigger a tab switch — the banner + Buy Now branching handle that case.
+  // Gate on menuData — pre-fetch, the memo treats null menu as 'closed' which would falsely
+  // pop the modal before the menu has loaded. Also skip if kitchen has no menu at all
+  // (the "No Meal Available" panel handles that case).
   useEffect(() => {
+    if (!menuData) {
+      setShowMealWindowModal(false);
+      return;
+    }
+    const hasAnyMealItem = !!(menuData.lunch || menuData.dinner);
     setSelectedMeal(mealWindowInfo.activeMeal);
-    setShowMealWindowModal(mealWindowInfo.isAllClosed);
-  }, [mealWindowInfo]);
+    setShowMealWindowModal(hasAnyMealItem && mealWindowInfo.isAllClosed);
+  }, [mealWindowInfo, menuData]);
 
   // Schedule a setTimeout to the next state transition (cutoff or midnight rollover).
   // This drives auto-flip without burning battery on a 1-minute interval.
