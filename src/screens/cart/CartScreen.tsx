@@ -81,13 +81,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     setSlotVoucherCount,
   } = useCart();
 
-  const {
-    addresses,
-    getMainAddress,
-    currentLocation,
-    isGettingLocation,
-    getCurrentLocationWithAddress,
-  } = useAddress();
+  const { addresses, getMainAddress, currentLocation } = useAddress();
   const { voucherSummary, usableVouchers, fetchVouchers } = useSubscription();
   const { processOrderPayment, isProcessing: isPaymentProcessing } = usePayment();
   const { showAlert } = useAlert();
@@ -98,12 +92,10 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   const scheduledDate = route.params?.scheduledDate;
   const isSchedulingMode = !!scheduledDate;
 
-  // Compare current GPS location vs saved addresses on (locality + pincode) — both must match
-  // case-insensitively. If GPS is missing or no saved address matches, the primary CTA below
-  // changes to "Add Address" / "Enable Location" so the user can't accidentally pay for a delivery
-  // routed to a location that doesn't reflect where they actually are.
-  // Skip the check in scheduling mode — user is intentionally ordering for a future date and
-  // may not be at the delivery location right now (e.g. scheduling tomorrow's lunch from office).
+  // Compare current GPS location vs saved addresses on (locality + pincode), case-insensitively.
+  // If GPS is missing or no saved address matches, an inline banner appears at the bottom of
+  // the cart with two actions: "Add Address" or "Use Saved Address". The bottom CTA (Pay Now)
+  // stays functional throughout — banner is a nudge, not a gate. Skip in scheduling mode.
   const normaliseAddressKey = (locality?: string, pincode?: string): string =>
     `${(locality || '').trim().toLowerCase()}|${(pincode || '').trim()}`;
   const gpsAddressKey = currentLocation
@@ -113,18 +105,17 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     !!gpsAddressKey &&
     addresses.some(a => normaliseAddressKey(a.locality, a.pincode) === gpsAddressKey);
   const gpsLocationMissing = !currentLocation;
-  const requiresLocationAction =
-    !isSchedulingMode && addresses.length > 0 && (gpsLocationMissing || !hasMatchingGpsAddress);
-
-  const handleLocationActionPress = useCallback(() => {
-    if (gpsLocationMissing) {
-      getCurrentLocationWithAddress().catch(err =>
-        console.warn('[CartScreen] Failed to refresh location:', err)
-      );
-      return;
-    }
-    navigation.navigate('Address');
-  }, [gpsLocationMissing, getCurrentLocationWithAddress, navigation]);
+  // Screen-scoped dismissal flag — resets on unmount, so each fresh cart visit re-prompts.
+  // Auto-clears when the mismatch resolves (user added a matching address or GPS updated).
+  const [userBypassedLocationCheck, setUserBypassedLocationCheck] = useState(false);
+  useEffect(() => {
+    if (hasMatchingGpsAddress) setUserBypassedLocationCheck(false);
+  }, [hasMatchingGpsAddress]);
+  const showLocationMismatchBanner =
+    !isSchedulingMode &&
+    addresses.length > 0 &&
+    !userBypassedLocationCheck &&
+    (gpsLocationMissing || !hasMatchingGpsAddress);
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -1104,7 +1095,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
 
       {/* Header */}
@@ -1139,7 +1130,11 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 16 }}
+      >
         {/* Your Order Section */}
         <View className="bg-white mb-4" style={{ paddingHorizontal: SPACING.screenHorizontal, paddingTop: isSmallDevice ? SPACING.lg : SPACING.xl, paddingBottom: isSmallDevice ? 10 : 14 }}>
           <Text className="text-xl font-bold text-gray-900 mb-4">Your Order</Text>
@@ -1960,17 +1955,12 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
         </View>
 
-        {/* Bottom Spacing for fixed footer */}
-        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Sticky Bottom Bar */}
+      {/* Bottom Bar — laid out as a flex child below the ScrollView so its height
+          is reserved naturally and scroll content can never slide behind it. */}
       <View
         style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
           backgroundColor: 'white',
           paddingBottom: Math.max(insets.bottom + 8, 16),
           paddingTop: 12,
@@ -1982,25 +1972,60 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           elevation: 8,
         }}
       >
-        {/* Location-mismatch banner: shown when GPS doesn't match any saved address (or GPS is off) */}
-        {requiresLocationAction && (
+        {/* Inline location-mismatch banner — non-blocking nudge with two action buttons.
+            Shown when GPS doesn't match any saved address (or GPS is missing). The bottom
+            CTA (Pay Now) stays enabled; the user can either add the current location as
+            a new address, or explicitly choose to use their saved address. */}
+        {showLocationMismatchBanner && (
           <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
             backgroundColor: '#FEF3C7',
             borderRadius: 10,
             borderWidth: 1,
             borderColor: '#FCD34D',
-            paddingVertical: 8,
-            paddingHorizontal: 10,
+            paddingVertical: 10,
+            paddingHorizontal: 12,
             marginBottom: 10,
           }}>
-            <MaterialCommunityIcons name="map-marker-alert" size={18} color="#92400E" style={{ marginRight: 8 }} />
-            <Text style={{ flex: 1, fontSize: 12, color: '#92400E', fontWeight: '500' }}>
-              {gpsLocationMissing
-                ? "We can't detect your current location. Enable location to confirm your delivery address."
-                : `Your current location (${currentLocation?.address?.locality || 'Unknown'}) isn't in your saved addresses. Add it before checkout.`}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <MaterialCommunityIcons name="map-marker-alert" size={18} color="#92400E" style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={{ flex: 1, fontSize: 12, color: '#92400E', fontWeight: '500' }}>
+                {gpsLocationMissing
+                  ? "We can't detect your current location. Add a delivery address or continue with your saved one."
+                  : `Your current location (${currentLocation?.address?.locality || 'Unknown'}) isn't in your saved addresses.`}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', marginTop: 10, marginLeft: 26, gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Address')}
+                activeOpacity={0.7}
+                style={{
+                  backgroundColor: '#92400E',
+                  borderRadius: 16,
+                  paddingVertical: 6,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: 'white', fontWeight: '700' }}>
+                  Add Address
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setUserBypassedLocationCheck(true)}
+                activeOpacity={0.7}
+                style={{
+                  backgroundColor: 'transparent',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: '#92400E',
+                  paddingVertical: 6,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: '#92400E', fontWeight: '700' }}>
+                  Use Saved Address
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         <View
@@ -2013,7 +2038,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
             height: 56,
             paddingLeft: 20,
             paddingRight: 6,
-            opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || requiresLocationAction || pricingError) ? 0.7 : 1,
+            opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || pricingError) ? 0.7 : 1,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -2033,24 +2058,16 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
               paddingHorizontal: 20,
               minWidth: 130,
             }}
-            onPress={requiresLocationAction ? handleLocationActionPress : handlePlaceOrder}
-            disabled={isPlacingOrder || isCalculating || (addresses.length > 0 && !!pricingError && !requiresLocationAction) || (gpsLocationMissing && isGettingLocation)}
+            onPress={handlePlaceOrder}
+            disabled={isPlacingOrder || isCalculating || addresses.length === 0 || !!pricingError}
             activeOpacity={0.8}
           >
-            {(isPlacingOrder || (gpsLocationMissing && isGettingLocation)) ? (
+            {isPlacingOrder ? (
               <ActivityIndicator size="small" color="#FE8733" />
             ) : (
               <>
                 <Text style={{ color: '#FE8733', fontWeight: '700', fontSize: 15, marginRight: 6 }}>
-                  {addresses.length === 0
-                    ? 'Add Address'
-                    : gpsLocationMissing
-                      ? 'Enable Location'
-                      : !hasMatchingGpsAddress
-                        ? 'Add Address'
-                        : isSchedulingMode
-                          ? (amountToPay === 0 ? 'Schedule' : 'Schedule & Pay')
-                          : (amountToPay === 0 ? 'Place Order' : 'Pay Now')}
+                  {addresses.length === 0 ? 'Add Address' : isSchedulingMode ? (amountToPay === 0 ? 'Schedule' : 'Schedule & Pay') : (amountToPay === 0 ? 'Place Order' : 'Pay Now')}
                 </Text>
                 <Image
                   source={require('../../assets/icons/uparrow.png')}

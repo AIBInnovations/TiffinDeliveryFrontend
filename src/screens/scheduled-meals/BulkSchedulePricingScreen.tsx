@@ -571,6 +571,32 @@ const BulkSchedulePricingScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   if (error && !pricingData) {
+    // Backend often returns errors like:
+    //   "Slot 1 (Sat May 09 2026 00:00:00 GMT+0000 (Coordinated Universal Time) DINNER): No dinner thali available at this time"
+    // Translate that into a human-friendly title + body.
+    const humanizeSlotError = (raw: string): { title: string; body: string } => {
+      const match = raw.match(/^Slot \d+ \((.*?)\s+(LUNCH|DINNER|BREAKFAST)\):\s*(.+)$/i);
+      if (!match) {
+        return { title: 'Something went wrong', body: raw };
+      }
+      const [, dateStr, mealRaw, reason] = match;
+      const meal = mealRaw.charAt(0).toUpperCase() + mealRaw.slice(1).toLowerCase();
+      const cleanDate = dateStr.replace(/\s*GMT[+-]\d+\s*(\([^)]+\))?\s*$/i, '').trim();
+      const parsed = new Date(cleanDate);
+      const formattedDate = !isNaN(parsed.getTime())
+        ? parsed.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+        : cleanDate;
+      const tidyReason = /no .* thali available/i.test(reason)
+        ? `The ${meal.toLowerCase()} thali isn't available for this date. Please pick another day or meal.`
+        : reason.trim();
+      return {
+        title: `${meal} unavailable for ${formattedDate}`,
+        body: tidyReason,
+      };
+    };
+
+    const { title: errorTitle, body: errorBody } = humanizeSlotError(error || '');
+
     return (
       <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <StatusBar barStyle="light-content" backgroundColor="#FE8733" />
@@ -582,14 +608,59 @@ const BulkSchedulePricingScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={{ color: 'white', fontSize: FONT_SIZES.h4, fontWeight: 'bold' }}>Schedule Meals</Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl }}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={{ fontSize: FONT_SIZES.base, color: '#6B7280', textAlign: 'center', marginTop: SPACING.md }}>{error}</Text>
-          <TouchableOpacity
-            onPress={() => fetchPricing(vouchersToUse)}
-            style={{ marginTop: SPACING.lg, backgroundColor: '#FE8733', borderRadius: 10, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.xl }}
-          >
-            <Text style={{ color: 'white', fontWeight: '600' }}>Retry</Text>
-          </TouchableOpacity>
+          <View style={{
+            width: 96,
+            height: 96,
+            borderRadius: 48,
+            backgroundColor: '#FEE2E2',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: SPACING.lg,
+          }}>
+            <MaterialCommunityIcons name="silverware-fork-knife" size={44} color="#EF4444" />
+          </View>
+          <Text style={{
+            fontSize: FONT_SIZES.h4,
+            fontWeight: '700',
+            color: '#111827',
+            textAlign: 'center',
+          }}>
+            {errorTitle}
+          </Text>
+          <Text style={{
+            fontSize: FONT_SIZES.sm,
+            color: '#6B7280',
+            textAlign: 'center',
+            marginTop: SPACING.sm,
+            lineHeight: 20,
+          }}>
+            {errorBody}
+          </Text>
+          <View style={{ flexDirection: 'row', marginTop: SPACING.xl, gap: SPACING.md }}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={{
+                borderWidth: 1,
+                borderColor: '#FE8733',
+                borderRadius: 12,
+                paddingVertical: SPACING.sm + 2,
+                paddingHorizontal: SPACING.lg,
+              }}
+            >
+              <Text style={{ color: '#FE8733', fontWeight: '600', fontSize: FONT_SIZES.sm }}>Pick Another Day</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => fetchPricing(vouchersToUse)}
+              style={{
+                backgroundColor: '#FE8733',
+                borderRadius: 12,
+                paddingVertical: SPACING.sm + 2,
+                paddingHorizontal: SPACING.lg,
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: FONT_SIZES.sm }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );

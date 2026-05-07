@@ -43,6 +43,7 @@ import {
   describeNextTransition,
   nextTransitionAt,
   isInScheduleWindow,
+  parseTimeToMinutes,
 } from '../../utils/mealCutoff';
 import NotificationBell from '../../components/NotificationBell';
 import { useResponsive, useScaling } from '../../hooks/useResponsive';
@@ -103,6 +104,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return totalMin >= 11 * 60 && totalMin < 21 * 60 ? 'dinner' : 'lunch';
   });
   const [showCartModal, setShowCartModal] = useState(false);
+  const [bottomOverlayHeight, setBottomOverlayHeight] = useState(0);
+  // Reset overlay measurement when no overlay is mounted, so the scroll spacer
+  // doesn't keep stale padding after the popup/banner closes.
+  useEffect(() => {
+    const overlayShown = showCartModal || (!!activeOrderBanner && cartItems.length === 0);
+    if (!overlayShown && bottomOverlayHeight !== 0) {
+      setBottomOverlayHeight(0);
+    }
+  });
   const [mealQuantity, setMealQuantity] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [addOnsExpanded, setAddOnsExpanded] = useState(false);
@@ -162,7 +172,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const now = new Date();
     const currentMin = now.getHours() * 60 + now.getMinutes();
 
-    // Pick active meal: first non-closed; if both open, prefer lunch before 11 AM else dinner.
+    // A meal whose orderCutoffTime (or voucherCutoffTime) is still in the future will become
+    // orderable later today even if `canOrder=false` right now (e.g. dinner before its window
+    // opens). Distinguish this "upcoming" state from a meal that has truly ended for the day.
+    const hasFutureCutoff = (cutoff: typeof lunchCutoff): boolean => {
+      const v = parseTimeToMinutes(cutoff.voucherCutoffTime);
+      const o = parseTimeToMinutes(cutoff.orderCutoffTime);
+      return (v !== null && v > currentMin) || (o !== null && o > currentMin);
+    };
+    const lunchUpcoming = lunchState === 'closed' && hasFutureCutoff(lunchCutoff);
+    const dinnerUpcoming = dinnerState === 'closed' && hasFutureCutoff(dinnerCutoff);
+
+    // Pick active meal: prefer orderable; if both closed, prefer the upcoming one so the
+    // user lands on the meal that's about to open rather than seeing yesterday's stale tab.
     let activeMeal: MealType = 'lunch';
     if (lunchState !== 'closed' && dinnerState !== 'closed') {
       activeMeal = currentMin < 11 * 60 ? 'lunch' : 'dinner';
@@ -170,9 +192,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       activeMeal = 'lunch';
     } else if (dinnerState !== 'closed') {
       activeMeal = 'dinner';
+    } else if (dinnerUpcoming) {
+      activeMeal = 'dinner';
+    } else if (lunchUpcoming) {
+      activeMeal = 'lunch';
     }
 
     const isAllClosed = lunchState === 'closed' && dinnerState === 'closed';
+    // Truly done for the day: both meals closed AND neither has a future cutoff.
+    // Drives the "Today's orders are closed → Schedule for Tomorrow" modal.
+    const isAllClosedForToday = isAllClosed && !lunchUpcoming && !dinnerUpcoming;
     const nextMealWindow: MealType =
       lunchState === 'closed' && dinnerState !== 'closed' ? 'dinner' : 'lunch';
     const { label: nextMealWindowTime } = describeNextTransition(lunchCutoff, dinnerCutoff, now);
@@ -186,6 +215,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       nextMealWindow,
       nextMealWindowTime,
       isAllClosed,
+      isAllClosedForToday,
+      lunchUpcoming,
+      dinnerUpcoming,
       isInScheduleWindow: isInScheduleWindow(now),
       // Legacy field retained for any remaining call sites — true if at least one meal is orderable.
       isWindowOpen: !isAllClosed,
@@ -202,14 +234,27 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Gate on menuData — pre-fetch, the memo treats null menu as 'closed' which would falsely
   // pop the modal before the menu has loaded. Also skip if kitchen has no menu at all
   // (the "No Meal Available" panel handles that case).
+  // Use a ref to track the previous all-closed state so the modal only auto-opens on the
+  // FIRST entry into all-closed — subsequent re-runs (memo recomputes from focusCount /
+  // timer / AppState 'active') shouldn't re-pop a modal the user has already dismissed.
+  const wasAllClosedRef = useRef(false);
   useEffect(() => {
     if (!menuData) {
       setShowMealWindowModal(false);
+      wasAllClosedRef.current = false;
       return;
     }
     const hasAnyMealItem = !!(menuData.lunch || menuData.dinner);
+    const shouldShowClosedModal = hasAnyMealItem && mealWindowInfo.isAllClosedForToday;
     setSelectedMeal(mealWindowInfo.activeMeal);
-    setShowMealWindowModal(hasAnyMealItem && mealWindowInfo.isAllClosed);
+    if (shouldShowClosedModal && !wasAllClosedRef.current) {
+      // Transitioned from open → all-closed — auto-open the modal once.
+      setShowMealWindowModal(true);
+    } else if (!shouldShowClosedModal) {
+      // Back to open (or no menu items) — close the modal and reset for the next closure.
+      setShowMealWindowModal(false);
+    }
+    wasAllClosedRef.current = shouldShowClosedModal;
   }, [mealWindowInfo, menuData]);
 
   // Schedule a setTimeout to the next state transition (cutoff or midnight rollover).
@@ -329,7 +374,31 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       console.log('[HomeScreen] Raw kitchens response:', JSON.stringify(kitchensResponse, null, 2));
 
       // Extract kitchens using helper function (handles both old and new formats)
-      const allKitchens = extractKitchensFromResponse(kitchensResponse);
+      let allKitchens = extractKitchensFromResponse(kitchensResponse);
+
+      // Backend filters kitchens by current operating window when menuType is passed.
+      // If empty, retry without the filter so a kitchen whose windows have ended for the day
+      // is still surfaced — the three-state cutoff UI then renders "Ordering closed for today /
+      // Schedule for tomorrow" instead of a misleading "No kitchen available" error.
+      if (!allKitchens.length) {
+        console.log('[HomeScreen] No kitchens with active window — retrying without menuType filter');
+        try {
+          if (!addressId && currentLocation?.pincode) {
+            const zoneResp = await apiService.getZoneByPincode(currentLocation.pincode);
+            const zoneData2: any = (zoneResp.data as any)?.zone || zoneResp.data;
+            const zoneId2 = zoneData2?._id;
+            if (zoneId2) {
+              kitchensResponse = await apiService.getKitchensForZone(zoneId2);
+            }
+          } else if (addressId) {
+            kitchensResponse = await apiService.getAddressKitchens(addressId);
+          }
+          allKitchens = extractKitchensFromResponse(kitchensResponse);
+          console.log('[HomeScreen] Fallback kitchens count:', allKitchens.length);
+        } catch (err) {
+          console.warn('[HomeScreen] Kitchen fallback lookup failed:', err);
+        }
+      }
 
       console.log('[HomeScreen] Extracted kitchens count:', allKitchens.length);
       console.log('[HomeScreen] First kitchen full data:', JSON.stringify(allKitchens[0], null, 2));
@@ -1368,22 +1437,41 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
 
-          {/* No Meal Available Error */}
+          {/* No Meal Available — when both lunch and dinner are null, treat it as "today's orders
+              are closed" and offer a path to schedule for tomorrow rather than a dead-end refresh. */}
           {!isLoadingMenu && !menuError && !requiresAddress && !getCurrentMealItem() && (
             <View className="items-center justify-center py-8 px-4">
               <Text className="text-6xl mb-4">🍽️</Text>
               <Text className="text-xl font-bold text-gray-900 mb-2">
-                {selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Not Available
+                {!menuData?.lunch && !menuData?.dinner ? 'Lunch and Dinner Not Available' : `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} Not Available`}
               </Text>
               <Text className="text-gray-600 text-center mb-4">
-                The {selectedMeal} menu is currently not available. Please try the other meal option.
+                {!menuData?.lunch && !menuData?.dinner
+                  ? "Schedule a meal for tomorrow's lunch or dinner."
+                  : `The ${selectedMeal} menu is currently not available. Please try the other meal option.`}
               </Text>
-              <TouchableOpacity
-                onPress={fetchMenu}
-                className="bg-orange-400 px-6 py-3 rounded-full"
-              >
-                <Text className="text-white font-semibold">Refresh</Text>
-              </TouchableOpacity>
+              {!menuData?.lunch && !menuData?.dinner ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const yyyy = tomorrow.getFullYear();
+                    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+                    const dd = String(tomorrow.getDate()).padStart(2, '0');
+                    navigation.navigate('MealCalendar', { scheduledDate: `${yyyy}-${mm}-${dd}` });
+                  }}
+                  className="bg-orange-400 px-6 py-3 rounded-full"
+                >
+                  <Text className="text-white font-semibold">Schedule for Tomorrow</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={fetchMenu}
+                  className="bg-orange-400 px-6 py-3 rounded-full"
+                >
+                  <Text className="text-white font-semibold">Refresh</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -1426,13 +1514,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: FONT_SIZES.sm, color: '#991B1B', fontWeight: '600' }}>
-                  {mealWindowInfo.isAllClosed ? 'Ordering closed for today' : `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} ordering is closed`}
+                  {mealWindowInfo.isAllClosedForToday
+                    ? 'Ordering closed for today'
+                    : ((selectedMeal === 'lunch' ? mealWindowInfo.lunchUpcoming : mealWindowInfo.dinnerUpcoming)
+                      ? `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} ordering not yet open`
+                      : `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} ordering is closed`)}
                 </Text>
                 <Text style={{ fontSize: FONT_SIZES.xs, color: '#B91C1C', marginTop: 2 }}>
-                  {mealWindowInfo.isAllClosed
+                  {mealWindowInfo.isAllClosedForToday
                     ? `Orders reopen at ${mealWindowInfo.nextMealWindowTime}`
                     : (getCurrentMealItem()?.cutoffMessage ||
-                      `Orders closed at ${(selectedMeal === 'lunch' ? mealWindowInfo.lunchCutoff : mealWindowInfo.dinnerCutoff).orderCutoffTime || mealWindowInfo.nextMealWindowTime}`)}
+                      `Orders close at ${(selectedMeal === 'lunch' ? mealWindowInfo.lunchCutoff : mealWindowInfo.dinnerCutoff).orderCutoffTime || mealWindowInfo.nextMealWindowTime}`)}
                 </Text>
               </View>
             </View>
@@ -1444,7 +1536,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View className="flex-row justify-between items-start mb-6">
             {/* Left: Meal Name and Price */}
             <View className="flex-1 pr-4">
-              {!mealWindowInfo.isWindowOpen && (
+              {mealWindowInfo.isAllClosedForToday && (
                 <Text style={{ fontSize: FONT_SIZES.xs, color: '#FE8733', fontWeight: '600', marginBottom: 4 }}>
                   Tomorrow's Menu
                 </Text>
@@ -1461,7 +1553,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 ref={addToCartTourTarget.ref}
                 onLayout={addToCartTourTarget.onLayout}
-                onPress={canOrderCurrentMeal() ? handleAddToCart : (!mealWindowInfo.isWindowOpen ? () => {
+                onPress={canOrderCurrentMeal() ? handleAddToCart : (mealWindowInfo.isAllClosedForToday ? () => {
                   if (mealWindowInfo.isInScheduleWindow) {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1473,10 +1565,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     navigation.navigate('MealCalendar');
                   }
                 } : undefined)}
-                activeOpacity={canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? 0.7 : 1}
-                disabled={!canOrderCurrentMeal() && mealWindowInfo.isWindowOpen}
+                activeOpacity={canOrderCurrentMeal() || mealWindowInfo.isAllClosedForToday ? 0.7 : 1}
+                disabled={!canOrderCurrentMeal() && !mealWindowInfo.isAllClosedForToday}
                 style={{
-                  backgroundColor: canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? '#FE8733' : 'rgba(209, 213, 219, 1)',
+                  backgroundColor: canOrderCurrentMeal() || mealWindowInfo.isAllClosedForToday ? '#FE8733' : 'rgba(209, 213, 219, 1)',
                   borderRadius: SPACING['3xl'],
                   minWidth: SPACING['5xl'] * 3.125,
                   height: SPACING['2xl'] + SPACING.xl + 1,
@@ -1486,9 +1578,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                   justifyContent: 'center',
                 }}
               >
-                <MaterialCommunityIcons name={canOrderCurrentMeal() ? "cart-plus" : (!mealWindowInfo.isWindowOpen ? "calendar-clock" : "clock-alert-outline")} size={18} color="white" style={{ marginRight: 6 }} />
+                <MaterialCommunityIcons name={canOrderCurrentMeal() ? "cart-plus" : (mealWindowInfo.isAllClosedForToday ? "calendar-clock" : "clock-alert-outline")} size={18} color="white" style={{ marginRight: 6 }} />
                 <Text style={{ color: 'white', fontSize: FONT_SIZES.sm, fontWeight: '600' }}>
-                  {canOrderCurrentMeal() ? 'Add to Cart' : (!mealWindowInfo.isWindowOpen ? 'Schedule for Tomorrow' : 'Ordering Closed')}
+                  {canOrderCurrentMeal() ? 'Add to Cart' : (mealWindowInfo.isAllClosedForToday ? 'Schedule for Tomorrow' : 'Ordering Closed')}
                 </Text>
               </TouchableOpacity>
             ) : (
@@ -1691,16 +1783,27 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             ) : null}
           </View>
 
-          {/* Bottom Spacing for Navigation Bar and Cart Popup */}
-          <View style={{ height: (showCartModal ? 160 : 100) + insets.bottom }} />
           </>
           )}
+
+          {/* Bottom Spacing — rendered for EVERY inner state (loading / error /
+              requires-address / no-meal / has-meal) so any CTA at the end of the
+              container clears the BottomNavBar plus any sticky overlay
+              (cart popup / active-order banner). Overlay height is measured at runtime;
+              the SPACING['4xl']*2 baseline matches the overlay's `bottom` offset. */}
+          <View style={{ height: SPACING['4xl'] * 2 + insets.bottom + bottomOverlayHeight + 16 }} />
         </View>
       </ScrollView>
 
       {/* Cart Popup - Sticky at bottom */}
       {showCartModal && (
         <View
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            if (h && Math.abs(h - bottomOverlayHeight) > 1) {
+              setBottomOverlayHeight(h);
+            }
+          }}
           className="absolute left-5 right-5 bg-white rounded-full px-5 flex-row items-center justify-between"
           style={{
             bottom: SPACING['4xl'] * 2 + insets.bottom,
@@ -1770,6 +1873,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {/* Today's Active Order Banner — show ONLY when (a) there's a placed today's order AND (b) the cart is empty */}
       {activeOrderBanner && cartItems.length === 0 && (
         <View
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            if (h && Math.abs(h - bottomOverlayHeight) > 1) {
+              setBottomOverlayHeight(h);
+            }
+          }}
           style={{
             position: 'absolute',
             left: 0,
@@ -1800,10 +1909,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         nextMealWindow={mealWindowInfo.nextMealWindow}
         nextMealWindowTime={mealWindowInfo.nextMealWindowTime}
         onClose={handleMealWindowModalClose}
-        mode={mealWindowInfo.isAllClosed ? 'all-closed' : 'next-window'}
+        mode={mealWindowInfo.isAllClosedForToday ? 'all-closed' : 'next-window'}
         onSchedule={
-          // Only expose Schedule CTA in the 9 PM - midnight window when both meals are closed.
-          mealWindowInfo.isAllClosed && mealWindowInfo.isInScheduleWindow
+          // Only expose Schedule CTA in the 9 PM - midnight window when truly done for today.
+          mealWindowInfo.isAllClosedForToday && mealWindowInfo.isInScheduleWindow
             ? () => {
                 setShowMealWindowModal(false);
                 const tomorrow = new Date();
