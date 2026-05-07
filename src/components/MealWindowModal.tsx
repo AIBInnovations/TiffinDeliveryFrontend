@@ -16,6 +16,7 @@ interface MealWindowModalProps {
   nextMealWindowTime: string;
   onClose: () => void;
   onSchedule?: () => void;
+  mode?: 'next-window' | 'all-closed';
 }
 
 const MealWindowModal: React.FC<MealWindowModalProps> = ({
@@ -24,8 +25,10 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
   nextMealWindowTime,
   onClose,
   onSchedule,
+  mode = 'next-window',
 }) => {
   const getMealName = () => nextMealWindow === 'lunch' ? 'Lunch' : 'Dinner';
+  const isAllClosed = mode === 'all-closed';
 
   return (
     <Modal
@@ -78,7 +81,7 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
               marginBottom: 12,
             }}
           >
-            Ordering Window Closed
+            {isAllClosed ? "Today's Orders Are Closed" : 'Ordering Window Closed'}
           </Text>
 
           {/* Description */}
@@ -91,7 +94,9 @@ const MealWindowModal: React.FC<MealWindowModalProps> = ({
               marginBottom: 8,
             }}
           >
-            The current meal ordering window has ended.
+            {isAllClosed
+              ? 'Schedule a meal for tomorrow’s lunch or dinner.'
+              : 'The current meal ordering window has ended.'}
           </Text>
 
           {/* Next Window Info */}

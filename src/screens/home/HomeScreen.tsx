@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Animated,
   Easing,
+  AppState,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -34,6 +35,15 @@ import {
   getActiveOrderBannerContent,
 } from '../../utils/todaysOrdersBanner';
 import { getMealWindowInfo as getWindowInfo, isMealWindowAvailable } from '../../utils/timeUtils';
+import {
+  SlotCutoffState,
+  SlotState,
+  mapCutoffState,
+  getSlotState,
+  describeNextTransition,
+  nextTransitionAt,
+  isInScheduleWindow,
+} from '../../utils/mealCutoff';
 import NotificationBell from '../../components/NotificationBell';
 import { useResponsive, useScaling } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
@@ -140,112 +150,83 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Addons must come from the API with valid MongoDB ObjectIds
   // If no addons are returned from API, we show an empty list
 
-  // Get meal window info — driven by backend `canOrder` + `orderCutoffTime` from menu API.
-  // Pre-menu fallback uses time-of-day comparison against parsed backend cutoffs (or 11:00 / 21:00 if unknown).
-  // The "next window opens at" time (6:00 AM / 6:00 PM) is still a frontend default — backend has no
-  // window-open field. Replace once backend exposes `ordersOpenAt` / kitchen schedule.
+  // Three-state meal window info — drives banner, voucher chip, Buy Now flow, and tab auto-switch.
+  // Source of truth: backend `canOrder` + `canUseVoucher` + `voucherCutoffTime` + `orderCutoffTime`
+  // (see api.service.ts MenuItem). Mapped via shared util at src/utils/mealCutoff.ts.
   const mealWindowInfo = useMemo(() => {
-    const lunch = menuData?.lunch;
-    const dinner = menuData?.dinner;
+    const lunchCutoff = mapCutoffState(menuData?.lunch);
+    const dinnerCutoff = mapCutoffState(menuData?.dinner);
+    const lunchState = getSlotState(lunchCutoff);
+    const dinnerState = getSlotState(dinnerCutoff);
 
-    const parseTimeToMinutes = (timeStr: string | undefined): number | null => {
-      if (!timeStr) return null;
-      const m = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-      if (!m) return null;
-      let hours = parseInt(m[1], 10);
-      const minutes = parseInt(m[2], 10);
-      const meridiem = m[3]?.toUpperCase();
-      if (meridiem === 'PM' && hours !== 12) hours += 12;
-      else if (meridiem === 'AM' && hours === 12) hours = 0;
-      return hours * 60 + minutes;
-    };
-
-    // Once menu is loaded, prefer the backend's canOrder field — it accounts for
-    // kitchen-specific cutoffs, timezone, etc.
-    if (menuData) {
-      const lunchCanOrder = lunch?.canOrder !== false;
-      const dinnerCanOrder = dinner?.canOrder !== false;
-      const dinnerCutoffLabel = dinner?.orderCutoffTime || '6:00 PM';
-
-      if (lunchCanOrder) {
-        return {
-          activeMeal: 'lunch' as MealType,
-          isWindowOpen: true,
-          nextMealWindow: 'dinner' as MealType,
-          nextMealWindowTime: dinnerCutoffLabel,
-        };
-      }
-      if (dinnerCanOrder) {
-        return {
-          activeMeal: 'dinner' as MealType,
-          isWindowOpen: true,
-          nextMealWindow: 'lunch' as MealType,
-          nextMealWindowTime: '6:00 AM tomorrow',
-        };
-      }
-      return {
-        activeMeal: 'lunch' as MealType,
-        isWindowOpen: false,
-        nextMealWindow: 'lunch' as MealType,
-        nextMealWindowTime: '6:00 AM tomorrow',
-      };
-    }
-
-    // Pre-load fallback: time-based comparison against backend cutoff strings if present, else defaults.
     const now = new Date();
-    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-    const lunchCutoffMin = parseTimeToMinutes(lunch?.orderCutoffTime) ?? 11 * 60;
-    const dinnerCutoffMin = parseTimeToMinutes(dinner?.orderCutoffTime) ?? 21 * 60;
-    const dinnerCutoffLabel = dinner?.orderCutoffTime || '6:00 PM';
+    const currentMin = now.getHours() * 60 + now.getMinutes();
 
-    if (currentTotalMinutes < lunchCutoffMin) {
-      return {
-        activeMeal: 'lunch' as MealType,
-        isWindowOpen: true,
-        nextMealWindow: 'dinner' as MealType,
-        nextMealWindowTime: dinnerCutoffLabel,
-      };
+    // Pick active meal: first non-closed; if both open, prefer lunch before 11 AM else dinner.
+    let activeMeal: MealType = 'lunch';
+    if (lunchState !== 'closed' && dinnerState !== 'closed') {
+      activeMeal = currentMin < 11 * 60 ? 'lunch' : 'dinner';
+    } else if (lunchState !== 'closed') {
+      activeMeal = 'lunch';
+    } else if (dinnerState !== 'closed') {
+      activeMeal = 'dinner';
     }
-    if (currentTotalMinutes < dinnerCutoffMin) {
-      return {
-        activeMeal: 'dinner' as MealType,
-        isWindowOpen: true,
-        nextMealWindow: 'lunch' as MealType,
-        nextMealWindowTime: '6:00 AM tomorrow',
-      };
-    }
+
+    const isAllClosed = lunchState === 'closed' && dinnerState === 'closed';
+    const nextMealWindow: MealType =
+      lunchState === 'closed' && dinnerState !== 'closed' ? 'dinner' : 'lunch';
+    const { label: nextMealWindowTime } = describeNextTransition(lunchCutoff, dinnerCutoff, now);
+
     return {
-      activeMeal: 'lunch' as MealType,
-      isWindowOpen: false,
-      nextMealWindow: 'lunch' as MealType,
-      nextMealWindowTime: '6:00 AM tomorrow',
+      lunchCutoff,
+      dinnerCutoff,
+      lunchState,
+      dinnerState,
+      activeMeal,
+      nextMealWindow,
+      nextMealWindowTime,
+      isAllClosed,
+      isInScheduleWindow: isInScheduleWindow(now),
+      // Legacy field retained for any remaining call sites — true if at least one meal is orderable.
+      isWindowOpen: !isAllClosed,
     };
   }, [menuData, focusCount]);
 
+  // Convenience: state of currently selected meal — used across banner / Buy Now / voucher chip.
+  const currentMealState: SlotState =
+    selectedMeal === 'lunch' ? mealWindowInfo.lunchState : mealWindowInfo.dinnerState;
 
-  // Initialize meal tab based on current time and show modal if outside window
+
+  // Sync selectedMeal with computed activeMeal; show MealWindowModal only when both meals are closed.
+  // cash_only does NOT trigger a tab switch — the banner + Buy Now branching handle that case.
   useEffect(() => {
-    const now = new Date();
-    console.log('==================================================');
-    console.log('[HomeScreen] TAB SELECTION INITIALIZATION');
-    console.log('==================================================');
-    console.log('[HomeScreen] Current time:', now.toLocaleString());
-    console.log('[HomeScreen] Current hour:', now.getHours(), 'minute:', now.getMinutes());
-    console.log('[HomeScreen] Meal window info:', JSON.stringify(mealWindowInfo, null, 2));
-    console.log('[HomeScreen] Selected meal will be:', mealWindowInfo.activeMeal);
-    console.log('==================================================');
-
-    // Set the meal based on current time
     setSelectedMeal(mealWindowInfo.activeMeal);
-
-    // If outside meal window, show the modal
-    if (!mealWindowInfo.isWindowOpen) {
-      console.log('[HomeScreen] Outside meal window, showing modal');
-      setShowMealWindowModal(true);
-    } else {
-      setShowMealWindowModal(false);
-    }
+    setShowMealWindowModal(mealWindowInfo.isAllClosed);
   }, [mealWindowInfo]);
+
+  // Schedule a setTimeout to the next state transition (cutoff or midnight rollover).
+  // This drives auto-flip without burning battery on a 1-minute interval.
+  useEffect(() => {
+    if (!menuData) return;
+    const fireAt = nextTransitionAt(mealWindowInfo.lunchCutoff, mealWindowInfo.dinnerCutoff);
+    const ms = Math.max(1000, fireAt.getTime() - Date.now());
+    const id = setTimeout(() => {
+      setFocusCount(c => c + 1);
+      fetchMenu();
+    }, ms);
+    return () => clearTimeout(id);
+  }, [menuData, mealWindowInfo]);
+
+  // AppState backstop — RN throttles timers in background, so refresh on resume.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') {
+        setFocusCount(c => c + 1);
+        fetchMenu();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Handle modal close - switch to the next meal window tab
   const handleMealWindowModalClose = () => {
@@ -431,27 +412,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onDemandMenu: menuResponse.data.onDemandMenu || [],
         });
 
-        // Auto-switch meal based on backend canOrder fields
-        const lunchCanOrder = lunch?.canOrder !== false;
-        const dinnerCanOrder = dinner?.canOrder !== false;
-        let effectiveMeal = selectedMeal;
+        // The mealWindowInfo memo + the sync useEffect handle tab auto-switch on the next
+        // render. Compute the effective meal here only so the addon list matches what the
+        // user will see, without waiting for that state update.
+        const lunchSlotState = getSlotState(mapCutoffState(lunch));
+        const dinnerSlotState = getSlotState(mapCutoffState(dinner));
+        const effectiveMeal: MealType =
+          selectedMeal === 'lunch' && lunchSlotState === 'closed' && dinnerSlotState !== 'closed'
+            ? 'dinner'
+            : selectedMeal === 'dinner' && dinnerSlotState === 'closed' && lunchSlotState !== 'closed'
+              ? 'lunch'
+              : selectedMeal;
 
-        console.log('[HomeScreen] Cutoff check - lunch.canOrder:', lunch?.canOrder,
-          'dinner.canOrder:', dinner?.canOrder, 'current selectedMeal:', selectedMeal);
-
-        if (selectedMeal === 'lunch' && !lunchCanOrder && dinnerCanOrder) {
-          console.log('[HomeScreen] Auto-switching from lunch to dinner (lunch cutoff passed)');
-          effectiveMeal = 'dinner';
-          setSelectedMeal('dinner');
-        } else if (selectedMeal === 'dinner' && !dinnerCanOrder && lunchCanOrder) {
-          console.log('[HomeScreen] Auto-switching from dinner to lunch (dinner cutoff passed)');
-          effectiveMeal = 'lunch';
-          setSelectedMeal('lunch');
-        } else if (!lunchCanOrder && !dinnerCanOrder) {
-          console.log('[HomeScreen] Both meal windows past cutoff');
-        }
-
-        // Set addons from the effective meal (after potential auto-switch)
         const currentMealItem = effectiveMeal === 'lunch' ? lunch : dinner;
 
         if (currentMealItem?.addonIds && currentMealItem.addonIds.length > 0) {
@@ -1021,15 +993,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     // Step 2: Set delivery address in cart context
     setDeliveryAddressId(mainAddress.id);
 
-    // Step 3: Check for available vouchers
-    if (usableVouchers > 0) {
+    // Step 3: Check for available vouchers — only offer the choice when the meal is fully
+    // available. In cash_only mode, skip the modal and route straight to cash checkout.
+    if (currentMealState === 'available' && usableVouchers > 0) {
       console.log('[HomeScreen] User has', usableVouchers, 'vouchers, showing modal');
       setShowVoucherModal(true);
     } else {
-      console.log('[HomeScreen] No vouchers, proceeding with payment');
+      console.log('[HomeScreen] Skipping voucher modal — state:', currentMealState, 'vouchers:', usableVouchers);
       proceedWithBuyNow(false);
     }
-  }, [isGuest, getCurrentMealItem, getMainAddress, usableVouchers, navigation, setDeliveryAddressId]);
+  }, [isGuest, getCurrentMealItem, getMainAddress, usableVouchers, navigation, setDeliveryAddressId, currentMealState]);
 
   const proceedWithBuyNow = useCallback((useVoucher: boolean) => {
     console.log('[HomeScreen] proceedWithBuyNow, useVoucher:', useVoucher);
@@ -1173,8 +1146,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Notification Bell */}
                 <NotificationBell color="white" size={SPACING.iconSize - 2} />
 
-                {/* Voucher Button — hidden in guest mode (no real voucher count to show) */}
-                {!isGuest && (
+                {/* Voucher Button — hidden in guest mode and when current meal is cash-only/closed
+                    (vouchers can't be applied to today's order in those states). */}
+                {!isGuest && currentMealState === 'available' && (
                   <TouchableOpacity
                     ref={vouchersTourTarget.ref}
                     onLayout={vouchersTourTarget.onLayout}
@@ -1405,8 +1379,32 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
 
-          {/* Ordering closed banner */}
-          {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && !canOrderCurrentMeal() && (
+          {/* Cash-only banner (amber) — shown when voucher cutoff has passed but ordering is still open */}
+          {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && currentMealState === 'cash_only' && (
+            <View style={{
+              backgroundColor: '#FEF3C7',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#FCD34D',
+            }}>
+              <MaterialCommunityIcons name="cash" size={20} color="#92400E" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: FONT_SIZES.sm, color: '#92400E', fontWeight: '600' }}>
+                  Vouchers no longer accepted for {selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'}
+                </Text>
+                <Text style={{ fontSize: FONT_SIZES.xs, color: '#92400E', marginTop: 2 }}>
+                  Cash orders open until {(selectedMeal === 'lunch' ? mealWindowInfo.lunchCutoff : mealWindowInfo.dinnerCutoff).orderCutoffTime || mealWindowInfo.nextMealWindowTime}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Ordering closed banner (red) */}
+          {!isLoadingMenu && !menuError && !requiresAddress && getCurrentMealItem() && currentMealState === 'closed' && (
             <View style={{
               backgroundColor: '#FEF2F2',
               borderRadius: 12,
@@ -1420,13 +1418,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: FONT_SIZES.sm, color: '#991B1B', fontWeight: '600' }}>
-                  {!mealWindowInfo.isWindowOpen ? 'Ordering closed for today' : `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} ordering is closed`}
+                  {mealWindowInfo.isAllClosed ? 'Ordering closed for today' : `${selectedMeal === 'lunch' ? 'Lunch' : 'Dinner'} ordering is closed`}
                 </Text>
                 <Text style={{ fontSize: FONT_SIZES.xs, color: '#B91C1C', marginTop: 2 }}>
-                  {!mealWindowInfo.isWindowOpen
-                    ? 'Orders reopen at 6:00 AM tomorrow'
+                  {mealWindowInfo.isAllClosed
+                    ? `Orders reopen at ${mealWindowInfo.nextMealWindowTime}`
                     : (getCurrentMealItem()?.cutoffMessage ||
-                      `Orders closed at ${getCurrentMealItem()?.orderCutoffTime || (selectedMeal === 'lunch' ? '11:00 AM' : '9:00 PM')}`)}
+                      `Orders closed at ${(selectedMeal === 'lunch' ? mealWindowInfo.lunchCutoff : mealWindowInfo.dinnerCutoff).orderCutoffTime || mealWindowInfo.nextMealWindowTime}`)}
                 </Text>
               </View>
             </View>
@@ -1455,7 +1453,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 ref={addToCartTourTarget.ref}
                 onLayout={addToCartTourTarget.onLayout}
-                onPress={canOrderCurrentMeal() ? handleAddToCart : (!mealWindowInfo.isWindowOpen ? () => navigation.navigate('MealCalendar') : undefined)}
+                onPress={canOrderCurrentMeal() ? handleAddToCart : (!mealWindowInfo.isWindowOpen ? () => {
+                  if (mealWindowInfo.isInScheduleWindow) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const yyyy = tomorrow.getFullYear();
+                    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+                    const dd = String(tomorrow.getDate()).padStart(2, '0');
+                    navigation.navigate('MealCalendar', { scheduledDate: `${yyyy}-${mm}-${dd}` });
+                  } else {
+                    navigation.navigate('MealCalendar');
+                  }
+                } : undefined)}
                 activeOpacity={canOrderCurrentMeal() || !mealWindowInfo.isWindowOpen ? 0.7 : 1}
                 disabled={!canOrderCurrentMeal() && mealWindowInfo.isWindowOpen}
                 style={{
@@ -1783,10 +1792,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         nextMealWindow={mealWindowInfo.nextMealWindow}
         nextMealWindowTime={mealWindowInfo.nextMealWindowTime}
         onClose={handleMealWindowModalClose}
-        onSchedule={() => {
-          setShowMealWindowModal(false);
-          navigation.navigate('MealCalendar');
-        }}
+        mode={mealWindowInfo.isAllClosed ? 'all-closed' : 'next-window'}
+        onSchedule={
+          // Only expose Schedule CTA in the 9 PM - midnight window when both meals are closed.
+          mealWindowInfo.isAllClosed && mealWindowInfo.isInScheduleWindow
+            ? () => {
+                setShowMealWindowModal(false);
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const yyyy = tomorrow.getFullYear();
+                const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+                const dd = String(tomorrow.getDate()).padStart(2, '0');
+                navigation.navigate('MealCalendar', { scheduledDate: `${yyyy}-${mm}-${dd}` });
+              }
+            : undefined
+        }
       />
 
       {/* Voucher Payment Choice Modal */}

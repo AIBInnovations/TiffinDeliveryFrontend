@@ -55,7 +55,7 @@ export type MainTabParamList = {
   AutoOrderConfig: { addressId?: string };  // Create (no addressId) or edit (with addressId) auto-order config
 ScheduledMealPricing: { deliveryAddressId: string; mealWindow: 'LUNCH' | 'DINNER'; scheduledDate: string; voucherCount?: number };  // Meal pricing preview
   MyScheduledMeals: undefined;  // List of user's scheduled meals
-  MealCalendar: undefined;  // Unified meal calendar view
+  MealCalendar: { scheduledDate?: string } | undefined;  // Unified meal calendar view; optional pre-selected YYYY-MM-DD
   BulkSchedulePricing: {
     deliveryAddressId: string;
     selectedSlots: Array<{ date: string; mealWindow: 'LUNCH' | 'DINNER' }>;

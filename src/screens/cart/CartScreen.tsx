@@ -1,5 +1,5 @@
 // src/screens/cart/CartScreen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,11 @@ import CouponSheet from '../../components/CouponSheet';
 import dataPreloader from '../../services/dataPreloader.service';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SPACING, TOUCH_TARGETS } from '../../constants/spacing';
+import {
+  SlotCutoffState,
+  mapCutoffState,
+  getSlotState,
+} from '../../utils/mealCutoff';
 
 type Props = StackScreenProps<MainTabParamList, 'Cart'>;
 
@@ -141,22 +146,9 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   const [leaveAtDoor, setLeaveAtDoor] = useState(false);
   const [doNotContact, setDoNotContact] = useState(false);
 
-  // Three-state cutoff per slot
-  interface SlotCutoffState {
-    canOrder: boolean;
-    canUseVoucher: boolean;
-    voucherCutoffTime?: string;
-    orderCutoffTime?: string;
-  }
+  // Three-state cutoff per slot — types/helpers from src/utils/mealCutoff.ts
   const [lunchCutoff, setLunchCutoff] = useState<SlotCutoffState>({ canOrder: true, canUseVoucher: true });
   const [dinnerCutoff, setDinnerCutoff] = useState<SlotCutoffState>({ canOrder: true, canUseVoucher: true });
-
-  // Helper to get slot state
-  const getSlotState = (cutoff: SlotCutoffState): 'available' | 'cash_only' | 'closed' => {
-    if (!cutoff.canOrder) return 'closed';
-    if (!cutoff.canUseVoucher) return 'cash_only';
-    return 'available';
-  };
 
 
   // Refresh voucher data when screen comes into focus
@@ -178,40 +170,6 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Cache menu items for slot toggling
   const [menuItemCache, setMenuItemCache] = useState<{ lunch?: any; dinner?: any }>({});
-
-  // Map MenuItem to three-state cutoff
-  const mapCutoffState = (menuItem: any): SlotCutoffState => {
-    if (!menuItem) return { canOrder: false, canUseVoucher: false };
-
-    console.log('[CartScreen] mapCutoffState raw backend fields:', {
-      isPastCutoff: menuItem.isPastCutoff,
-      canOrder: menuItem.canOrder,
-      canUseVoucher: menuItem.canUseVoucher,
-      cutoffTime: menuItem.cutoffTime,
-      voucherCutoffTime: menuItem.voucherCutoffTime,
-      orderCutoffTime: menuItem.orderCutoffTime,
-    });
-
-    // New two-phase fields take priority
-    if (menuItem.voucherCutoffTime !== undefined || menuItem.orderCutoffTime !== undefined) {
-      return {
-        canOrder: menuItem.canOrder ?? true,
-        canUseVoucher: menuItem.canUseVoucher ?? true,
-        voucherCutoffTime: menuItem.voucherCutoffTime,
-        orderCutoffTime: menuItem.orderCutoffTime,
-      };
-    }
-    // Backward compat: old single-cutoff model
-    // isPastCutoff from old model = voucher cutoff passed (cash only), NOT order closed.
-    // Ordering stays open — only the new canOrder field (from backend) can close ordering.
-    const voucherCutoffPassed = menuItem.isPastCutoff ?? false;
-    return {
-      canOrder: menuItem.canOrder ?? true, // always open until backend sends explicit canOrder:false
-      canUseVoucher: menuItem.canUseVoucher ?? !voucherCutoffPassed,
-      voucherCutoffTime: menuItem.cutoffTime,
-      orderCutoffTime: menuItem.cutoffTime,
-    };
-  };
 
   // Fetch menu data, cutoff info, and addons when screen comes into focus
   useFocusEffect(
@@ -329,16 +287,35 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [selectedMealWindows, lunchCutoff, dinnerCutoff, menuItemCache, kitchenId, getItemsForSlot, addToCartForSlot, removeItemsForSlot, toggleMealWindow, setSlotVoucherCount]);
 
-  // Auto-remove vouchers when a slot enters cash-only phase
+  // Prompt the user when a slot enters cash-only phase with vouchers applied —
+  // they choose to switch to cash or remove the slot. Refs prevent double-prompting
+  // for the same slot in the same cutoff window; cleared when canUseVoucher flips back true.
+  const promptedSlotsRef = useRef<Set<'LUNCH' | 'DINNER'>>(new Set());
   useEffect(() => {
     selectedMealWindows.forEach(slot => {
       const cutoff = slot === 'LUNCH' ? lunchCutoff : dinnerCutoff;
-      if (!cutoff.canUseVoucher && slotVoucherCounts[slot] > 0) {
-        setSlotVoucherCount(slot, 0);
+      if (cutoff.canUseVoucher) {
+        promptedSlotsRef.current.delete(slot);
+        return;
+      }
+      if (slotVoucherCounts[slot] > 0 && !promptedSlotsRef.current.has(slot)) {
+        promptedSlotsRef.current.add(slot);
+        const slotLabel = slot === 'LUNCH' ? 'Lunch' : 'Dinner';
         showAlert(
-          'Voucher Removed',
-          `${slot === 'LUNCH' ? 'Lunch' : 'Dinner'} voucher ordering time has passed. This slot will proceed as a paid order.`,
-          undefined,
+          'Voucher cutoff passed',
+          `${slotLabel} voucher ordering time has passed. Switch to cash payment or remove ${slotLabel.toLowerCase()} from your order?`,
+          [
+            { text: 'Switch to Cash', style: 'default', onPress: () => setSlotVoucherCount(slot, 0) },
+            {
+              text: `Remove ${slotLabel}`,
+              style: 'destructive',
+              onPress: () => {
+                removeItemsForSlot(slot);
+                setSlotVoucherCount(slot, 0);
+                toggleMealWindow(slot);
+              },
+            },
+          ],
           'warning'
         );
       }

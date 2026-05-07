@@ -54,7 +54,7 @@ const createEmptySlot = (): MergedSlotData => ({
   reason: null,
 });
 
-const MealCalendarScreen: React.FC<Props> = ({ navigation }) => {
+const MealCalendarScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { skipMeal, unskipMeal, getScheduleForAddress } = useSubscription();
   const { addresses, selectedAddressId } = useAddress();
@@ -64,7 +64,7 @@ const MealCalendarScreen: React.FC<Props> = ({ navigation }) => {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(route.params?.scheduledDate ?? null);
   const [mergedData, setMergedData] = useState<Map<string, MergedDayData>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
