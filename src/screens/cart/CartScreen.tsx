@@ -81,7 +81,13 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
     setSlotVoucherCount,
   } = useCart();
 
-  const { addresses, getMainAddress } = useAddress();
+  const {
+    addresses,
+    getMainAddress,
+    currentLocation,
+    isGettingLocation,
+    getCurrentLocationWithAddress,
+  } = useAddress();
   const { voucherSummary, usableVouchers, fetchVouchers } = useSubscription();
   const { processOrderPayment, isProcessing: isPaymentProcessing } = usePayment();
   const { showAlert } = useAlert();
@@ -91,6 +97,34 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   // Scheduling mode detection
   const scheduledDate = route.params?.scheduledDate;
   const isSchedulingMode = !!scheduledDate;
+
+  // Compare current GPS location vs saved addresses on (locality + pincode) — both must match
+  // case-insensitively. If GPS is missing or no saved address matches, the primary CTA below
+  // changes to "Add Address" / "Enable Location" so the user can't accidentally pay for a delivery
+  // routed to a location that doesn't reflect where they actually are.
+  // Skip the check in scheduling mode — user is intentionally ordering for a future date and
+  // may not be at the delivery location right now (e.g. scheduling tomorrow's lunch from office).
+  const normaliseAddressKey = (locality?: string, pincode?: string): string =>
+    `${(locality || '').trim().toLowerCase()}|${(pincode || '').trim()}`;
+  const gpsAddressKey = currentLocation
+    ? normaliseAddressKey(currentLocation.address?.locality, currentLocation.pincode)
+    : null;
+  const hasMatchingGpsAddress =
+    !!gpsAddressKey &&
+    addresses.some(a => normaliseAddressKey(a.locality, a.pincode) === gpsAddressKey);
+  const gpsLocationMissing = !currentLocation;
+  const requiresLocationAction =
+    !isSchedulingMode && addresses.length > 0 && (gpsLocationMissing || !hasMatchingGpsAddress);
+
+  const handleLocationActionPress = useCallback(() => {
+    if (gpsLocationMissing) {
+      getCurrentLocationWithAddress().catch(err =>
+        console.warn('[CartScreen] Failed to refresh location:', err)
+      );
+      return;
+    }
+    navigation.navigate('Address');
+  }, [gpsLocationMissing, getCurrentLocationWithAddress, navigation]);
 
   // Local state for selected address (display purposes)
   const [localSelectedAddressId, setLocalSelectedAddressId] = useState<string>(
@@ -1948,6 +1982,27 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
           elevation: 8,
         }}
       >
+        {/* Location-mismatch banner: shown when GPS doesn't match any saved address (or GPS is off) */}
+        {requiresLocationAction && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FEF3C7',
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: '#FCD34D',
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            marginBottom: 10,
+          }}>
+            <MaterialCommunityIcons name="map-marker-alert" size={18} color="#92400E" style={{ marginRight: 8 }} />
+            <Text style={{ flex: 1, fontSize: 12, color: '#92400E', fontWeight: '500' }}>
+              {gpsLocationMissing
+                ? "We can't detect your current location. Enable location to confirm your delivery address."
+                : `Your current location (${currentLocation?.address?.locality || 'Unknown'}) isn't in your saved addresses. Add it before checkout.`}
+            </Text>
+          </View>
+        )}
         <View
           style={{
             backgroundColor: '#FE8733',
@@ -1958,7 +2013,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
             height: 56,
             paddingLeft: 20,
             paddingRight: 6,
-            opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || pricingError) ? 0.7 : 1,
+            opacity: (isPlacingOrder || isCalculating || addresses.length === 0 || requiresLocationAction || pricingError) ? 0.7 : 1,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -1978,16 +2033,24 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
               paddingHorizontal: 20,
               minWidth: 130,
             }}
-            onPress={handlePlaceOrder}
-            disabled={isPlacingOrder || isCalculating || addresses.length === 0 || !!pricingError}
+            onPress={requiresLocationAction ? handleLocationActionPress : handlePlaceOrder}
+            disabled={isPlacingOrder || isCalculating || (addresses.length > 0 && !!pricingError && !requiresLocationAction) || (gpsLocationMissing && isGettingLocation)}
             activeOpacity={0.8}
           >
-            {isPlacingOrder ? (
+            {(isPlacingOrder || (gpsLocationMissing && isGettingLocation)) ? (
               <ActivityIndicator size="small" color="#FE8733" />
             ) : (
               <>
                 <Text style={{ color: '#FE8733', fontWeight: '700', fontSize: 15, marginRight: 6 }}>
-                  {addresses.length === 0 ? 'Add Address' : isSchedulingMode ? (amountToPay === 0 ? 'Schedule' : 'Schedule & Pay') : (amountToPay === 0 ? 'Place Order' : 'Pay Now')}
+                  {addresses.length === 0
+                    ? 'Add Address'
+                    : gpsLocationMissing
+                      ? 'Enable Location'
+                      : !hasMatchingGpsAddress
+                        ? 'Add Address'
+                        : isSchedulingMode
+                          ? (amountToPay === 0 ? 'Schedule' : 'Schedule & Pay')
+                          : (amountToPay === 0 ? 'Place Order' : 'Pay Now')}
                 </Text>
                 <Image
                   source={require('../../assets/icons/uparrow.png')}
